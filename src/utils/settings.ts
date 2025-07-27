@@ -2,8 +2,8 @@
  * Utilitaires pour la gestion des paramètres
  */
 
-import { BoardSettings } from '@/types';
-import { DEFAULT_LAYOUTS } from '@/types';
+import { BoardSettings } from '../types';
+import { DEFAULT_LAYOUTS } from '../types';
 
 /**
  * Crée les paramètres par défaut du plugin

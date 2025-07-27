@@ -21,7 +21,7 @@ var __copyProps = (to, from, except, desc) => {
 };
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// main.ts
+// src/main.ts
 var main_exports = {};
 __export(main_exports, {
   default: () => AgileBoardPlugin
@@ -29,7 +29,201 @@ __export(main_exports, {
 module.exports = __toCommonJS(main_exports);
 var import_obsidian3 = require("obsidian");
 
-// services/LayoutService.ts
+// src/constants/layouts.ts
+var BUILT_IN_LAYOUTS = {
+  /**
+   * Matrice d'Eisenhower - 4 quadrants pour la priorisation
+   * Grille 2x2 de 12x12 chacun
+   */
+  layout_eisenhower: [
+    { title: "Urgent et Important", x: 0, y: 0, w: 12, h: 12 },
+    { title: "Pas urgent mais Important", x: 12, y: 0, w: 12, h: 12 },
+    { title: "Urgent mais Pas important", x: 0, y: 12, w: 12, h: 12 },
+    { title: "Ni urgent ni important", x: 12, y: 12, w: 12, h: 12 }
+  ],
+  /**
+   * Tableau Kanban classique - 3 colonnes
+   * Colonnes de 8 unités de large sur toute la hauteur
+   */
+  layout_kanban: [
+    { title: "\xC0 faire", x: 0, y: 0, w: 8, h: 24 },
+    { title: "En cours", x: 8, y: 0, w: 8, h: 24 },
+    { title: "Termin\xE9", x: 16, y: 0, w: 8, h: 24 }
+  ],
+  /**
+   * Getting Things Done (GTD) - 6 sections
+   * Organisation selon la méthode GTD de David Allen
+   */
+  layout_gtd: [
+    { title: "Inbox", x: 0, y: 0, w: 12, h: 8 },
+    { title: "Actions suivantes", x: 12, y: 0, w: 12, h: 8 },
+    { title: "En attente", x: 0, y: 8, w: 8, h: 8 },
+    { title: "Projets", x: 8, y: 8, w: 8, h: 8 },
+    { title: "Someday Maybe", x: 16, y: 8, w: 8, h: 8 },
+    { title: "R\xE9f\xE9rence", x: 0, y: 16, w: 24, h: 8 }
+  ],
+  /**
+   * Planificateur hebdomadaire - 7 sections
+   * 5 jours de travail + weekend + notes
+   */
+  layout_weekly: [
+    { title: "Lundi", x: 0, y: 0, w: 6, h: 12 },
+    { title: "Mardi", x: 6, y: 0, w: 6, h: 12 },
+    { title: "Mercredi", x: 12, y: 0, w: 6, h: 12 },
+    { title: "Jeudi", x: 18, y: 0, w: 6, h: 12 },
+    { title: "Vendredi", x: 0, y: 12, w: 8, h: 12 },
+    { title: "Weekend", x: 8, y: 12, w: 8, h: 12 },
+    { title: "Notes", x: 16, y: 12, w: 8, h: 12 }
+  ],
+  /**
+   * Board simple - 2 colonnes
+   * Idéal pour des comparaisons ou du brainstorming
+   */
+  layout_simple: [
+    { title: "Ideas", x: 0, y: 0, w: 12, h: 24 },
+    { title: "Actions", x: 12, y: 0, w: 12, h: 24 }
+  ],
+  /**
+   * Notes Cornell - 3 sections organisées
+   * Méthode de prise de notes structurée
+   */
+  layout_cornell: [
+    { title: "Notes", x: 0, y: 0, w: 16, h: 18 },
+    { title: "Mots-cl\xE9s", x: 16, y: 0, w: 8, h: 18 },
+    { title: "R\xE9sum\xE9", x: 0, y: 18, w: 24, h: 6 }
+  ],
+  /**
+   * Planificateur quotidien - 6 sections
+   * Organisation détaillée pour une journée
+   */
+  layout_daily: [
+    { title: "Objectifs du jour", x: 0, y: 0, w: 12, h: 8 },
+    { title: "T\xE2ches prioritaires", x: 12, y: 0, w: 12, h: 8 },
+    { title: "Planning", x: 0, y: 8, w: 8, h: 8 },
+    { title: "Notes", x: 8, y: 8, w: 8, h: 8 },
+    { title: "Apprentissages", x: 16, y: 8, w: 8, h: 8 },
+    { title: "R\xE9flexions", x: 0, y: 16, w: 24, h: 8 }
+  ],
+  /**
+   * Gestion de projet - 6 sections
+   * Vue d'ensemble complète d'un projet
+   */
+  layout_project: [
+    { title: "Vue d'ensemble", x: 0, y: 0, w: 24, h: 6 },
+    { title: "Objectifs", x: 0, y: 6, w: 8, h: 9 },
+    { title: "\xC9tapes", x: 8, y: 6, w: 8, h: 9 },
+    { title: "Ressources", x: 16, y: 6, w: 8, h: 9 },
+    { title: "Risques", x: 0, y: 15, w: 12, h: 9 },
+    { title: "Suivi", x: 12, y: 15, w: 12, h: 9 }
+  ],
+  /**
+   * Dashboard Tasks (intégration plugin Tasks)
+   * Optimisé pour les requêtes Tasks
+   */
+  layout_tasks_dashboard: [
+    { title: "T\xE2ches du jour", x: 0, y: 0, w: 8, h: 12 },
+    { title: "Cette semaine", x: 8, y: 0, w: 8, h: 12 },
+    { title: "En retard", x: 16, y: 0, w: 8, h: 12 },
+    { title: "Projets actifs", x: 0, y: 12, w: 12, h: 12 },
+    { title: "Statistiques", x: 12, y: 12, w: 12, h: 12 }
+  ],
+  /**
+   * Analytics Dataview (intégration plugin Dataview)
+   * Optimisé pour les requêtes Dataview
+   */
+  layout_dataview_analytics: [
+    { title: "M\xE9triques g\xE9n\xE9rales", x: 0, y: 0, w: 12, h: 8 },
+    { title: "Tendances", x: 12, y: 0, w: 12, h: 8 },
+    { title: "Top tags", x: 0, y: 8, w: 8, h: 8 },
+    { title: "Fichiers r\xE9cents", x: 8, y: 8, w: 8, h: 8 },
+    { title: "Liens bris\xE9s", x: 16, y: 8, w: 8, h: 8 },
+    { title: "Donn\xE9es d\xE9taill\xE9es", x: 0, y: 16, w: 24, h: 8 }
+  ]
+};
+var LAYOUT_INFO = {
+  layout_eisenhower: {
+    name: "layout_eisenhower",
+    displayName: "Matrice d'Eisenhower",
+    description: "Priorisez vos t\xE2ches selon urgence et importance",
+    sections: ["Urgent et Important", "Pas urgent mais Important", "Urgent mais Pas important", "Ni urgent ni important"],
+    blockCount: 4,
+    category: "productivity"
+  },
+  layout_kanban: {
+    name: "layout_kanban",
+    displayName: "Tableau Kanban",
+    description: "Visualisez le flux de travail en 3 colonnes",
+    sections: ["\xC0 faire", "En cours", "Termin\xE9"],
+    blockCount: 3,
+    category: "workflow"
+  },
+  layout_gtd: {
+    name: "layout_gtd",
+    displayName: "Getting Things Done",
+    description: "Organisez selon la m\xE9thode GTD de David Allen",
+    sections: ["Inbox", "Actions suivantes", "En attente", "Projets", "Someday Maybe", "R\xE9f\xE9rence"],
+    blockCount: 6,
+    category: "productivity"
+  },
+  layout_weekly: {
+    name: "layout_weekly",
+    displayName: "Planificateur Hebdomadaire",
+    description: "Planifiez votre semaine jour par jour",
+    sections: ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Weekend", "Notes"],
+    blockCount: 7,
+    category: "planning"
+  },
+  layout_daily: {
+    name: "layout_daily",
+    displayName: "Planificateur Quotidien",
+    description: "Structurez votre journ\xE9e en d\xE9tail",
+    sections: ["Objectifs du jour", "T\xE2ches prioritaires", "Planning", "Notes", "Apprentissages", "R\xE9flexions"],
+    blockCount: 6,
+    category: "planning"
+  },
+  layout_project: {
+    name: "layout_project",
+    displayName: "Gestion de Projet",
+    description: "Vue d'ensemble compl\xE8te d'un projet",
+    sections: ["Vue d'ensemble", "Objectifs", "\xC9tapes", "Ressources", "Risques", "Suivi"],
+    blockCount: 6,
+    category: "project"
+  },
+  layout_simple: {
+    name: "layout_simple",
+    displayName: "Board Simple",
+    description: "Deux colonnes pour comparaisons ou brainstorming",
+    sections: ["Ideas", "Actions"],
+    blockCount: 2,
+    category: "basic"
+  },
+  layout_cornell: {
+    name: "layout_cornell",
+    displayName: "Notes Cornell",
+    description: "M\xE9thode de prise de notes structur\xE9e",
+    sections: ["Notes", "Mots-cl\xE9s", "R\xE9sum\xE9"],
+    blockCount: 3,
+    category: "notes"
+  },
+  layout_tasks_dashboard: {
+    name: "layout_tasks_dashboard",
+    displayName: "Dashboard Tasks",
+    description: "Int\xE9gration avanc\xE9e avec le plugin Tasks",
+    sections: ["T\xE2ches du jour", "Cette semaine", "En retard", "Projets actifs", "Statistiques"],
+    blockCount: 5,
+    category: "integration"
+  },
+  layout_dataview_analytics: {
+    name: "layout_dataview_analytics",
+    displayName: "Analytics Dataview",
+    description: "Tableaux de bord avec le plugin Dataview",
+    sections: ["M\xE9triques g\xE9n\xE9rales", "Tendances", "Top tags", "Fichiers r\xE9cents", "Liens bris\xE9s", "Donn\xE9es d\xE9taill\xE9es"],
+    blockCount: 6,
+    category: "integration"
+  }
+};
+
+// src/services/LayoutService.ts
 var LayoutService = class {
   constructor(plugin) {
     this.plugin = plugin;
@@ -37,10 +231,9 @@ var LayoutService = class {
   }
   load() {
     console.log("\u{1F4D0} Chargement des layouts int\xE9gr\xE9s...");
-    const layouts = this.getBuiltInLayouts();
     this.models.clear();
     let loadedCount = 0;
-    for (const [name, layout] of Object.entries(layouts)) {
+    for (const [name, layout] of Object.entries(BUILT_IN_LAYOUTS)) {
       console.log(`\u{1F50D} Chargement du layout "${name}"...`);
       if (this.validateModel(name, layout)) {
         this.models.set(name, layout);
@@ -52,78 +245,6 @@ var LayoutService = class {
     }
     console.log(`\u{1F4D0} ${loadedCount} layouts charg\xE9s`);
     this.logAvailableLayouts();
-  }
-  getBuiltInLayouts() {
-    return {
-      layout_eisenhower: [
-        { title: "Urgent et Important", x: 0, y: 0, w: 12, h: 12 },
-        { title: "Pas urgent mais Important", x: 12, y: 0, w: 12, h: 12 },
-        { title: "Urgent mais Pas important", x: 0, y: 12, w: 12, h: 12 },
-        { title: "Ni urgent ni important", x: 12, y: 12, w: 12, h: 12 }
-      ],
-      layout_kanban: [
-        { title: "\xC0 faire", x: 0, y: 0, w: 8, h: 24 },
-        { title: "En cours", x: 8, y: 0, w: 8, h: 24 },
-        { title: "Termin\xE9", x: 16, y: 0, w: 8, h: 24 }
-      ],
-      layout_gtd: [
-        { title: "Inbox", x: 0, y: 0, w: 12, h: 8 },
-        { title: "Actions suivantes", x: 12, y: 0, w: 12, h: 8 },
-        { title: "En attente", x: 0, y: 8, w: 8, h: 8 },
-        { title: "Projets", x: 8, y: 8, w: 8, h: 8 },
-        { title: "Someday Maybe", x: 16, y: 8, w: 8, h: 8 },
-        { title: "R\xE9f\xE9rence", x: 0, y: 16, w: 24, h: 8 }
-      ],
-      layout_weekly: [
-        { title: "Lundi", x: 0, y: 0, w: 6, h: 12 },
-        { title: "Mardi", x: 6, y: 0, w: 6, h: 12 },
-        { title: "Mercredi", x: 12, y: 0, w: 6, h: 12 },
-        { title: "Jeudi", x: 18, y: 0, w: 6, h: 12 },
-        { title: "Vendredi", x: 0, y: 12, w: 8, h: 12 },
-        { title: "Weekend", x: 8, y: 12, w: 8, h: 12 },
-        { title: "Notes", x: 16, y: 12, w: 8, h: 12 }
-      ],
-      layout_simple: [
-        { title: "Ideas", x: 0, y: 0, w: 12, h: 24 },
-        { title: "Actions", x: 12, y: 0, w: 12, h: 24 }
-      ],
-      layout_cornell: [
-        { title: "Notes", x: 0, y: 0, w: 16, h: 18 },
-        { title: "Mots-cl\xE9s", x: 16, y: 0, w: 8, h: 18 },
-        { title: "R\xE9sum\xE9", x: 0, y: 18, w: 24, h: 6 }
-      ],
-      layout_daily: [
-        { title: "Objectifs du jour", x: 0, y: 0, w: 12, h: 8 },
-        { title: "T\xE2ches prioritaires", x: 12, y: 0, w: 12, h: 8 },
-        { title: "Planning", x: 0, y: 8, w: 8, h: 8 },
-        { title: "Notes", x: 8, y: 8, w: 8, h: 8 },
-        { title: "Apprentissages", x: 16, y: 8, w: 8, h: 8 },
-        { title: "R\xE9flexions", x: 0, y: 16, w: 24, h: 8 }
-      ],
-      layout_project: [
-        { title: "Vue d'ensemble", x: 0, y: 0, w: 24, h: 6 },
-        { title: "Objectifs", x: 0, y: 6, w: 8, h: 9 },
-        { title: "\xC9tapes", x: 8, y: 6, w: 8, h: 9 },
-        { title: "Ressources", x: 16, y: 6, w: 8, h: 9 },
-        { title: "Risques", x: 0, y: 15, w: 12, h: 9 },
-        { title: "Suivi", x: 12, y: 15, w: 12, h: 9 }
-      ],
-      layout_tasks_dashboard: [
-        { title: "T\xE2ches du jour", x: 0, y: 0, w: 8, h: 12 },
-        { title: "Cette semaine", x: 8, y: 0, w: 8, h: 12 },
-        { title: "En retard", x: 16, y: 0, w: 8, h: 12 },
-        { title: "Projets actifs", x: 0, y: 12, w: 12, h: 12 },
-        { title: "Statistiques", x: 12, y: 12, w: 12, h: 12 }
-      ],
-      layout_dataview_analytics: [
-        { title: "M\xE9triques g\xE9n\xE9rales", x: 0, y: 0, w: 12, h: 8 },
-        { title: "Tendances", x: 12, y: 0, w: 12, h: 8 },
-        { title: "Top tags", x: 0, y: 8, w: 8, h: 8 },
-        { title: "Fichiers r\xE9cents", x: 8, y: 8, w: 8, h: 8 },
-        { title: "Liens bris\xE9s", x: 16, y: 8, w: 8, h: 8 },
-        { title: "Donn\xE9es d\xE9taill\xE9es", x: 0, y: 16, w: 24, h: 8 }
-      ]
-    };
   }
   validateModel(name, layout) {
     const grid = Array.from({ length: 24 }, () => Array(100).fill(false));
@@ -177,22 +298,30 @@ var LayoutService = class {
   getAllModelNames() {
     return Array.from(this.models.keys());
   }
+  getLayoutDisplayName(layoutName) {
+    const layoutInfo = LAYOUT_INFO[layoutName];
+    return layoutInfo ? layoutInfo.displayName : layoutName;
+  }
   getModelInfo(name) {
     const model = this.models.get(name);
     if (!model)
       return void 0;
-    return {
+    const info = LAYOUT_INFO[name];
+    return info || {
       name,
+      displayName: name,
+      description: "Layout personnalis\xE9",
       sections: model.map((block) => block.title),
-      blockCount: model.length
+      blockCount: model.length,
+      category: "custom"
     };
   }
   getAllModelsInfo() {
-    return Array.from(this.models.keys()).map((name) => this.getModelInfo(name));
+    return Array.from(this.models.keys()).map((name) => this.getModelInfo(name)).filter((info) => info !== void 0);
   }
 };
 
-// services/FileService.ts
+// src/services/FileService.ts
 var FileService = class {
   constructor(app) {
     this.app = app;
@@ -300,10 +429,10 @@ var FileService = class {
   }
 };
 
-// views/BoardView.ts
+// src/views/BoardView.ts
 var import_obsidian = require("obsidian");
 
-// components/MarkdownFrame.ts
+// src/components/MarkdownFrame.ts
 var MarkdownFrame = class {
   constructor(app, container, file, section, onChange) {
     this.app = app;
@@ -601,7 +730,7 @@ var MarkdownFrame = class {
   }
 };
 
-// views/BoardView.ts
+// src/views/BoardView.ts
 var BOARD_VIEW_TYPE = "agile-board-view";
 var BoardView = class extends import_obsidian.FileView {
   constructor(leaf, plugin) {
@@ -906,16 +1035,23 @@ var BoardView = class extends import_obsidian.FileView {
       border: 1px solid var(--background-modifier-border);
       border-radius: 6px;
       cursor: pointer;
+      font-weight: 500;
     `;
-    markdownButton.addEventListener("click", () => {
+    markdownButton.addEventListener("click", async () => {
       if (!this.file)
         return;
-      this.plugin.viewSwitcher.switchToMarkdownView(this.file);
+      const leaf = this.app.workspace.activeLeaf;
+      if (leaf) {
+        await leaf.setViewState({
+          type: "markdown",
+          state: { file: this.file.path }
+        });
+      }
     });
   }
 };
 
-// managers/ViewSwitcher.ts
+// src/managers/ViewSwitcher.ts
 var import_obsidian2 = require("obsidian");
 var ViewSwitcher = class {
   constructor(plugin) {
@@ -1073,7 +1209,7 @@ var ViewSwitcher = class {
   }
 };
 
-// managers/ModelDetector.ts
+// src/managers/ModelDetector.ts
 var ModelDetector = class {
   constructor(plugin) {
     this.plugin = plugin;
@@ -1167,114 +1303,132 @@ var ModelDetector = class {
   }
 };
 
-// main.ts
-var DEFAULT_SETTINGS = {
-  defaultModel: "layout_eisenhower",
-  autoSwitchEnabled: true,
-  debounceDelay: 1e3
+// src/types/index.ts
+var DEFAULT_LAYOUTS = {
+  EISENHOWER: "layout_eisenhower",
+  KANBAN: "layout_kanban",
+  GTD: "layout_gtd",
+  WEEKLY: "layout_weekly",
+  DAILY: "layout_daily"
 };
+
+// src/utils/settings.ts
+function createDefaultSettings() {
+  return {
+    defaultModel: DEFAULT_LAYOUTS.EISENHOWER,
+    autoSwitchEnabled: true,
+    debounceDelay: 1e3
+  };
+}
+
+// src/main.ts
 var AgileBoardPlugin = class extends import_obsidian3.Plugin {
+  /**
+   * Initialisation du plugin
+   */
   async onload() {
     console.log("\u{1F680} Loading Agile Board Plugin...");
-    await this.loadSettings();
+    try {
+      await this.loadSettings();
+      await this.initializeServices();
+      this.registerView(BOARD_VIEW_TYPE, (leaf) => new BoardView(leaf, this));
+      await this.initializeManagers();
+      this.registerCommands();
+      this.addStatusBarItem().setText("Agile Board Ready");
+      console.log("\u2705 Agile Board Plugin loaded successfully");
+      console.log("\u{1F4CB} Layouts disponibles:", this.layoutService.getAllModelNames());
+    } catch (error) {
+      console.error("\u274C Erreur lors du chargement du plugin:", error);
+    }
+  }
+  /**
+   * Nettoyage lors du déchargement du plugin
+   */
+  async onunload() {
+    var _a, _b;
+    console.log("\u{1F6D1} Unloading Agile Board Plugin...");
+    (_a = this.modelDetector) == null ? void 0 : _a.onUnload();
+    (_b = this.viewSwitcher) == null ? void 0 : _b.stop();
+    console.log("\u2705 Agile Board Plugin unloaded");
+  }
+  /**
+   * Initialise tous les services
+   */
+  async initializeServices() {
     this.layoutService = new LayoutService(this);
     this.layoutService.load();
     this.fileService = new FileService(this.app);
+  }
+  /**
+   * Initialise tous les managers
+   */
+  async initializeManagers() {
     this.viewSwitcher = new ViewSwitcher(this);
     this.modelDetector = new ModelDetector(this);
     this.viewSwitcher.addSwitchButton();
     this.modelDetector.onLoad();
-    this.registerView(BOARD_VIEW_TYPE, (leaf) => new BoardView(leaf, this));
+  }
+  /**
+   * Enregistre toutes les commandes du plugin
+   */
+  registerCommands() {
     this.addCommand({
       id: "switch-to-board-view",
       name: "Switch to Board View",
-      callback: () => {
-        this.activateBoardView();
-      }
+      callback: () => this.activateBoardView()
     });
-    this.addCommand({
-      id: "create-eisenhower-note",
-      name: "Create Eisenhower Matrix Note",
-      callback: () => {
-        this.createNoteWithLayout("layout_eisenhower");
-      }
+    this.registerCreationCommands();
+    this.registerUtilityCommands();
+  }
+  /**
+   * Enregistre les commandes de création de notes
+   */
+  registerCreationCommands() {
+    const layouts = [
+      { id: "eisenhower", name: "Eisenhower Matrix" },
+      { id: "kanban", name: "Kanban Board" },
+      { id: "gtd", name: "GTD Board" },
+      { id: "weekly", name: "Weekly Planner" },
+      { id: "daily", name: "Daily Planner" },
+      { id: "project", name: "Project Board" },
+      { id: "simple", name: "Simple Board" },
+      { id: "cornell", name: "Cornell Notes" },
+      { id: "tasks-dashboard", name: "Tasks Dashboard" },
+      { id: "dataview-analytics", name: "Dataview Analytics" }
+    ];
+    layouts.forEach((layout) => {
+      this.addCommand({
+        id: `create-${layout.id}-note`,
+        name: `Create ${layout.name} Note`,
+        callback: () => this.createNoteWithLayout(`layout_${layout.id.replace("-", "_")}`)
+      });
     });
-    this.addCommand({
-      id: "create-kanban-note",
-      name: "Create Kanban Board Note",
-      callback: () => {
-        this.createNoteWithLayout("layout_kanban");
-      }
-    });
-    this.addCommand({
-      id: "create-gtd-note",
-      name: "Create GTD Board Note",
-      callback: () => {
-        this.createNoteWithLayout("layout_gtd");
-      }
-    });
-    this.addCommand({
-      id: "create-weekly-note",
-      name: "Create Weekly Planner Note",
-      callback: () => {
-        this.createNoteWithLayout("layout_weekly");
-      }
-    });
-    this.addCommand({
-      id: "create-simple-note",
-      name: "Create Simple Board Note",
-      callback: () => {
-        this.createNoteWithLayout("layout_simple");
-      }
-    });
-    this.addCommand({
-      id: "create-cornell-note",
-      name: "Create Cornell Notes",
-      callback: () => {
-        this.createNoteWithLayout("layout_cornell");
-      }
-    });
-    this.addCommand({
-      id: "create-daily-note",
-      name: "Create Daily Planner Note",
-      callback: () => {
-        this.createNoteWithLayout("layout_daily");
-      }
-    });
-    this.addCommand({
-      id: "create-project-note",
-      name: "Create Project Board Note",
-      callback: () => {
-        this.createNoteWithLayout("layout_project");
-      }
-    });
-    this.addCommand({
-      id: "create-tasks-dashboard",
-      name: "Create Tasks Dashboard",
-      callback: () => {
-        this.createNoteWithLayout("layout_tasks_dashboard");
-      }
-    });
-    this.addCommand({
-      id: "create-dataview-analytics",
-      name: "Create Dataview Analytics Board",
-      callback: () => {
-        this.createNoteWithLayout("layout_dataview_analytics");
-      }
-    });
+  }
+  /**
+   * Enregistre les commandes utilitaires
+   */
+  registerUtilityCommands() {
     this.addCommand({
       id: "list-layouts",
       name: "List Available Layouts",
-      callback: () => {
-        this.showAvailableLayouts();
-      }
+      callback: () => this.showAvailableLayouts()
     });
     this.addCommand({
-      id: "reload-layouts",
-      name: "Reload Layouts",
-      callback: () => {
-        this.layoutService.load();
-        console.log("\u{1F504} Layouts recharg\xE9s manuellement");
+      id: "create-missing-sections",
+      name: "Create Missing Sections for Current Layout",
+      checkCallback: (checking) => {
+        var _a;
+        const activeFile = this.app.workspace.getActiveFile();
+        if (!activeFile)
+          return false;
+        const fileCache = this.app.metadataCache.getFileCache(activeFile);
+        const layoutName = (_a = fileCache == null ? void 0 : fileCache.frontmatter) == null ? void 0 : _a["agile-board"];
+        if (!layoutName)
+          return false;
+        if (!checking) {
+          this.createMissingSectionsForCurrentFile();
+        }
+        return true;
       }
     });
     this.addCommand({
@@ -1285,16 +1439,10 @@ var AgileBoardPlugin = class extends import_obsidian3.Plugin {
         console.log("\u{1F504} Boutons mis \xE0 jour manuellement");
       }
     });
-    this.addStatusBarItem().setText("Agile Board Ready");
-    console.log("\u2705 Agile Board Plugin loaded successfully");
-    console.log("\u{1F4CB} Layouts disponibles:", this.layoutService.getAllModelNames());
   }
-  async onunload() {
-    var _a, _b;
-    console.log("\u{1F6D1} Unloading Agile Board Plugin...");
-    (_a = this.modelDetector) == null ? void 0 : _a.onUnload();
-    (_b = this.viewSwitcher) == null ? void 0 : _b.stop();
-  }
+  /**
+   * Active la vue Board pour le fichier actuel
+   */
   async activateBoardView() {
     const activeFile = this.app.workspace.getActiveFile();
     if (!activeFile) {
@@ -1310,6 +1458,9 @@ var AgileBoardPlugin = class extends import_obsidian3.Plugin {
       console.log("\u{1F3AF} Basculement vers Board View pour:", activeFile.basename);
     }
   }
+  /**
+   * Crée une note avec un layout spécifique
+   */
   async createNoteWithLayout(layoutName) {
     const layout = this.layoutService.getModel(layoutName);
     if (!layout) {
@@ -1325,7 +1476,7 @@ agile-board: ${layoutName}
 
 `).join("");
     const content = frontmatter + sections;
-    const layoutDisplayName = this.getLayoutDisplayName(layoutName);
+    const layoutDisplayName = this.layoutService.getLayoutDisplayName(layoutName);
     const timestamp = new Date().toISOString().split("T")[0];
     const fileName = `${layoutDisplayName} ${timestamp}.md`;
     try {
@@ -1336,26 +1487,14 @@ agile-board: ${layoutName}
       console.error(`\u274C Erreur cr\xE9ation note:`, error);
     }
   }
-  getLayoutDisplayName(layoutName) {
-    const displayNames = {
-      "layout_eisenhower": "Eisenhower Matrix",
-      "layout_kanban": "Kanban Board",
-      "layout_gtd": "GTD Board",
-      "layout_weekly": "Weekly Planner",
-      "layout_simple": "Simple Board",
-      "layout_cornell": "Cornell Notes",
-      "layout_daily": "Daily Planner",
-      "layout_project": "Project Board",
-      "layout_tasks_dashboard": "Tasks Dashboard",
-      "layout_dataview_analytics": "Dataview Analytics"
-    };
-    return displayNames[layoutName] || layoutName;
-  }
+  /**
+   * Affiche la liste des layouts disponibles
+   */
   showAvailableLayouts() {
     const layouts = this.layoutService.getAllModelsInfo();
     let message = "Layouts disponibles :\n\n";
     layouts.forEach((layout) => {
-      message += `\u2022 **${layout.name}** (${layout.blockCount} sections)
+      message += `\u2022 **${layout.displayName}** (${layout.blockCount} sections)
 `;
       message += `  Sections: ${layout.sections.join(", ")}
 
@@ -1368,9 +1507,47 @@ agile-board: ${layoutName}
     `;
     modal.open();
   }
-  async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+  /**
+   * Crée les sections manquantes pour le fichier actuel
+   */
+  async createMissingSectionsForCurrentFile() {
+    var _a;
+    const activeFile = this.app.workspace.getActiveFile();
+    if (!activeFile)
+      return;
+    const fileCache = this.app.metadataCache.getFileCache(activeFile);
+    const layoutName = (_a = fileCache == null ? void 0 : fileCache.frontmatter) == null ? void 0 : _a["agile-board"];
+    if (!layoutName)
+      return;
+    const layout = this.layoutService.getModel(layoutName);
+    if (!layout)
+      return;
+    try {
+      const sectionsCreated = await this.fileService.createMissingSections(activeFile, layout);
+      if (sectionsCreated) {
+        console.log("\u2705 Sections manquantes cr\xE9\xE9es pour:", activeFile.basename);
+        const boardView = this.app.workspace.getActiveViewOfType(BoardView);
+        if (boardView) {
+          setTimeout(() => {
+            boardView.renderBoardLayout();
+          }, 500);
+        }
+      } else {
+        console.log("\u2139\uFE0F Aucune section manquante \xE0 cr\xE9er");
+      }
+    } catch (error) {
+      console.error("\u274C Erreur lors de la cr\xE9ation des sections:", error);
+    }
   }
+  /**
+   * Charge les paramètres du plugin
+   */
+  async loadSettings() {
+    this.settings = Object.assign({}, createDefaultSettings(), await this.loadData());
+  }
+  /**
+   * Sauvegarde les paramètres du plugin
+   */
   async saveSettings() {
     await this.saveData(this.settings);
   }

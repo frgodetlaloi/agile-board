@@ -11,21 +11,21 @@
 import { Plugin } from 'obsidian';
 
 // Types
-import { BoardSettings } from '@/types';
+import { BoardSettings } from './types';
 
 // Services
-import { LayoutService } from '@/services/LayoutService';
-import { FileService } from '@/services/FileService';
+import { LayoutService } from './services/LayoutService';
+import { FileService } from './services/FileService';
 
 // Views
-import { BoardView, BOARD_VIEW_TYPE } from '@/views/BoardView';
+import { BoardView, BOARD_VIEW_TYPE } from './views/BoardView';
 
 // Managers
-import { ViewSwitcher } from '@/managers/ViewSwitcher';
-import { ModelDetector } from '@/managers/ModelDetector';
+import { ViewSwitcher } from './managers/ViewSwitcher';
+import { ModelDetector } from './managers/ModelDetector';
 
 // Utils
-import { createDefaultSettings } from '@/utils/settings';
+import { createDefaultSettings } from './utils/settings';
 
 /**
  * Plugin principal Agile Board

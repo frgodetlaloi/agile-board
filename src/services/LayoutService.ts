@@ -1,6 +1,6 @@
 import { Plugin } from 'obsidian';
-import { BoardLayout, LayoutInfo } from '@/types';
-import { BUILT_IN_LAYOUTS, LAYOUT_INFO } from '@/constants/layouts';
+import { BoardLayout, LayoutInfo } from '../types';
+import { BUILT_IN_LAYOUTS, LAYOUT_INFO } from '../constants/layouts';
 
 export class LayoutService {
   private models = new Map<string, BoardLayout[]>();

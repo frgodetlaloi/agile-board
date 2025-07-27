@@ -1,5 +1,5 @@
 import { MarkdownView } from 'obsidian';
-import { BoardView, BOARD_VIEW_TYPE } from '@/views/BoardView';
+import { BoardView, BOARD_VIEW_TYPE } from '../views/BoardView';
 import type AgileBoardPlugin from '@/main';
 
 export class ViewSwitcher {

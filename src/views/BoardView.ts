@@ -1,7 +1,7 @@
 import { FileView, TFile } from 'obsidian';
-import { BoardLayout } from '@/types';
-import { MarkdownFrame } from '@/components/MarkdownFrame';
-import type AgileBoardPlugin from '@/main';
+import { BoardLayout } from '../types';
+import { MarkdownFrame } from '../components/MarkdownFrame';
+import type AgileBoardPlugin from '../main';
 
 export const BOARD_VIEW_TYPE = 'agile-board-view';
 
@@ -367,4 +367,23 @@ export class BoardView extends FileView {
       padding: 0.75rem 1.5rem;
       background: var(--background-secondary);
       color: var(--text-normal);
-      border: 1px solid var(--background-
+      border: 1px solid var(--background-modifier-border);
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+    `;
+
+    markdownButton.addEventListener('click', async () => {
+      if (!this.file) return;
+      
+      // Revenir au mode markdown normal
+      const leaf = this.app.workspace.activeLeaf;
+      if (leaf) {
+        await leaf.setViewState({
+          type: 'markdown',
+          state: { file: this.file.path }
+        });
+      }
+    });
+  }
+}
