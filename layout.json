@@ -1,0 +1,99 @@
+{
+  "layout_eisenhower": [
+    {
+      "title": "Urgent et Important",
+      "x": 0,
+      "y": 0,
+      "w": 12,
+      "h": 12
+    },
+    {
+      "title": "Pas urgent mais Important",
+      "x": 12,
+      "y": 0,
+      "w": 12,
+      "h": 12
+    },
+    {
+      "title": "Urgent mais Pas important",
+      "x": 0,
+      "y": 12,
+      "w": 12,
+      "h": 12
+    },
+    {
+      "title": "Ni urgent ni important",
+      "x": 12,
+      "y": 12,
+      "w": 12,
+      "h": 12
+    }
+  ],
+  "layout_kanban": [
+    {
+      "title": "À faire",
+      "x": 0,
+      "y": 0,
+      "w": 8,
+      "h": 24
+    },
+    {
+      "title": "En cours",
+      "x": 8,
+      "y": 0,
+      "w": 8,
+      "h": 24
+    },
+    {
+      "title": "Terminé",
+      "x": 16,
+      "y": 0,
+      "w": 8,
+      "h": 24
+    }
+  ],
+  "layout_gtd": [
+    {
+      "title": "Inbox",
+      "x": 0,
+      "y": 0,
+      "w": 12,
+      "h": 8
+    },
+    {
+      "title": "Actions suivantes",
+      "x": 12,
+      "y": 0,
+      "w": 12,
+      "h": 8
+    },
+    {
+      "title": "En attente",
+      "x": 0,
+      "y": 8,
+      "w": 8,
+      "h": 8
+    },
+    {
+      "title": "Projets",
+      "x": 8,
+      "y": 8,
+      "w": 8,
+      "h": 8
+    },
+    {
+      "title": "Someday Maybe",
+      "x": 16,
+      "y": 8,
+      "w": 8,
+      "h": 8
+    },
+    {
+      "title": "Référence",
+      "x": 0,
+      "y": 16,
+      "w": 24,
+      "h": 8
+    }
+  ]
+}
