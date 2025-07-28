@@ -31,176 +31,765 @@ var import_obsidian3 = require("obsidian");
 
 // src/constants/layouts.ts
 var BUILT_IN_LAYOUTS = {
+  // ===========================================================================
+  // SECTION 1 : LAYOUTS DE PRODUCTIVITÉ ET PRIORISATION
+  // ===========================================================================
   /**
-   * Matrice d'Eisenhower - 4 quadrants pour la priorisation
-   * Grille 2x2 de 12x12 chacun
+   * MATRICE D'EISENHOWER - Système de priorisation présidentiel
+   * 
+   * MÉTHODOLOGIE :
+   * Créée par le président Dwight D. Eisenhower, cette matrice classe
+   * les tâches selon deux axes orthogonaux : Urgent vs Important.
+   * 
+   * PHILOSOPHIE :
+   * "Ce qui est important est rarement urgent et ce qui est urgent 
+   * est rarement important." - Eisenhower
+   * 
+   * QUADRANTS :
+   * 1. Urgent ET Important (Q1) → FAIRE immédiatement
+   * 2. Important mais PAS Urgent (Q2) → PLANIFIER (zone optimale)
+   * 3. Urgent mais PAS Important (Q3) → DÉLÉGUER
+   * 4. NI Urgent NI Important (Q4) → ÉLIMINER
+   * 
+   * DIAGRAMME VISUEL :
+   * ┌─────────────────┬─────────────────┐
+   * │ URGENT ET       │ PAS URGENT      │
+   * │ IMPORTANT       │ MAIS IMPORTANT  │
+   * │ ⚡ DO NOW ⚡    │ 📅 SCHEDULE 📅  │
+   * │ (Crises,        │ (Planification, │
+   * │  Urgences)      │  Prévention)    │
+   * ├─────────────────┼─────────────────┤
+   * │ URGENT MAIS     │ NI URGENT       │
+   * │ PAS IMPORTANT   │ NI IMPORTANT    │
+   * │ 👥 DELEGATE 👥  │ 🗑️ DELETE 🗑️   │
+   * │ (Interruptions, │ (Distractions,  │
+   * │  Certains mails)│  Réseaux soc.)  │
+   * └─────────────────┴─────────────────┘
+   * 
+   * GRILLE TECHNIQUE : 4 quadrants de 12×12 chacun
+   * CAS D'USAGE : Gestion quotidienne, décisions stratégiques, leadership
    */
   layout_eisenhower: [
-    { title: "Urgent et Important", x: 0, y: 0, w: 12, h: 12 },
-    { title: "Pas urgent mais Important", x: 12, y: 0, w: 12, h: 12 },
-    { title: "Urgent mais Pas important", x: 0, y: 12, w: 12, h: 12 },
-    { title: "Ni urgent ni important", x: 12, y: 12, w: 12, h: 12 }
+    {
+      title: "Urgent et Important",
+      x: 0,
+      y: 0,
+      w: 12,
+      h: 12
+      // Quadrant Q1 : Actions immédiates, gestion de crise
+    },
+    {
+      title: "Pas urgent mais Important",
+      x: 12,
+      y: 0,
+      w: 12,
+      h: 12
+      // Quadrant Q2 : Zone optimale de productivité, planification
+    },
+    {
+      title: "Urgent mais Pas important",
+      x: 0,
+      y: 12,
+      w: 12,
+      h: 12
+      // Quadrant Q3 : Candidats à la délégation
+    },
+    {
+      title: "Ni urgent ni important",
+      x: 12,
+      y: 12,
+      w: 12,
+      h: 12
+      // Quadrant Q4 : Activités à éliminer ou réduire
+    }
   ],
   /**
-   * Tableau Kanban classique - 3 colonnes
-   * Colonnes de 8 unités de large sur toute la hauteur
-   */
-  layout_kanban: [
-    { title: "\xC0 faire", x: 0, y: 0, w: 8, h: 24 },
-    { title: "En cours", x: 8, y: 0, w: 8, h: 24 },
-    { title: "Termin\xE9", x: 16, y: 0, w: 8, h: 24 }
-  ],
-  /**
-   * Getting Things Done (GTD) - 6 sections
-   * Organisation selon la méthode GTD de David Allen
+   * GETTING THINGS DONE (GTD) - Méthode David Allen
+   * 
+   * MÉTHODOLOGIE :
+   * Système complet de productivité développé par David Allen.
+   * Basé sur l'externalisation de la mémoire et la clarification systématique.
+   * 
+   * PRINCIPE CENTRAL :
+   * "Votre esprit est fait pour avoir des idées, pas pour les retenir."
+   * 
+   * FLUX GTD :
+   * CAPTURER → CLARIFIER → ORGANISER → RÉVISER → FAIRE
+   * 
+   * ZONES FONCTIONNELLES :
+   * 1. Inbox : Capture de tout ce qui arrive
+   * 2. Actions suivantes : Tâches concrètes et faisables
+   * 3. En attente : Délégué ou dépendant d'autres
+   * 4. Projets : Résultats nécessitant plusieurs actions
+   * 5. Someday/Maybe : Idées pour le futur
+   * 6. Référence : Informations à conserver
+   * 
+   * DIAGRAMME VISUEL :
+   * ┌──────────────┬──────────────┐
+   * │   📥 INBOX   │ ➡️ ACTIONS   │
+   * │              │   SUIVANTES  │
+   * │ (Collecte    │ (Prochaines  │
+   * │  rapide)     │  tâches)     │
+   * ├──────┬───────┼──────┬───────┤
+   * │⏳ EN │📋 PROJ│🤔 SM │       │
+   * │ATTEN.│   ETS │  /M  │       │
+   * ├──────┴───────┴──────┴───────┤
+   * │      📚 RÉFÉRENCE           │
+   * │   (Documentation,           │
+   * │    informations)            │
+   * └─────────────────────────────┘
+   * 
+   * GRILLE TECHNIQUE : Optimisée pour le flux GTD
+   * CAS D'USAGE : Productivité personnelle, gestion complète des tâches
    */
   layout_gtd: [
-    { title: "Inbox", x: 0, y: 0, w: 12, h: 8 },
-    { title: "Actions suivantes", x: 12, y: 0, w: 12, h: 8 },
-    { title: "En attente", x: 0, y: 8, w: 8, h: 8 },
-    { title: "Projets", x: 8, y: 8, w: 8, h: 8 },
-    { title: "Someday Maybe", x: 16, y: 8, w: 8, h: 8 },
-    { title: "R\xE9f\xE9rence", x: 0, y: 16, w: 24, h: 8 }
+    {
+      title: "Inbox",
+      x: 0,
+      y: 0,
+      w: 12,
+      h: 8
+      // Zone de capture : tout ce qui arrive sans traitement
+    },
+    {
+      title: "Actions suivantes",
+      x: 12,
+      y: 0,
+      w: 12,
+      h: 8
+      // Tâches clarifiées et prêtes à être exécutées
+    },
+    {
+      title: "En attente",
+      x: 0,
+      y: 8,
+      w: 8,
+      h: 8
+      // Délégué ou en attente de quelqu'un/quelque chose d'autre
+    },
+    {
+      title: "Projets",
+      x: 8,
+      y: 8,
+      w: 8,
+      h: 8
+      // Résultats désirés nécessitant plus d'une action
+    },
+    {
+      title: "Someday Maybe",
+      x: 16,
+      y: 8,
+      w: 8,
+      h: 8
+      // Idées intéressantes pour plus tard
+    },
+    {
+      title: "R\xE9f\xE9rence",
+      x: 0,
+      y: 16,
+      w: 24,
+      h: 8
+      // Informations utiles à conserver pour consultation
+    }
   ],
+  // ===========================================================================
+  // SECTION 2 : LAYOUTS DE FLUX DE TRAVAIL (WORKFLOW)
+  // ===========================================================================
   /**
-   * Planificateur hebdomadaire - 7 sections
-   * 5 jours de travail + weekend + notes
+   * TABLEAU KANBAN CLASSIQUE - Visualisation du flux de travail
+   * 
+   * MÉTHODOLOGIE :
+   * Originaire du système de production Toyota, adapté au travail intellectuel.
+   * Principe : visualiser le travail, limiter le travail en cours (WIP).
+   * 
+   * PHILOSOPHIE :
+   * Flux tiré (pull) plutôt que poussé (push).
+   * Optimisation du débit global plutôt que de l'efficacité locale.
+   * 
+   * COLONNES STANDARD :
+   * 1. À faire (Backlog) : Tâches en attente
+   * 2. En cours (Doing/WIP) : Travail actuel (limité)
+   * 3. Terminé (Done) : Travail complété
+   * 
+   * DIAGRAMME VISUEL :
+   * ┌────────────┬────────────┬────────────┐
+   * │            │            │            │
+   * │  📋 À      │  ⚙️ EN     │  ✅ TERMI- │
+   * │   FAIRE    │   COURS    │    NÉ      │
+   * │            │            │            │
+   * │ • Tâche A  │ • Tâche X  │ • Tâche 1  │
+   * │ • Tâche B  │ • Tâche Y  │ • Tâche 2  │
+   * │ • Tâche C  │            │ • Tâche 3  │
+   * │ • ...      │ [WIP: 2]   │ • ...      │
+   * │            │            │            │
+   * └────────────┴────────────┴────────────┘
+   * 
+   * GRILLE TECHNIQUE : 3 colonnes égales sur toute la hauteur
+   * CAS D'USAGE : Développement logiciel, gestion d'équipe, projets itératifs
+   */
+  layout_kanban: [
+    {
+      title: "\xC0 faire",
+      x: 0,
+      y: 0,
+      w: 8,
+      h: 24
+      // Backlog : tâches priorisées en attente
+    },
+    {
+      title: "En cours",
+      x: 8,
+      y: 0,
+      w: 8,
+      h: 24
+      // Work In Progress : limite recommandée selon l'équipe
+    },
+    {
+      title: "Termin\xE9",
+      x: 16,
+      y: 0,
+      w: 8,
+      h: 24
+      // Done : validation et archivage des tâches complétées
+    }
+  ],
+  // ===========================================================================
+  // SECTION 3 : LAYOUTS DE PLANIFICATION TEMPORELLE
+  // ===========================================================================
+  /**
+   * PLANIFICATEUR HEBDOMADAIRE - Organisation par jour de la semaine
+   * 
+   * MÉTHODOLOGIE :
+   * Planification cyclique basée sur la semaine de travail standard.
+   * Équilibre entre productivité professionnelle et bien-être personnel.
+   * 
+   * PHILOSOPHIE :
+   * Rythme hebdomadaire naturel avec distinction travail/repos.
+   * Vision d'ensemble pour une planification équilibrée.
+   * 
+   * ORGANISATION :
+   * - 5 jours de travail avec sections dédiées
+   * - Weekend groupé pour activités personnelles
+   * - Zone de notes pour observations et réflexions
+   * 
+   * DIAGRAMME VISUEL :
+   * ┌─────┬─────┬─────┬─────┐
+   * │ LUN │ MAR │ MER │ JEU │
+   * │     │     │     │     │
+   * │ 📅  │ 📅  │ 📅  │ 📅  │
+   * │     │     │     │     │
+   * ├─────┼─────┼─────┴─────┤
+   * │ VEN │ W-E │   📝      │
+   * │     │ 🏖️  │   NOTES   │
+   * │ 📅  │     │           │
+   * │     │     │           │
+   * └─────┴─────┴───────────┘
+   * 
+   * GRILLE TECHNIQUE : Layout asymétrique optimisé
+   * CAS D'USAGE : Planning personnel, coordination d'équipe, revues hebdomadaires
    */
   layout_weekly: [
-    { title: "Lundi", x: 0, y: 0, w: 6, h: 12 },
-    { title: "Mardi", x: 6, y: 0, w: 6, h: 12 },
-    { title: "Mercredi", x: 12, y: 0, w: 6, h: 12 },
-    { title: "Jeudi", x: 18, y: 0, w: 6, h: 12 },
-    { title: "Vendredi", x: 0, y: 12, w: 8, h: 12 },
-    { title: "Weekend", x: 8, y: 12, w: 8, h: 12 },
-    { title: "Notes", x: 16, y: 12, w: 8, h: 12 }
+    {
+      title: "Lundi",
+      x: 0,
+      y: 0,
+      w: 6,
+      h: 12
+      // Démarrage de semaine, objectifs et planification
+    },
+    {
+      title: "Mardi",
+      x: 6,
+      y: 0,
+      w: 6,
+      h: 12
+      // Productivité optimale, tâches importantes
+    },
+    {
+      title: "Mercredi",
+      x: 12,
+      y: 0,
+      w: 6,
+      h: 12
+      // Milieu de semaine, ajustements et révisions
+    },
+    {
+      title: "Jeudi",
+      x: 18,
+      y: 0,
+      w: 6,
+      h: 12
+      // Finalisation des livrables de la semaine
+    },
+    {
+      title: "Vendredi",
+      x: 0,
+      y: 12,
+      w: 8,
+      h: 12
+      // Clôture, bilans et préparation semaine suivante
+    },
+    {
+      title: "Weekend",
+      x: 8,
+      y: 12,
+      w: 8,
+      h: 12
+      // Repos, activités personnelles, famille, loisirs
+    },
+    {
+      title: "Notes",
+      x: 16,
+      y: 12,
+      w: 8,
+      h: 12
+      // Observations, idées, réflexions et apprentissages
+    }
   ],
   /**
-   * Board simple - 2 colonnes
-   * Idéal pour des comparaisons ou du brainstorming
-   */
-  layout_simple: [
-    { title: "Ideas", x: 0, y: 0, w: 12, h: 24 },
-    { title: "Actions", x: 12, y: 0, w: 12, h: 24 }
-  ],
-  /**
-   * Notes Cornell - 3 sections organisées
-   * Méthode de prise de notes structurée
-   */
-  layout_cornell: [
-    { title: "Notes", x: 0, y: 0, w: 16, h: 18 },
-    { title: "Mots-cl\xE9s", x: 16, y: 0, w: 8, h: 18 },
-    { title: "R\xE9sum\xE9", x: 0, y: 18, w: 24, h: 6 }
-  ],
-  /**
-   * Planificateur quotidien - 6 sections
-   * Organisation détaillée pour une journée
+   * PLANIFICATEUR QUOTIDIEN - Structure détaillée d'une journée
+   * 
+   * MÉTHODOLOGIE :
+   * Organisation méticuleuse d'une journée avec focus sur l'apprentissage
+   * et la réflexion. Inspiré des méthodes de développement personnel.
+   * 
+   * PHILOSOPHIE :
+   * Journée intentionnelle avec boucle d'amélioration continue.
+   * Équilibre entre action et réflexion.
+   * 
+   * STRUCTURE :
+   * - Objectifs clairs et limités (max 3)
+   * - Tâches prioritaires identifiées
+   * - Planning temporel structuré
+   * - Capture d'apprentissages
+   * - Réflexion et bilan de fin de journée
+   * 
+   * DIAGRAMME VISUEL :
+   * ┌─────────────┬─────────────┐
+   * │ 🎯 OBJECTIFS│ ⭐ PRIORITÉS │
+   * │   DU JOUR   │             │
+   * │             │             │
+   * ├─────┬───────┼─────┬───────┤
+   * │📅PLA│📝 NOT│📚APP│💭 RÉF │
+   * │NING │   ES │RENT.│  LEX. │
+   * │     │      │     │       │
+   * ├─────┴──────┴─────┴───────┤
+   * │      💡 RÉFLEXIONS       │
+   * │     ET BILAN QUOTIDIEN   │
+   * └─────────────────────────┘
+   * 
+   * GRILLE TECHNIQUE : 6 sections pour journée structurée
+   * CAS D'USAGE : Développement personnel, productivité quotidienne
    */
   layout_daily: [
-    { title: "Objectifs du jour", x: 0, y: 0, w: 12, h: 8 },
-    { title: "T\xE2ches prioritaires", x: 12, y: 0, w: 12, h: 8 },
-    { title: "Planning", x: 0, y: 8, w: 8, h: 8 },
-    { title: "Notes", x: 8, y: 8, w: 8, h: 8 },
-    { title: "Apprentissages", x: 16, y: 8, w: 8, h: 8 },
-    { title: "R\xE9flexions", x: 0, y: 16, w: 24, h: 8 }
+    {
+      title: "Objectifs du jour",
+      x: 0,
+      y: 0,
+      w: 12,
+      h: 8
+      // Maximum 3 objectifs SMART pour la journée
+    },
+    {
+      title: "T\xE2ches prioritaires",
+      x: 12,
+      y: 0,
+      w: 12,
+      h: 8
+      // Actions importantes qui font avancer les objectifs
+    },
+    {
+      title: "Planning",
+      x: 0,
+      y: 8,
+      w: 8,
+      h: 8
+      // Emploi du temps, rendez-vous, créneaux de travail
+    },
+    {
+      title: "Notes",
+      x: 8,
+      y: 8,
+      w: 8,
+      h: 8
+      // Capture rapide d'idées, observations, informations
+    },
+    {
+      title: "Apprentissages",
+      x: 16,
+      y: 8,
+      w: 8,
+      h: 8
+      // Ce que j'ai appris aujourd'hui (compétences, insights)
+    },
+    {
+      title: "R\xE9flexions",
+      x: 0,
+      y: 16,
+      w: 24,
+      h: 8
+      // Bilan de journée, points d'amélioration, gratitude
+    }
   ],
+  // ===========================================================================
+  // SECTION 4 : LAYOUTS DE GESTION DE PROJET
+  // ===========================================================================
   /**
-   * Gestion de projet - 6 sections
-   * Vue d'ensemble complète d'un projet
+   * GESTION DE PROJET COMPLÈTE - Vue d'ensemble projet
+   * 
+   * MÉTHODOLOGIE :
+   * Approche holistique de la gestion de projet intégrant tous les aspects
+   * essentiels. Inspiré des méthodologies PMI et Agile.
+   * 
+   * PHILOSOPHIE :
+   * Vision systémique du projet avec équilibre entre planification
+   * et adaptabilité.
+   * 
+   * COMPOSANTS :
+   * - Vue d'ensemble : Contexte et vision globale
+   * - Objectifs : Résultats mesurables attendus
+   * - Étapes : Jalons et phases du projet
+   * - Ressources : Équipe, budget, outils
+   * - Risques : Identification et mitigation
+   * - Suivi : Métriques et progression
+   * 
+   * DIAGRAMME VISUEL :
+   * ┌─────────────────────────────────┐
+   * │       🎯 VUE D'ENSEMBLE         │
+   * │    (Vision, contexte, enjeux)   │
+   * ├───────────┬───────────┬─────────┤
+   * │📋 OBJECTI │🚀 ÉTAPES  │💼 RESSO-│
+   * │   FS      │           │   URCES │
+   * │           │           │         │
+   * ├───────────┴─────┬─────┴─────────┤
+   * │  ⚠️ RISQUES     │ 📊 SUIVI     │
+   * │                 │               │
+   * └─────────────────┴───────────────┘
+   * 
+   * GRILLE TECHNIQUE : Vue hiérarchique avec header
+   * CAS D'USAGE : Gestion de projet, initiatives stratégiques, lancements
    */
   layout_project: [
-    { title: "Vue d'ensemble", x: 0, y: 0, w: 24, h: 6 },
-    { title: "Objectifs", x: 0, y: 6, w: 8, h: 9 },
-    { title: "\xC9tapes", x: 8, y: 6, w: 8, h: 9 },
-    { title: "Ressources", x: 16, y: 6, w: 8, h: 9 },
-    { title: "Risques", x: 0, y: 15, w: 12, h: 9 },
-    { title: "Suivi", x: 12, y: 15, w: 12, h: 9 }
+    {
+      title: "Vue d'ensemble",
+      x: 0,
+      y: 0,
+      w: 24,
+      h: 6
+      // Contexte, vision, objectifs généraux, parties prenantes
+    },
+    {
+      title: "Objectifs",
+      x: 0,
+      y: 6,
+      w: 8,
+      h: 9
+      // Objectifs SMART, critères de succès, KPIs
+    },
+    {
+      title: "\xC9tapes",
+      x: 8,
+      y: 6,
+      w: 8,
+      h: 9
+      // Jalons, phases, roadmap, planning général
+    },
+    {
+      title: "Ressources",
+      x: 16,
+      y: 6,
+      w: 8,
+      h: 9
+      // Équipe, budget, outils, compétences nécessaires
+    },
+    {
+      title: "Risques",
+      x: 0,
+      y: 15,
+      w: 12,
+      h: 9
+      // Identification, évaluation, plans de mitigation
+    },
+    {
+      title: "Suivi",
+      x: 12,
+      y: 15,
+      w: 12,
+      h: 9
+      // Métriques, avancement, reporting, ajustements
+    }
   ],
+  // ===========================================================================
+  // SECTION 5 : LAYOUTS BASIQUES ET POLYVALENTS
+  // ===========================================================================
   /**
-   * Dashboard Tasks (intégration plugin Tasks)
-   * Optimisé pour les requêtes Tasks
+   * BOARD SIMPLE - Approche minimaliste 2 colonnes
+   * 
+   * MÉTHODOLOGIE :
+   * Simplicité volontaire pour démarrage rapide ou usages non-spécialisés.
+   * Basé sur la dichotomie pensée/action.
+   * 
+   * PHILOSOPHIE :
+   * "La simplicité est la sophistication suprême" - Leonardo da Vinci
+   * Parfait pour débuter ou pour des besoins basiques.
+   * 
+   * APPLICATIONS :
+   * - Brainstorming : Idées → Actions
+   * - Comparaison : Pour → Contre
+   * - Processus : Input → Output
+   * - Planning : Cette semaine → Semaine prochaine
+   * 
+   * DIAGRAMME VISUEL :
+   * ┌─────────────┬─────────────┐
+   * │             │             │
+   * │   💡 IDEAS  │ ⚡ ACTIONS  │
+   * │             │             │
+   * │             │             │
+   * │             │             │
+   * │             │             │
+   * │             │             │
+   * │             │             │
+   * └─────────────┴─────────────┘
+   * 
+   * GRILLE TECHNIQUE : 2 colonnes égales, simplicité maximale
+   * CAS D'USAGE : Brainstorming, comparaisons, projets simples, démarrage
+   */
+  layout_simple: [
+    {
+      title: "Ideas",
+      x: 0,
+      y: 0,
+      w: 12,
+      h: 24
+      // Idées, concepts, possibilités, réflexions
+    },
+    {
+      title: "Actions",
+      x: 12,
+      y: 0,
+      w: 12,
+      h: 24
+      // Actions concrètes, tâches, étapes suivantes
+    }
+  ],
+  // ===========================================================================
+  // SECTION 6 : LAYOUTS DE PRISE DE NOTES
+  // ===========================================================================
+  /**
+   * NOTES CORNELL - Système de prise de notes universitaire
+   * 
+   * MÉTHODOLOGIE :
+   * Développé à l'université Cornell par Walter Pauk dans les années 1950.
+   * Optimise la prise de notes, la révision et la mémorisation.
+   * 
+   * PHILOSOPHIE :
+   * Structure prédéfinie qui force l'organisation et la synthèse.
+   * Séparation claire entre capture, analyse et mémorisation.
+   * 
+   * ZONES FONCTIONNELLES :
+   * 1. Notes principales : Capture du contenu principal
+   * 2. Mots-clés/Questions : Indices de révision et concepts clés
+   * 3. Résumé : Synthèse personnelle et points clés
+   * 
+   * PROCESSUS :
+   * PENDANT → Prendre des notes dans la zone principale
+   * APRÈS → Ajouter mots-clés et questions dans la marge
+   * RÉVISION → Utiliser les mots-clés pour réviser
+   * SYNTHÈSE → Écrire un résumé personnel
+   * 
+   * DIAGRAMME VISUEL :
+   * ┌────────────────────┬───────┐
+   * │                    │       │
+   * │     📝 NOTES       │ 🏷️    │
+   * │   (Contenu         │ MOTS- │
+   * │    principal)      │ CLÉS  │
+   * │                    │       │
+   * │                    │       │
+   * ├────────────────────┴───────┤
+   * │      📋 RÉSUMÉ             │
+   * │   (Synthèse personnelle)   │
+   * └────────────────────────────┘
+   * 
+   * GRILLE TECHNIQUE : Zone principale + marge + footer
+   * CAS D'USAGE : Cours, conférences, lectures, formations
+   */
+  layout_cornell: [
+    {
+      title: "Notes",
+      x: 0,
+      y: 0,
+      w: 16,
+      h: 18
+      // Zone principale de prise de notes pendant l'écoute
+    },
+    {
+      title: "Mots-cl\xE9s",
+      x: 16,
+      y: 0,
+      w: 8,
+      h: 18
+      // Marge pour concepts clés, questions, indices de révision
+    },
+    {
+      title: "R\xE9sum\xE9",
+      x: 0,
+      y: 18,
+      w: 24,
+      h: 6
+      // Synthèse personnelle en fin de session
+    }
+  ],
+  // ===========================================================================
+  // SECTION 7 : LAYOUTS D'INTÉGRATION AVEC PLUGINS OBSIDIAN
+  // ===========================================================================
+  /**
+   * DASHBOARD TASKS - Intégration avancée avec le plugin Tasks
+   * 
+   * MÉTHODOLOGIE :
+   * Optimisé pour exploiter les capacités du plugin Tasks d'Obsidian.
+   * Affichage intelligent des tâches par contexte temporel et projet.
+   * 
+   * PHILOSOPHIE :
+   * Centralisation et contextualisation des tâches pour une vision
+   * d'ensemble de la charge de travail.
+   * 
+   * ZONES TEMPORELLES :
+   * - Aujourd'hui : Focus sur l'immédiat
+   * - Cette semaine : Vision à court terme
+   * - En retard : Gestion des dépassements
+   * - Projets actifs : Vision organisationnelle
+   * - Statistiques : Métriques et tendances
+   * 
+   * REQUÊTES TASKS INTÉGRÉES :
+   * Utilise la syntaxe du plugin Tasks pour des requêtes dynamiques.
+   * 
+   * DIAGRAMME VISUEL :
+   * ┌─────────┬─────────┬─────────┐
+   * │ 📅 AUJ. │📅 SEMN │⚠️ RETARD│
+   * │         │         │         │
+   * │ tasks   │ tasks   │ tasks   │
+   * │ due     │ due     │ due     │
+   * │ today   │ this    │ before  │
+   * │         │ week    │ today   │
+   * ├─────────┴─────────┼─────────┤
+   * │  📊 PROJETS       │📈 STATS │
+   * │    ACTIFS         │         │
+   * │ (par projet)      │(métriq.)│
+   * └───────────────────┴─────────┘
+   * 
+   * REQUÊTES TASKS SUGGÉRÉES :
+   * - Aujourd'hui : ```tasks due today not done```
+   * - Cette semaine : ```tasks due this week not done```
+   * - En retard : ```tasks due before today not done```
+   * - Par projet : ```tasks group by project```
+   * 
+   * GRILLE TECHNIQUE : Vue temporelle + organisation + analytics
+   * CAS D'USAGE : Gestion avancée des tâches, productivité, suivi projets
    */
   layout_tasks_dashboard: [
-    { title: "T\xE2ches du jour", x: 0, y: 0, w: 8, h: 12 },
-    { title: "Cette semaine", x: 8, y: 0, w: 8, h: 12 },
-    { title: "En retard", x: 16, y: 0, w: 8, h: 12 },
-    { title: "Projets actifs", x: 0, y: 12, w: 12, h: 12 },
-    { title: "Statistiques", x: 12, y: 12, w: 12, h: 12 }
-  ],
-  /**
-   * Analytics Dataview (intégration plugin Dataview)
-   * Optimisé pour les requêtes Dataview
-   */
-  layout_dataview_analytics: [
-    { title: "M\xE9triques g\xE9n\xE9rales", x: 0, y: 0, w: 12, h: 8 },
-    { title: "Tendances", x: 12, y: 0, w: 12, h: 8 },
-    { title: "Top tags", x: 0, y: 8, w: 8, h: 8 },
-    { title: "Fichiers r\xE9cents", x: 8, y: 8, w: 8, h: 8 },
-    { title: "Liens bris\xE9s", x: 16, y: 8, w: 8, h: 8 },
-    { title: "Donn\xE9es d\xE9taill\xE9es", x: 0, y: 16, w: 24, h: 8 }
+    {
+      title: "T\xE2ches du jour",
+      x: 0,
+      y: 0,
+      w: 8,
+      h: 12
+      // ```tasks due today not done```
+    },
+    {
+      title: "Cette semaine",
+      x: 8,
+      y: 0,
+      w: 8,
+      h: 12
+      // ```tasks due this week not done```
+    },
+    {
+      title: "En retard",
+      x: 16,
+      y: 0,
+      w: 8,
+      h: 12
+      // ```tasks due before today not done```
+    },
+    {
+      title: "Projets actifs",
+      x: 0,
+      y: 12,
+      w: 12,
+      h: 12
+      // ```tasks group by project``` ou organisation manuelle
+    },
+    {
+      title: "Statistiques",
+      x: 12,
+      y: 12,
+      w: 12,
+      h: 12
+      // Métriques, tendances, analyse de productivité
+    }
   ]
 };
 var LAYOUT_INFO = {
   layout_eisenhower: {
     name: "layout_eisenhower",
     displayName: "Matrice d'Eisenhower",
-    description: "Priorisez vos t\xE2ches selon urgence et importance",
+    description: "Syst\xE8me de priorisation bas\xE9 sur l'urgence et l'importance. Parfait pour la gestion quotidienne et les d\xE9cisions strat\xE9giques.",
     sections: ["Urgent et Important", "Pas urgent mais Important", "Urgent mais Pas important", "Ni urgent ni important"],
     blockCount: 4,
-    category: "productivity"
+    category: "productivit\xE9"
+  },
+  layout_gtd: {
+    name: "layout_gtd",
+    displayName: "Getting Things Done (GTD)",
+    description: "M\xE9thode compl\xE8te de productivit\xE9 de David Allen. Syst\xE8me d'externalisation de la m\xE9moire et de clarification syst\xE9matique.",
+    sections: ["Inbox", "Actions suivantes", "En attente", "Projets", "Someday Maybe", "R\xE9f\xE9rence"],
+    blockCount: 6,
+    category: "productivit\xE9"
   },
   layout_kanban: {
     name: "layout_kanban",
     displayName: "Tableau Kanban",
-    description: "Visualisez le flux de travail en 3 colonnes",
+    description: "Visualisation du flux de travail avec limitation du travail en cours. Id\xE9al pour le d\xE9veloppement et la gestion d'\xE9quipe.",
     sections: ["\xC0 faire", "En cours", "Termin\xE9"],
     blockCount: 3,
     category: "workflow"
   },
-  layout_gtd: {
-    name: "layout_gtd",
-    displayName: "Getting Things Done",
-    description: "Organisez selon la m\xE9thode GTD de David Allen",
-    sections: ["Inbox", "Actions suivantes", "En attente", "Projets", "Someday Maybe", "R\xE9f\xE9rence"],
-    blockCount: 6,
-    category: "productivity"
-  },
   layout_weekly: {
     name: "layout_weekly",
     displayName: "Planificateur Hebdomadaire",
-    description: "Planifiez votre semaine jour par jour",
+    description: "Organisation par jour de la semaine avec \xE9quilibre travail/repos. Parfait pour la planification personnelle et la coordination d'\xE9quipe.",
     sections: ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Weekend", "Notes"],
     blockCount: 7,
-    category: "planning"
+    category: "planification"
   },
   layout_daily: {
     name: "layout_daily",
     displayName: "Planificateur Quotidien",
-    description: "Structurez votre journ\xE9e en d\xE9tail",
+    description: "Structure d\xE9taill\xE9e d'une journ\xE9e avec focus sur l'apprentissage et la r\xE9flexion. Id\xE9al pour le d\xE9veloppement personnel.",
     sections: ["Objectifs du jour", "T\xE2ches prioritaires", "Planning", "Notes", "Apprentissages", "R\xE9flexions"],
     blockCount: 6,
-    category: "planning"
+    category: "planification"
   },
   layout_project: {
     name: "layout_project",
     displayName: "Gestion de Projet",
-    description: "Vue d'ensemble compl\xE8te d'un projet",
+    description: "Vue d'ensemble compl\xE8te d'un projet avec tous les aspects essentiels. Inspir\xE9 des m\xE9thodologies PMI et Agile.",
     sections: ["Vue d'ensemble", "Objectifs", "\xC9tapes", "Ressources", "Risques", "Suivi"],
     blockCount: 6,
-    category: "project"
+    category: "projet"
   },
   layout_simple: {
     name: "layout_simple",
     displayName: "Board Simple",
-    description: "Deux colonnes pour comparaisons ou brainstorming",
+    description: "Approche minimaliste \xE0 2 colonnes. Parfait pour d\xE9buter ou pour des besoins basiques de brainstorming et comparaison.",
     sections: ["Ideas", "Actions"],
     blockCount: 2,
-    category: "basic"
+    category: "basique"
   },
   layout_cornell: {
     name: "layout_cornell",
     displayName: "Notes Cornell",
-    description: "M\xE9thode de prise de notes structur\xE9e",
+    description: "Syst\xE8me de prise de notes universitaire optimisant la capture, r\xE9vision et m\xE9morisation. D\xE9velopp\xE9 \xE0 Cornell University.",
     sections: ["Notes", "Mots-cl\xE9s", "R\xE9sum\xE9"],
     blockCount: 3,
     category: "notes"
@@ -208,27 +797,74 @@ var LAYOUT_INFO = {
   layout_tasks_dashboard: {
     name: "layout_tasks_dashboard",
     displayName: "Dashboard Tasks",
-    description: "Int\xE9gration avanc\xE9e avec le plugin Tasks",
+    description: "Int\xE9gration avanc\xE9e avec le plugin Tasks d'Obsidian. Affichage intelligent des t\xE2ches par contexte temporel et projet.",
     sections: ["T\xE2ches du jour", "Cette semaine", "En retard", "Projets actifs", "Statistiques"],
     blockCount: 5,
-    category: "integration"
-  },
-  layout_dataview_analytics: {
-    name: "layout_dataview_analytics",
-    displayName: "Analytics Dataview",
-    description: "Tableaux de bord avec le plugin Dataview",
-    sections: ["M\xE9triques g\xE9n\xE9rales", "Tendances", "Top tags", "Fichiers r\xE9cents", "Liens bris\xE9s", "Donn\xE9es d\xE9taill\xE9es"],
-    blockCount: 6,
-    category: "integration"
+    category: "int\xE9gration"
   }
 };
 
 // src/services/LayoutService.ts
 var LayoutService = class {
+  /**
+   * CONSTRUCTEUR avec injection de dépendance
+   * 
+   * @param plugin - Instance du plugin principal
+   * 
+   * INJECTION DE DÉPENDANCE :
+   * Le plugin est injecté pour potentiel accès futur à :
+   * - Configuration utilisateur
+   * - Système de logs
+   * - Événements du plugin
+   * 
+   * MODIFICATEUR private :
+   * Le plugin est stocké pour usage interne uniquement
+   */
   constructor(plugin) {
     this.plugin = plugin;
+    /**
+     * Stockage interne des layouts validés
+     * 
+     * CHOIX DE STRUCTURE DE DONNÉES :
+     * Map vs Object :
+     * - Map : accès O(1), iteration garantie, clés dynamiques
+     * - Object : plus de syntaxe, risque de pollution du prototype
+     * 
+     * GÉNÉRICS TYPESCRIPT :
+     * Map<K, V> indique les types de clé et valeur
+     * - K = string (nom du layout)
+     * - V = BoardLayout[] (array de blocs)
+     */
     this.models = /* @__PURE__ */ new Map();
   }
+  // ===========================================================================
+  // MÉTHODES DE CHARGEMENT ET INITIALISATION
+  // ===========================================================================
+  /**
+   * Charge et valide tous les layouts intégrés
+   * 
+   * PROCESSUS DE CHARGEMENT :
+   * 1. Vider le cache existant
+   * 2. Itérer sur tous les layouts prédéfinis
+   * 3. Valider chaque layout géométriquement
+   * 4. Stocker les layouts valides
+   * 5. Rejeter les layouts invalides avec warning
+   * 6. Logger le résumé du chargement
+   * 
+   * GESTION D'ERREURS :
+   * Les layouts invalides sont ignorés mais loggés.
+   * Le plugin continue de fonctionner avec les layouts valides.
+   * 
+   * VALIDATION GÉOMÉTRIQUE :
+   * - Vérification des limites de grille
+   * - Détection des chevauchements
+   * - Validation des types de données
+   * 
+   * @example
+   * layoutService.load();
+   * // Log: "📐 3 layouts chargés"
+   * // Log: "📋 Layouts disponibles: layout_eisenhower, layout_kanban, ..."
+   */
   load() {
     console.log("\u{1F4D0} Chargement des layouts int\xE9gr\xE9s...");
     this.models.clear();
@@ -246,6 +882,31 @@ var LayoutService = class {
     console.log(`\u{1F4D0} ${loadedCount} layouts charg\xE9s`);
     this.logAvailableLayouts();
   }
+  /**
+   * Valide complètement un layout (géométrie + cohérence)
+   * 
+   * VALIDATION EN PLUSIEURS ÉTAPES :
+   * 1. Validation individuelle de chaque bloc
+   * 2. Vérification des limites de grille
+   * 3. Détection des chevauchements
+   * 4. Création d'une grille de test pour simulation
+   * 
+   * ALGORITHME DE CHEVAUCHEMENT :
+   * - Créer une grille booléenne 24×100
+   * - Pour chaque bloc, marquer ses cellules
+   * - Si une cellule est déjà marquée = chevauchement
+   * 
+   * @param name - Nom du layout (pour les logs d'erreur)
+   * @param layout - Array de blocs à valider
+   * @returns boolean - true si le layout est entièrement valide
+   * 
+   * @example
+   * const isValid = layoutService.validateModel("test", [
+   *   { title: "Block 1", x: 0, y: 0, w: 12, h: 12 },
+   *   { title: "Block 2", x: 12, y: 0, w: 12, h: 12 }
+   * ]);
+   * // true si pas de chevauchement, false sinon
+   */
   validateModel(name, layout) {
     const grid = Array.from({ length: 24 }, () => Array(100).fill(false));
     let isValid = true;
@@ -266,12 +927,87 @@ var LayoutService = class {
     }
     return isValid;
   }
+  /**
+   * Vérifie qu'un objet a la structure d'un BoardLayout valide
+   * 
+   * TYPE GUARD TYPESCRIPT :
+   * Cette fonction est un "type guard" qui vérifie à l'exécution
+   * qu'un objet correspond à l'interface BoardLayout.
+   * 
+   * VÉRIFICATIONS :
+   * - Présence de toutes les propriétés requises
+   * - Types corrects (string pour title, number pour les autres)
+   * - Pas de vérification des valeurs (fait dans isBlockInBounds)
+   * 
+   * @param block - Objet à vérifier (type any pour flexibilité)
+   * @returns block is BoardLayout - Type guard TypeScript
+   * 
+   * @example
+   * const obj = { title: "Test", x: 0, y: 0, w: 5, h: 5 };
+   * if (isValidBlock(obj)) {
+   *   // TypeScript sait maintenant que obj est un BoardLayout
+   *   console.log(obj.title); // Pas d'erreur TypeScript
+   * }
+   */
   isValidBlock(block) {
-    return typeof block.title === "string" && typeof block.x === "number" && typeof block.y === "number" && typeof block.w === "number" && typeof block.h === "number";
+    return typeof block.title === "string" && // Titre doit être une chaîne
+    typeof block.x === "number" && // Position X doit être un nombre
+    typeof block.y === "number" && // Position Y doit être un nombre
+    typeof block.w === "number" && // Largeur doit être un nombre
+    typeof block.h === "number";
   }
+  /**
+   * Vérifie qu'un bloc respecte les limites de la grille
+   * 
+   * CONTRAINTES DE GRILLE :
+   * - x >= 0 : pas de position négative
+   * - y >= 0 : pas de position négative
+   * - w > 0 : largeur positive
+   * - h > 0 : hauteur positive
+   * - x + w <= 24 : ne déborde pas à droite
+   * - y + h <= 100 : ne déborde pas en bas
+   * 
+   * @param block - Bloc à vérifier (déjà validé par isValidBlock)
+   * @returns boolean - true si dans les limites
+   * 
+   * @example
+   * isBlockInBounds({ title: "Test", x: 20, y: 0, w: 5, h: 10 });
+   * // false car x(20) + w(5) = 25 > 24 (déborde à droite)
+   */
   isBlockInBounds(block) {
-    return block.x >= 0 && block.y >= 0 && block.w > 0 && block.h > 0 && block.x + block.w <= 24 && block.y + block.h <= 100;
+    return block.x >= 0 && // Position X positive
+    block.y >= 0 && // Position Y positive
+    block.w > 0 && // Largeur positive
+    block.h > 0 && // Hauteur positive
+    block.x + block.w <= 24 && // Pas de débordement horizontal
+    block.y + block.h <= 100;
   }
+  /**
+   * Vérifie qu'un bloc ne chevauche pas avec les blocs déjà placés
+   * 
+   * ALGORITHME :
+   * 1. Parcourir toutes les cellules du bloc
+   * 2. Pour chaque cellule (x, y), vérifier si grid[x][y] est déjà true
+   * 3. Si déjà true = chevauchement détecté
+   * 4. Sinon, marquer la cellule comme occupée
+   * 
+   * EFFET DE BORD :
+   * Cette fonction modifie la grille en marquant les cellules occupées.
+   * C'est voulu pour la détection cumulative de chevauchements.
+   * 
+   * @param grid - Grille de test (modifiée par la fonction)
+   * @param block - Bloc à placer
+   * @param modelName - Nom du layout (pour les logs d'erreur)
+   * @returns boolean - true si pas de chevauchement
+   * 
+   * @example
+   * const grid = Array.from({ length: 24 }, () => Array(100).fill(false));
+   * const block1 = { title: "A", x: 0, y: 0, w: 10, h: 10 };
+   * const block2 = { title: "B", x: 5, y: 5, w: 10, h: 10 };
+   * 
+   * checkOverlap(grid, block1, "test"); // true (première fois)
+   * checkOverlap(grid, block2, "test"); // false (chevauchement en (5,5)-(9,9))
+   */
   checkOverlap(grid, block, modelName) {
     for (let x = block.x; x < block.x + block.w; x++) {
       for (let y = block.y; y < block.y + block.h; y++) {
@@ -284,6 +1020,21 @@ var LayoutService = class {
     }
     return true;
   }
+  /**
+   * Affiche un résumé des layouts chargés dans la console
+   * 
+   * UTILITÉ :
+   * - Débogage : voir quels layouts sont disponibles
+   * - Vérification : confirmer que le chargement s'est bien passé
+   * - Documentation : liste des sections de chaque layout
+   * 
+   * FORMAT DE SORTIE :
+   * ```
+   * 📋 Layouts disponibles: layout_eisenhower, layout_kanban
+   *   • layout_eisenhower: 4 sections (Urgent et Important, Pas urgent...)
+   *   • layout_kanban: 3 sections (À faire, En cours, Terminé)
+   * ```
+   */
   logAvailableLayouts() {
     const layouts = Array.from(this.models.keys());
     console.log("\u{1F4CB} Layouts disponibles:", layouts);
@@ -292,16 +1043,108 @@ var LayoutService = class {
       console.log(`  \u2022 ${name}: ${layout.length} sections (${sections})`);
     }
   }
+  // ===========================================================================
+  // MÉTHODES D'ACCÈS PUBLIC (API DU SERVICE)
+  // ===========================================================================
+  /**
+   * Récupère un layout par son nom
+   * 
+   * API PRINCIPALE :
+   * Cette méthode est l'interface principale pour obtenir un layout.
+   * Utilisée par BoardView, ViewSwitcher, etc.
+   * 
+   * RETOUR UNDEFINED :
+   * Retourne undefined si le layout n'existe pas.
+   * Plus sûr que de lever une exception.
+   * 
+   * @param name - Nom du layout (ex: "layout_eisenhower")
+   * @returns BoardLayout[] | undefined - Layout ou undefined si inexistant
+   * 
+   * @example
+   * const layout = layoutService.getModel("layout_eisenhower");
+   * if (layout) {
+   *   // Layout trouvé, on peut l'utiliser
+   *   console.log(`Layout avec ${layout.length} blocs`);
+   * } else {
+   *   // Layout inexistant
+   *   console.error("Layout non trouvé");
+   * }
+   */
   getModel(name) {
     return this.models.get(name);
   }
+  /**
+   * Retourne la liste de tous les noms de layouts disponibles
+   * 
+   * UTILISATION :
+   * - Interface utilisateur : lister les layouts dans un menu
+   * - Validation : vérifier qu'un layout existe
+   * - Débogage : voir ce qui est disponible
+   * 
+   * @returns string[] - Array des noms de layouts
+   * 
+   * @example
+   * const names = layoutService.getAllModelNames();
+   * console.log(names); // ["layout_eisenhower", "layout_kanban", ...]
+   * 
+   * // Utilisation dans une interface
+   * names.forEach(name => {
+   *   const displayName = getLayoutDisplayName(name);
+   *   addMenuItem(displayName, () => createNote(name));
+   * });
+   */
   getAllModelNames() {
     return Array.from(this.models.keys());
   }
+  /**
+   * Obtient le nom d'affichage convivial d'un layout
+   * 
+   * MAPPING TECHNIQUE → USER-FRIENDLY :
+   * "layout_eisenhower" → "Matrice d'Eisenhower"
+   * 
+   * FALLBACK :
+   * Si aucun nom d'affichage n'est défini, retourne le nom technique.
+   * Évite les erreurs si les métadonnées sont incomplètes.
+   * 
+   * @param layoutName - Nom technique du layout
+   * @returns string - Nom d'affichage ou nom technique si non trouvé
+   * 
+   * @example
+   * const displayName = layoutService.getLayoutDisplayName("layout_eisenhower");
+   * console.log(displayName); // "Matrice d'Eisenhower"
+   * 
+   * const unknownName = layoutService.getLayoutDisplayName("layout_custom");
+   * console.log(unknownName); // "layout_custom" (fallback)
+   */
   getLayoutDisplayName(layoutName) {
     const layoutInfo = LAYOUT_INFO[layoutName];
     return layoutInfo ? layoutInfo.displayName : layoutName;
   }
+  /**
+   * Obtient les métadonnées complètes d'un layout
+   * 
+   * MÉTADONNÉES ENRICHIES :
+   * - Nom technique et d'affichage
+   * - Description et cas d'usage
+   * - Liste des sections
+   * - Nombre de blocs
+   * - Catégorie pour organisation
+   * 
+   * GÉNÉRATION AUTOMATIQUE :
+   * Si les métadonnées prédéfinies n'existent pas, génère des métadonnées
+   * basiques à partir du layout lui-même.
+   * 
+   * @param name - Nom du layout
+   * @returns LayoutInfo | undefined - Métadonnées ou undefined si layout inexistant
+   * 
+   * @example
+   * const info = layoutService.getModelInfo("layout_eisenhower");
+   * if (info) {
+   *   console.log(`${info.displayName}: ${info.description}`);
+   *   console.log(`Sections: ${info.sections.join(', ')}`);
+   *   console.log(`Catégorie: ${info.category}`);
+   * }
+   */
   getModelInfo(name) {
     const model = this.models.get(name);
     if (!model)
@@ -310,12 +1153,32 @@ var LayoutService = class {
     return info || {
       name,
       displayName: name,
+      // Nom technique par défaut
       description: "Layout personnalis\xE9",
+      // Description générique
       sections: model.map((block) => block.title),
+      // Extraire les titres des blocs
       blockCount: model.length,
+      // Compter les blocs
       category: "custom"
+      // Catégorie par défaut
     };
   }
+  /**
+   * Retourne les métadonnées de tous les layouts disponibles
+   * 
+   * UTILISATION :
+   * - Interface utilisateur : afficher tous les layouts avec détails
+   * - Filtrage : grouper par catégorie
+   * - Documentation : générer de l'aide automatiquement
+   * 
+   * PERFORMANCE :
+   * Génère les métadonnées à la demande.
+   * Pour de meilleures performances avec beaucoup de layouts,
+   * on pourrait envisager un cache.
+   * 
+   * @returns LayoutInfo[] - Array de toutes les métadonnées
+   */
   getAllModelsInfo() {
     return Array.from(this.models.keys()).map((name) => this.getModelInfo(name)).filter((info) => info !== void 0);
   }
@@ -323,9 +1186,59 @@ var LayoutService = class {
 
 // src/services/FileService.ts
 var FileService = class {
+  /**
+   * CONSTRUCTEUR avec injection de dépendance
+   * 
+   * @param app - Instance principale d'Obsidian
+   * 
+   * CONCEPT OBSIDIAN - APP :
+   * L'objet App donne accès à toutes les fonctionnalités d'Obsidian :
+   * - app.vault : Système de fichiers
+   * - app.metadataCache : Cache des métadonnées
+   * - app.workspace : Gestion des vues et onglets
+   * 
+   * MODIFICATEUR private :
+   * Rend la propriété accessible uniquement dans cette classe
+   */
   constructor(app) {
     this.app = app;
   }
+  // ===========================================================================
+  // MÉTHODES PRINCIPALES DE PARSING
+  // ===========================================================================
+  /**
+   * Parse toutes les sections H1 d'un fichier markdown
+   * 
+   * ALGORITHME :
+   * 1. Lire le contenu du fichier
+   * 2. Découper en lignes
+   * 3. Identifier les titres H1 (lignes commençant par "# ")
+   * 4. Extraire le contenu entre chaque titre
+   * 5. Créer des objets FileSection avec métadonnées
+   * 
+   * GESTION DES CAS LIMITES :
+   * - Fichier vide : retourne objet vide
+   * - Pas de sections H1 : retourne objet vide
+   * - Sections vides : incluses avec tableau de lignes vide
+   * - Dernière section : va jusqu'à la fin du fichier
+   * 
+   * @param file - Fichier Obsidian à parser
+   * @returns Promise<FileSections> - Dictionnaire des sections trouvées
+   * 
+   * @example
+   * // Pour un fichier contenant :
+   * // # Section 1
+   * // Contenu 1
+   * // # Section 2  
+   * // Contenu 2
+   * 
+   * const sections = await fileService.parseSections(file);
+   * // Retourne :
+   * // {
+   * //   "Section 1": { start: 0, end: 2, lines: ["Contenu 1"] },
+   * //   "Section 2": { start: 2, end: 4, lines: ["Contenu 2"] }
+   * // }
+   */
   async parseSections(file) {
     const content = await this.app.vault.read(file);
     const lines = content.split("\n");
@@ -341,8 +1254,11 @@ var FileService = class {
           const sectionLines = lines.slice(sectionStart + 1, i);
           sections[currentSection] = {
             start: sectionStart,
+            // Index de la ligne du titre
             end: i,
+            // Index de la ligne suivante (exclus)
             lines: sectionLines
+            // Contenu de la section
           };
           console.log(`\u{1F4C4} Section "${currentSection}": ${sectionLines.length} lignes`);
         }
@@ -355,6 +1271,7 @@ var FileService = class {
       sections[currentSection] = {
         start: sectionStart,
         end: lines.length,
+        // Fin du fichier
         lines: sectionLines
       };
       console.log(`\u{1F4C4} Section "${currentSection}": ${sectionLines.length} lignes`);
@@ -362,12 +1279,42 @@ var FileService = class {
     console.log("\u2705 Sections trouv\xE9es:", Object.keys(sections));
     return sections;
   }
+  // ===========================================================================
+  // MÉTHODES DE MODIFICATION DES FICHIERS
+  // ===========================================================================
+  /**
+   * Crée automatiquement les sections manquantes dans un fichier
+   * 
+   * PROCESSUS :
+   * 1. Parser les sections existantes
+   * 2. Comparer avec les sections requises par le layout
+   * 3. Identifier les sections manquantes
+   * 4. Trouver le point d'insertion optimal
+   * 5. Générer le contenu des nouvelles sections
+   * 6. Insérer et sauvegarder
+   * 
+   * STRATÉGIE D'INSERTION :
+   * - Après le frontmatter YAML (s'il existe)
+   * - Sinon au début du fichier
+   * - Chaque section avec titre H1 et ligne vide
+   * 
+   * @param file - Fichier à modifier
+   * @param layout - Layout définissant les sections requises
+   * @returns Promise<boolean> - true si des sections ont été créées
+   * 
+   * @example
+   * // Layout requiert : ["Section A", "Section B", "Section C"]
+   * // Fichier contient : ["Section A", "Section C"]
+   * // Résultat : Ajoute "Section B" au fichier
+   */
   async createMissingSections(file, layout) {
     console.log("\u{1F527} V\xE9rification des sections manquantes...");
     const sections = await this.parseSections(file);
     const existingSections = Object.keys(sections);
     const requiredSections = layout.map((block) => block.title);
-    const missingSections = requiredSections.filter((section) => !existingSections.includes(section));
+    const missingSections = requiredSections.filter(
+      (section) => !existingSections.includes(section)
+    );
     if (missingSections.length === 0) {
       console.log("\u2705 Toutes les sections sont pr\xE9sentes");
       return false;
@@ -384,13 +1331,43 @@ var FileService = class {
     }
     const updatedLines = [
       ...lines.slice(0, insertionPoint),
+      // Contenu avant insertion
       ...newSectionLines,
+      // Nouvelles sections
       ...lines.slice(insertionPoint)
+      // Contenu après insertion
     ];
     await this.app.vault.modify(file, updatedLines.join("\n"));
     console.log(`\u2705 ${missingSections.length} sections ajout\xE9es:`, missingSections);
     return true;
   }
+  /**
+   * Trouve le point d'insertion optimal pour les nouvelles sections
+   * 
+   * LOGIQUE :
+   * 1. Chercher un frontmatter YAML (entre --- ... ---)
+   * 2. Si frontmatter trouvé : insérer après
+   * 3. Sinon : insérer au début du fichier
+   * 
+   * FRONTMATTER YAML :
+   * Bloc de métadonnées au début des fichiers markdown :
+   * ---
+   * title: Mon titre
+   * tags: [tag1, tag2]
+   * ---
+   * 
+   * @param lines - Lignes du fichier
+   * @returns number - Index de ligne où insérer
+   * 
+   * @example
+   * // Fichier avec frontmatter :
+   * // ---
+   * // title: Test
+   * // ---
+   * // # Existing Section
+   * 
+   * findInsertionPoint(lines); // Retourne 3 (après le frontmatter)
+   */
   findInsertionPoint(lines) {
     let frontmatterEnd = 0;
     let inFrontmatter = false;
@@ -407,25 +1384,79 @@ var FileService = class {
     }
     if (frontmatterEnd === 0) {
       return 0;
+    } else {
+      return frontmatterEnd;
     }
-    return frontmatterEnd;
   }
+  /**
+   * Met à jour le contenu d'une section spécifique
+   * 
+   * PROCESSUS :
+   * 1. Parser les sections pour trouver la section cible
+   * 2. Remplacer son contenu par le nouveau
+   * 3. Conserver le titre et la structure
+   * 4. Sauvegarder le fichier
+   * 
+   * UTILISATION :
+   * Appelée par MarkdownFrame quand l'utilisateur modifie une section
+   * dans l'interface Board.
+   * 
+   * @param file - Fichier à modifier
+   * @param sectionName - Nom de la section à mettre à jour
+   * @param newContent - Nouveau contenu (sans le titre #)
+   * 
+   * @example
+   * await fileService.updateSection(file, "Urgent et Important", "- Nouvelle tâche\n- Autre tâche");
+   */
   async updateSection(file, sectionName, newContent) {
     const content = await this.app.vault.read(file);
     const lines = content.split("\n");
     const sections = await this.parseSections(file);
     const section = sections[sectionName];
-    if (!section)
+    if (!section) {
+      console.warn(`\u26A0\uFE0F Section "${sectionName}" non trouv\xE9e pour mise \xE0 jour`);
       return;
+    }
     const newLines = [
       ...lines.slice(0, section.start + 1),
+      // Avant la section (inclus le titre)
       ...newContent.split("\n"),
+      // Nouveau contenu
       ...lines.slice(section.end)
+      // Après la section
     ];
     await this.app.vault.modify(file, newLines.join("\n"));
+    console.log(`\u2705 Section "${sectionName}" mise \xE0 jour`);
   }
+  // ===========================================================================
+  // MÉTHODES UTILITAIRES
+  // ===========================================================================
+  /**
+   * Identifie les sections manquantes par rapport à un layout
+   * 
+   * ALGORITHME SIMPLE :
+   * Filtre les sections requises qui ne sont pas dans les sections existantes.
+   * 
+   * FONCTION PURE :
+   * - Pas d'effets de bord
+   * - Même entrée = même sortie
+   * - Facilement testable
+   * 
+   * @param existingSections - Sections actuellement présentes
+   * @param requiredSections - Sections requises par le layout
+   * @returns string[] - Liste des sections manquantes
+   * 
+   * @example
+   * const missing = fileService.getMissingSections(
+   *   ["Section A", "Section C"],           // Existantes
+   *   ["Section A", "Section B", "Section C"]  // Requises
+   * );
+   * // Retourne : ["Section B"]
+   */
   getMissingSections(existingSections, requiredSections) {
-    return requiredSections.filter((section) => !existingSections.includes(section));
+    return requiredSections.filter(
+      (section) => !existingSections.includes(section)
+    );
   }
 };
 
@@ -434,22 +1465,76 @@ var import_obsidian = require("obsidian");
 
 // src/components/MarkdownFrame.ts
 var MarkdownFrame = class {
+  // ===========================================================================
+  // CONSTRUCTEUR ET INITIALISATION
+  // ===========================================================================
+  /**
+   * CONSTRUCTEUR du composant MarkdownFrame
+   * * @param app - Instance principale d'Obsidian
+   * @param container - Élément DOM parent où injecter le composant
+   * @param file - Fichier source contenant cette section
+   * @param section - Métadonnées de la section (lignes, position)
+   * @param onChange - Callback appelé lors des modifications
+   * * INJECTION DE DÉPENDANCES :
+   * - app : Pour accès aux APIs Obsidian (rendu, navigation)
+   * - container : Pour manipulation DOM
+   * - file : Pour contexte de rendu (chemins relatifs, etc.)
+   * - onChange : Pour notifier le parent des changements
+   * * INITIALISATION :
+   * Le constructeur démarre immédiatement l'initialisation complète.
+   * * @example
+   * const frame = new MarkdownFrame(
+   * app,
+   * frameElement,
+   * currentFile,
+   * sectionData,
+   * (newContent) => saveToFile(sectionName, newContent)
+   * );
+   */
   constructor(app, container, file, section, onChange) {
     this.app = app;
     this.container = container;
     this.file = file;
     this.section = section;
     this.onChange = onChange;
+    // ===========================================================================
+    // PROPRIÉTÉS D'ÉTAT DU COMPOSANT
+    // ===========================================================================
+    /**
+     * Indicateur du mode d'édition actuel
+     * * ÉTATS POSSIBLES :
+     * - false : Mode preview (affichage rendu)
+     * - true : Mode édition (textarea visible)
+     */
     this.isEditing = false;
     this.content = section.lines.join("\n");
     this.initializeFrame();
   }
+  /**
+   * Initialise complètement l'interface du composant
+   * * ÉTAPES D'INITIALISATION :
+   * 1. Configuration du conteneur principal
+   * 2. Création du conteneur preview
+   * 3. Création du conteneur d'édition
+   * 4. Affichage initial en mode preview
+   * * PATTERN TEMPLATE METHOD :
+   * Orchestration de l'initialisation en étapes définies.
+   */
   initializeFrame() {
     this.setupContainer();
     this.createPreviewContainer();
     this.createEditorContainer();
     this.showPreview();
   }
+  /**
+   * Configure le conteneur principal du composant
+   * * NETTOYAGE :
+   * Vide le conteneur existant pour éviter les conflits.
+   * * STYLES CSS :
+   * - Position relative pour positionnement des enfants
+   * - Overflow hidden pour contenir le contenu
+   * - Dimensions 100% pour remplir l'espace disponible
+   */
   setupContainer() {
     this.container.empty();
     this.container.style.cssText = `
@@ -459,6 +1544,18 @@ var MarkdownFrame = class {
       overflow: hidden;
     `;
   }
+  // ===========================================================================
+  // CRÉATION DES INTERFACES PREVIEW ET ÉDITION
+  // ===========================================================================
+  /**
+   * Crée et configure le conteneur de preview (affichage rendu)
+   * * RESPONSABILITÉS :
+   * - Affichage du contenu markdown rendu
+   * - Gestion des interactions (clics, tâches, liens)
+   * - Détection du basculement vers l'édition
+   * * STYLES :
+   * Intégration avec les variables CSS d'Obsidian pour cohérence visuelle.
+   */
   createPreviewContainer() {
     this.previewContainer = this.container.createDiv("markdown-preview");
     this.previewContainer.style.cssText = `
@@ -472,6 +1569,15 @@ var MarkdownFrame = class {
     this.renderContent();
     this.setupPreviewEvents();
   }
+  /**
+   * Crée et configure le conteneur d'édition (textarea)
+   * * RESPONSABILITÉS :
+   * - Interface de modification directe du markdown
+   * - Sauvegarde automatique des changements
+   * - Gestion des raccourcis clavier (Escape)
+   * * VISIBILITÉ :
+   * Initialement caché, affiché seulement en mode édition.
+   */
   createEditorContainer() {
     this.editorContainer = this.container.createDiv("markdown-editor");
     this.editorContainer.style.cssText = `
@@ -498,6 +1604,23 @@ var MarkdownFrame = class {
     this.textArea.value = this.content;
     this.setupEditorEvents();
   }
+  // ===========================================================================
+  // MOTEUR DE RENDU MARKDOWN
+  // ===========================================================================
+  /**
+   * Rend le contenu markdown avec le moteur officiel d'Obsidian
+   * * MOTEUR DE RENDU :
+   * Utilise MarkdownRenderer.renderMarkdown() qui supporte :
+   * - Toutes les extensions markdown d'Obsidian
+   * - Plugins tiers (Tasks, Dataview, etc.)
+   * - Liens internes et navigation
+   * - Syntaxe avancée (callouts, etc.)
+   * * FALLBACK :
+   * En cas d'erreur, utilise un moteur de rendu simple
+   * pour maintenir la fonctionnalité de base.
+   * * GESTION DU CONTENU VIDE :
+   * Affiche un placeholder engageant pour inciter à l'édition.
+   */
   async renderContent() {
     this.previewContainer.empty();
     if (!this.content.trim()) {
@@ -509,9 +1632,13 @@ var MarkdownFrame = class {
       const component = new Component();
       await MarkdownRenderer.renderMarkdown(
         this.content,
+        // Contenu à rendre
         this.previewContainer,
+        // Conteneur de destination
         this.file.path,
+        // Contexte de fichier (pour liens relatifs)
         component
+        // Composant pour cycle de vie
       );
       console.log("\u2705 Contenu rendu avec le moteur Obsidian (plugins support\xE9s)");
       this.setupInteractions();
@@ -520,6 +1647,20 @@ var MarkdownFrame = class {
       this.previewContainer.innerHTML = this.renderSimpleMarkdown(this.content);
     }
   }
+  /**
+   * Configure les interactions avec les éléments rendus
+   * * INTERACTIONS SUPPORTÉES :
+   * 1. Tâches cochables (Tasks plugin)
+   * 2. Liens internes Obsidian
+   * 3. Liens externes
+   * 4. Éléments Dataview
+   * * PATTERN EVENT DELEGATION :
+   * Ajoute des écouteurs sur les éléments spécifiques
+   * plutôt que sur le conteneur global.
+   * * PRÉVENTION DE PROPAGATION :
+   * Empêche les clics sur éléments interactifs de déclencher
+   * le mode édition.
+   */
   setupInteractions() {
     const taskCheckboxes = this.previewContainer.querySelectorAll('input[type="checkbox"].task-list-item-checkbox');
     taskCheckboxes.forEach((checkbox) => {
@@ -545,6 +1686,21 @@ var MarkdownFrame = class {
       });
     });
   }
+  /**
+   * Gère le cochage/décochage des tâches
+   * * ALGORITHME :
+   * 1. Identifier la tâche modifiée dans le DOM
+   * 2. Trouver la ligne correspondante dans le markdown
+   * 3. Mettre à jour la syntaxe de tâche ([ ] ↔ [x])
+   * 4. Déclencher la sauvegarde automatique
+   * * SYNCHRONISATION :
+   * Maintient la cohérence entre affichage et source markdown.
+   * * @param checkbox - Élément checkbox qui a été modifié
+   * * @example
+   * // Utilisateur coche une tâche dans l'affichage
+   * // handleTaskToggle() met à jour le markdown :
+   * // "- [ ] Tâche" → "- [x] Tâche"
+   */
   handleTaskToggle(checkbox) {
     const isChecked = checkbox.checked;
     const listItem = checkbox.closest("li");
@@ -569,18 +1725,50 @@ var MarkdownFrame = class {
       }
     }
   }
+  /**
+   * Extrait le texte d'une tâche depuis un élément de liste DOM
+   * * @param listItem - Élément <li> contenant la tâche
+   * @returns string | null - Texte de la tâche ou null si non trouvé
+   */
   getTaskTextFromListItem(listItem) {
     var _a;
     const textNode = listItem.childNodes[listItem.childNodes.length - 1];
     return ((_a = textNode == null ? void 0 : textNode.textContent) == null ? void 0 : _a.trim()) || null;
   }
+  /**
+   * Vérifie si une ligne markdown est une tâche
+   * * @param line - Ligne de texte à vérifier
+   * @returns boolean - true si c'est une ligne de tâche
+   * * @example
+   * isTaskLine("- [x] Tâche terminée");  // true
+   * isTaskLine("- [ ] Tâche à faire");   // true
+   * isTaskLine("- Simple liste");        // false
+   */
   isTaskLine(line) {
     return /^[\s]*[-*+] \[[ x]\]/.test(line);
   }
+  /**
+   * Extrait le texte d'une tâche depuis une ligne markdown
+   * * @param line - Ligne markdown contenant une tâche
+   * @returns string - Texte de la tâche (sans la syntaxe de liste/checkbox)
+   */
   getTaskTextFromLine(line) {
     const match = line.match(/^[\s]*[-*+] \[[ x]\] (.+)$/);
     return match ? match[1].trim() : "";
   }
+  /**
+   * Moteur de rendu markdown simple (fallback)
+   * * UTILISATION :
+   * Quand le moteur Obsidian n'est pas disponible ou échoue.
+   * Supporte la syntaxe markdown de base.
+   * * FONCTIONNALITÉS :
+   * - Liens internes [[...]]
+   * - Gras **texte**
+   * - Italique *texte*
+   * - Listes simples
+   * * @param content - Contenu markdown à rendre
+   * @returns string - HTML généré
+   */
   renderSimpleMarkdown(content) {
     let html = content;
     html = html.replace(/\[\[([^\]]+)\]\]/g, '<span class="internal-link">$1</span>');
@@ -616,6 +1804,12 @@ var MarkdownFrame = class {
     }
     return result;
   }
+  /**
+   * Affiche un état vide engageant pour inciter à l'édition
+   * * DESIGN UX :
+   * Message clair et incitatif plutôt qu'un vide intimidant.
+   * Style cohérent avec l'interface Obsidian.
+   */
   renderEmptyState() {
     const placeholder = this.previewContainer.createDiv("empty-placeholder");
     placeholder.style.cssText = `
@@ -630,6 +1824,15 @@ var MarkdownFrame = class {
     `;
     placeholder.textContent = "Cliquez pour commencer \xE0 \xE9crire...";
   }
+  // ===========================================================================
+  // GESTION DES ÉVÉNEMENTS ET INTERACTIONS
+  // ===========================================================================
+  /**
+   * Configure les événements du mode preview
+   * * DÉTECTION INTELLIGENTE :
+   * Distingue les clics sur éléments interactifs des clics d'édition.
+   * Évite le basculement involontaire vers l'édition.
+   */
   setupPreviewEvents() {
     this.previewContainer.addEventListener("click", (event) => {
       const target = event.target;
@@ -641,6 +1844,19 @@ var MarkdownFrame = class {
       this.enterEditMode();
     });
   }
+  /**
+   * Détecte si un élément est interactif (ne doit pas déclencher l'édition)
+   * * ÉLÉMENTS INTERACTIFS :
+   * - Éléments HTML standard : input, button, a, select
+   * - Éléments Obsidian : liens internes, tags
+   * - Éléments de plugins : dataview, tasks
+   * - Éléments avec attributs spéciaux
+   * * ALGORITHME :
+   * Remonte la hiérarchie DOM pour vérifier tous les parents.
+   * Un élément est interactif si lui ou un parent l'est.
+   * * @param element - Élément à vérifier
+   * @returns boolean - true si interactif
+   */
   isInteractiveElement(element) {
     let current = element;
     while (current && current !== this.previewContainer) {
@@ -670,6 +1886,13 @@ var MarkdownFrame = class {
     }
     return false;
   }
+  /**
+   * Configure les événements du mode édition
+   * * ÉVÉNEMENTS GÉRÉS :
+   * - input : Sauvegarde différée des modifications
+   * - blur : Retour automatique au mode preview
+   * - keydown : Raccourcis clavier (Escape)
+   */
   setupEditorEvents() {
     this.textArea.addEventListener("input", () => {
       this.content = this.textArea.value;
@@ -689,6 +1912,18 @@ var MarkdownFrame = class {
       }
     });
   }
+  // ===========================================================================
+  // GESTION DES MODES (PREVIEW ↔ ÉDITION)
+  // ===========================================================================
+  /**
+   * Bascule vers le mode édition
+   * * PROCESSUS :
+   * 1. Marquer l'état comme "en édition"
+   * 2. Cacher le preview
+   * 3. Afficher l'éditeur
+   * 4. Synchroniser le contenu
+   * 5. Donner le focus au textarea
+   */
   enterEditMode() {
     this.isEditing = true;
     this.previewContainer.style.display = "none";
@@ -697,6 +1932,15 @@ var MarkdownFrame = class {
     this.textArea.focus();
     console.log("\u270F\uFE0F Mode \xE9dition activ\xE9");
   }
+  /**
+   * Bascule vers le mode preview
+   * * PROCESSUS :
+   * 1. Vérifier qu'on est bien en édition
+   * 2. Récupérer le contenu du textarea
+   * 3. Cacher l'éditeur
+   * 4. Afficher le preview
+   * 5. Re-rendre le contenu
+   */
   exitEditMode() {
     if (!this.isEditing)
       return;
@@ -707,11 +1951,26 @@ var MarkdownFrame = class {
     this.renderContent();
     console.log("\u{1F441}\uFE0F Mode preview activ\xE9");
   }
+  /**
+   * Force l'affichage du mode preview
+   * * UTILISATION :
+   * Initialisation du composant et réinitialisations.
+   */
   showPreview() {
     this.previewContainer.style.display = "block";
     this.editorContainer.style.display = "none";
     this.isEditing = false;
   }
+  // ===========================================================================
+  // API PUBLIQUE DU COMPOSANT
+  // ===========================================================================
+  /**
+   * Met à jour le contenu de la section
+   * * UTILISATION :
+   * Quand le fichier source est modifié externement.
+   * Maintient la synchronisation avec la source de vérité.
+   * * @param section - Nouvelles données de section
+   */
   updateContent(section) {
     this.section = section;
     this.content = section.lines.join("\n");
@@ -721,9 +1980,22 @@ var MarkdownFrame = class {
       this.renderContent();
     }
   }
+  /**
+   * Obtient le contenu actuel de la section
+   * * @returns string - Contenu markdown actuel
+   */
   getContent() {
     return this.isEditing ? this.textArea.value : this.content;
   }
+  /**
+   * Détruit proprement le composant
+   * * NETTOYAGE :
+   * - Vide le conteneur DOM
+   * - Annule les timers en cours
+   * - Libère les références
+   * * UTILISATION :
+   * Appelée lors du nettoyage de la BoardView.
+   */
   destroy() {
     this.container.empty();
     console.log("\u{1F5D1}\uFE0F MarkdownFrame d\xE9truite");
@@ -1054,40 +2326,168 @@ var BoardView = class extends import_obsidian.FileView {
 // src/managers/ViewSwitcher.ts
 var import_obsidian2 = require("obsidian");
 var ViewSwitcher = class {
+  /**
+   * CONSTRUCTEUR avec injection de dépendance
+   * 
+   * @param plugin - Instance du plugin principal
+   * 
+   * INJECTION DE DÉPENDANCE :
+   * Le plugin donne accès à :
+   * - app : Instance Obsidian pour les opérations
+   * - layoutService : Pour vérifier les layouts disponibles
+   * - registerEvent : Pour s'abonner aux événements
+   */
   constructor(plugin) {
     this.plugin = plugin;
   }
+  // ===========================================================================
+  // MÉTHODES DE BASCULEMENT ENTRE VUES
+  // ===========================================================================
+  /**
+   * Bascule vers la vue Board pour un fichier donné
+   * 
+   * PROCESSUS :
+   * 1. Obtenir l'onglet actif (activeLeaf)
+   * 2. Changer son type de vue vers BOARD_VIEW_TYPE
+   * 3. Passer le chemin du fichier en paramètre d'état
+   * 
+   * CONCEPT OBSIDIAN - SETVIEWSTATE :
+   * setViewState permet de changer complètement le type de vue d'un onglet.
+   * C'est comme transformer un onglet "texte" en onglet "image" par exemple.
+   * 
+   * @param file - Fichier à afficher en mode Board
+   * 
+   * @example
+   * // L'utilisateur clique sur le bouton "Mode Board"
+   * viewSwitcher.switchToBoardView(currentFile);
+   * // L'onglet passe de MarkdownView à BoardView
+   */
   async switchToBoardView(file) {
     const activeLeaf = this.plugin.app.workspace.activeLeaf;
     if (activeLeaf) {
       await activeLeaf.setViewState({
         type: BOARD_VIEW_TYPE,
+        // Notre type de vue personnalisé
         state: { file: file.path }
+        // État initial : quel fichier afficher
       });
       console.log("\u{1F3AF} Basculement vers Board View");
     }
   }
+  /**
+   * Bascule vers la vue Markdown standard pour un fichier donné
+   * 
+   * PROCESSUS INVERSE :
+   * Même principe que switchToBoardView mais vers la vue standard d'Obsidian.
+   * 
+   * @param file - Fichier à afficher en mode Markdown
+   * 
+   * @example
+   * // L'utilisateur clique sur le bouton "Mode Markdown"
+   * viewSwitcher.switchToMarkdownView(currentFile);
+   * // L'onglet passe de BoardView à MarkdownView
+   */
   async switchToMarkdownView(file) {
     const activeLeaf = this.plugin.app.workspace.activeLeaf;
     if (activeLeaf) {
       await activeLeaf.setViewState({
         type: "markdown",
+        // Type de vue standard d'Obsidian
         state: { file: file.path }
+        // Même fichier, vue différente
       });
       console.log("\u{1F4DD} Basculement vers Markdown View");
     }
   }
+  // ===========================================================================
+  // MÉTHODES DE DÉTECTION DE CONTEXTE
+  // ===========================================================================
+  /**
+   * Vérifie si la vue actuelle est notre BoardView
+   * 
+   * UTILITÉ :
+   * Permet de savoir quel bouton afficher (Board → Markdown ou Markdown → Board).
+   * 
+   * MÉTHODE OBSIDIAN :
+   * getActiveViewOfType() cherche une vue d'un type spécifique dans l'espace de travail.
+   * Retourne l'instance ou null si aucune vue de ce type n'est active.
+   * 
+   * @returns boolean - true si on est en mode Board
+   * 
+   * @example
+   * if (viewSwitcher.isCurrentViewBoardView()) {
+   *   showMarkdownButton();
+   * } else {
+   *   showBoardButton();
+   * }
+   */
   isCurrentViewBoardView() {
     return this.plugin.app.workspace.getActiveViewOfType(BoardView) !== null;
   }
+  /**
+   * Vérifie si la vue actuelle est la MarkdownView standard
+   * 
+   * COMPLÉMENT DE isCurrentViewBoardView :
+   * Ces deux méthodes permettent de couvrir tous les cas de figure.
+   * 
+   * @returns boolean - true si on est en mode Markdown
+   */
   isCurrentViewMarkdownView() {
     return this.plugin.app.workspace.getActiveViewOfType(import_obsidian2.MarkdownView) !== null;
   }
+  /**
+   * Vérifie si un fichier a un layout agile-board configuré
+   * 
+   * LOGIQUE MÉTIER :
+   * - Seuls les fichiers avec layout agile-board peuvent utiliser la vue Board
+   * - Cette vérification détermine si les boutons doivent être affichés
+   * 
+   * ACCÈS AUX MÉTADONNÉES :
+   * - metadataCache : Cache des métadonnées des fichiers
+   * - getFileCache : Obtient les métadonnées d'un fichier
+   * - frontmatter : Bloc YAML en début de fichier
+   * 
+   * @param file - Fichier à vérifier
+   * @returns boolean - true si le fichier a un layout agile-board
+   * 
+   * @example
+   * // Fichier avec frontmatter :
+   * // ---
+   * // agile-board: layout_eisenhower
+   * // ---
+   * hasAgileBoardLayout(file); // true
+   * 
+   * // Fichier normal sans frontmatter
+   * hasAgileBoardLayout(file); // false
+   */
   hasAgileBoardLayout(file) {
     var _a;
     const fileCache = this.plugin.app.metadataCache.getFileCache(file);
     return ((_a = fileCache == null ? void 0 : fileCache.frontmatter) == null ? void 0 : _a["agile-board"]) !== void 0;
   }
+  // ===========================================================================
+  // MÉTHODES DE GESTION DES BOUTONS D'INTERFACE
+  // ===========================================================================
+  /**
+   * Configure les écouteurs d'événements pour la gestion automatique des boutons
+   * 
+   * ÉVÉNEMENTS OBSIDIAN SURVEILLÉS :
+   * 1. active-leaf-change : Changement d'onglet actif
+   * 2. file-open : Ouverture d'un nouveau fichier
+   * 3. metadataCache.on('changed') : Modification des métadonnées
+   * 
+   * PATTERN OBSERVER :
+   * S'abonne aux événements système plutôt que de sonder constamment.
+   * Plus efficace et réactif.
+   * 
+   * DÉLAIS (setTimeout) :
+   * Petits délais pour laisser le temps à Obsidian de finaliser les changements
+   * avant de mettre à jour l'interface.
+   * 
+   * @example
+   * viewSwitcher.addSwitchButton();
+   * // À partir de maintenant, les boutons apparaissent/disparaissent automatiquement
+   */
   addSwitchButton() {
     this.plugin.registerEvent(
       this.plugin.app.workspace.on("active-leaf-change", () => {
@@ -1109,6 +2509,15 @@ var ViewSwitcher = class {
     );
     setTimeout(() => this.updateSwitchButton(), 100);
   }
+  /**
+   * Met à jour les boutons pour un fichier spécifique
+   * 
+   * UTILISATION :
+   * Appelée depuis l'extérieur (ModelDetector) quand un changement est détecté.
+   * Version optimisée qui évite de re-analyser le contexte.
+   * 
+   * @param file - Fichier pour lequel mettre à jour les boutons
+   */
   updateSwitchButtonForFile(file) {
     const hasLayout = this.hasAgileBoardLayout(file);
     if (hasLayout) {
@@ -1121,6 +2530,18 @@ var ViewSwitcher = class {
       this.removeSwitchButtons();
     }
   }
+  /**
+   * Met à jour les boutons selon le contexte actuel
+   * 
+   * LOGIQUE GLOBALE :
+   * 1. Identifier le fichier actif
+   * 2. Vérifier s'il a un layout agile-board
+   * 3. Déterminer la vue actuelle
+   * 4. Afficher le bouton approprié
+   * 
+   * MÉTHODE PRINCIPALE :
+   * Point d'entrée pour toutes les mises à jour automatiques.
+   */
   updateSwitchButton() {
     const activeFile = this.plugin.app.workspace.getActiveFile();
     if (!activeFile)
@@ -1138,6 +2559,23 @@ var ViewSwitcher = class {
       this.removeSwitchButtons();
     }
   }
+  /**
+   * S'assure qu'un bouton "Mode Board" est présent en vue Markdown
+   * 
+   * PROCESSUS :
+   * 1. Trouver la vue Markdown active
+   * 2. Localiser la zone des actions de vue (.view-actions)
+   * 3. Supprimer le bouton existant s'il y en a un
+   * 4. Créer et configurer le nouveau bouton
+   * 5. Ajouter les styles et l'événement click
+   * 
+   * GESTION D'ERREURS :
+   * Try-catch pour éviter que les erreurs d'interface cassent le plugin.
+   * 
+   * CONCEPT OBSIDIAN - addAction :
+   * addAction() est la méthode officielle pour ajouter des boutons aux vues.
+   * Paramètres : (icône, tooltip, callback)
+   */
   ensureBoardModeButton() {
     const markdownView = this.plugin.app.workspace.getActiveViewOfType(import_obsidian2.MarkdownView);
     if (!markdownView)
@@ -1169,6 +2607,16 @@ var ViewSwitcher = class {
       console.error("Erreur lors de l'ajout du bouton Mode Board:", error);
     }
   }
+  /**
+   * S'assure qu'un bouton "Mode Markdown" est présent en vue Board
+   * 
+   * PROCESSUS SIMILAIRE à ensureBoardModeButton mais pour BoardView.
+   * 
+   * DIFFÉRENCES :
+   * - Utilise getActiveViewOfType(BoardView)
+   * - Icône 'document' au lieu de 'layout-grid'
+   * - Callback vers switchToMarkdownView
+   */
   ensureNormalModeButton() {
     const boardView = this.plugin.app.workspace.getActiveViewOfType(BoardView);
     if (!boardView)
@@ -1200,10 +2648,43 @@ var ViewSwitcher = class {
       console.error("Erreur lors de l'ajout du bouton Mode Markdown:", error);
     }
   }
+  /**
+   * Supprime tous les boutons de basculement de l'interface
+   * 
+   * UTILISATION :
+   * - Quand on ouvre un fichier sans layout agile-board
+   * - Quand on bascule vers une vue non supportée
+   * - Lors du nettoyage du plugin
+   * 
+   * SÉLECTEUR GLOBAL :
+   * Utilise document.querySelectorAll pour trouver tous les boutons,
+   * même s'ils sont dans des onglets différents.
+   * 
+   * CLASSE IDENTIFICATRICE :
+   * Tous nos boutons ont la classe 'agile-board-switch-button'
+   * pour un nettoyage facile et sûr.
+   */
   removeSwitchButtons() {
     const buttons = document.querySelectorAll(".agile-board-switch-button");
     buttons.forEach((button) => button.remove());
   }
+  // ===========================================================================
+  // MÉTHODES DE CYCLE DE VIE
+  // ===========================================================================
+  /**
+   * Nettoie les ressources utilisées par le ViewSwitcher
+   * 
+   * APPELÉE PAR :
+   * Le plugin principal lors de son déchargement (onunload).
+   * 
+   * NETTOYAGE :
+   * - Supprime tous les boutons de l'interface
+   * - Les écouteurs d'événements sont automatiquement nettoyés par Obsidian
+   *   grâce à registerEvent() utilisé dans addSwitchButton()
+   * 
+   * IMPORTANCE :
+   * Évite les fuites mémoire et les boutons orphelins dans l'interface.
+   */
   stop() {
     this.removeSwitchButtons();
   }
@@ -1211,10 +2692,59 @@ var ViewSwitcher = class {
 
 // src/managers/ModelDetector.ts
 var ModelDetector = class {
+  /**
+   * CONSTRUCTEUR avec injection de dépendance
+   * 
+   * @param plugin - Instance du plugin principal
+   * 
+   * DÉPENDANCES UTILISÉES :
+   * - plugin.app : Pour accéder aux APIs Obsidian
+   * - plugin.layoutService : Pour valider les layouts
+   * - plugin.viewSwitcher : Pour mettre à jour l'interface
+   * - plugin.registerEvent : Pour l'abonnement sécurisé aux événements
+   */
   constructor(plugin) {
     this.plugin = plugin;
+    /**
+     * Cache des fichiers déjà traités
+     * 
+     * STRUCTURE DE DONNÉES :
+     * Set<string> pour un accès O(1) et éviter les doublons.
+     * 
+     * CLÉ DE CACHE :
+     * "chemin-du-fichier-timestamp" pour invalidation automatique
+     * quand le fichier est modifié.
+     * 
+     * AVANTAGES :
+     * - Évite les retraitements inutiles
+     * - Performance optimisée pour les gros vaults
+     * - Invalidation automatique lors des modifications
+     */
     this.processedFiles = /* @__PURE__ */ new Set();
   }
+  // ===========================================================================
+  // MÉTHODES DE CYCLE DE VIE
+  // ===========================================================================
+  /**
+   * Initialise la surveillance des événements Obsidian
+   * 
+   * ÉVÉNEMENTS SURVEILLÉS :
+   * 1. metadataCache.on('changed') : Modification des métadonnées
+   * 2. workspace.on('file-open') : Ouverture de fichier
+   * 3. workspace.on('active-leaf-change') : Changement d'onglet actif
+   * 
+   * DÉLAIS D'INITIALISATION :
+   * Délai de 1 seconde pour laisser Obsidian finir son initialisation
+   * avant de traiter les fichiers déjà ouverts.
+   * 
+   * PATTERN REGISTER-EVENT :
+   * Utilise plugin.registerEvent() pour un nettoyage automatique
+   * des écouteurs lors du déchargement du plugin.
+   * 
+   * @example
+   * modelDetector.onLoad();
+   * // À partir de maintenant, les changements sont détectés automatiquement
+   */
   onLoad() {
     this.plugin.registerEvent(
       this.plugin.app.metadataCache.on("changed", (file) => {
@@ -1242,17 +2772,80 @@ var ModelDetector = class {
       this.processAllOpenFiles();
     }, 1e3);
   }
+  /**
+   * Nettoie les ressources utilisées par le détecteur
+   * 
+   * APPELÉE PAR :
+   * Le plugin principal lors de son déchargement (onunload).
+   * 
+   * NETTOYAGE :
+   * - Vide le cache des fichiers traités
+   * - Les écouteurs d'événements sont automatiquement nettoyés par Obsidian
+   * 
+   * IMPORTANCE :
+   * Évite les fuites mémoire et prépare un rechargement propre du plugin.
+   */
   onUnload() {
     this.processedFiles.clear();
   }
+  // ===========================================================================
+  // GESTIONNAIRES D'ÉVÉNEMENTS PRIVÉS
+  // ===========================================================================
+  /**
+   * Gère les changements de métadonnées d'un fichier
+   * 
+   * DÉCLENCHEMENT :
+   * Quand l'utilisateur modifie le frontmatter d'un fichier.
+   * Par exemple, ajouter ou changer "agile-board: layout_kanban".
+   * 
+   * LOGIQUE :
+   * Les métadonnées changées peuvent affecter l'affichage des boutons,
+   * donc on relance le traitement du fichier.
+   * 
+   * @param file - Fichier dont les métadonnées ont changé
+   * 
+   * @example
+   * // L'utilisateur ajoute dans le frontmatter :
+   * // agile-board: layout_eisenhower
+   * // → handleMetadataChanged() est appelée
+   * // → Les boutons de basculement apparaissent
+   */
   handleMetadataChanged(file) {
     console.log("\u{1F4DD} M\xE9tadonn\xE9es chang\xE9es pour:", file.basename);
     this.processFile(file);
   }
+  /**
+   * Gère l'ouverture d'un fichier
+   * 
+   * DÉCLENCHEMENT :
+   * - Ouverture d'un nouveau fichier
+   * - Basculement vers un onglet existant
+   * - Navigation par liens internes
+   * 
+   * @param file - Fichier qui vient d'être ouvert/activé
+   */
   handleFileOpen(file) {
     console.log("\u{1F4C2} Fichier ouvert:", file.basename);
     this.processFile(file);
   }
+  /**
+   * Traite tous les fichiers déjà ouverts au démarrage
+   * 
+   * UTILISATION :
+   * Appelée une fois lors de l'initialisation pour traiter les fichiers
+   * qui étaient déjà ouverts avant l'activation du plugin.
+   * 
+   * MÉTHODE OBSIDIAN :
+   * iterateAllLeaves() parcourt tous les onglets ouverts dans l'espace de travail.
+   * 
+   * FILTRAGE :
+   * Seuls les onglets avec vue markdown et fichier valide sont traités.
+   * 
+   * @example
+   * // Au démarrage d'Obsidian avec 3 fichiers ouverts :
+   * // processAllOpenFiles() va traiter les 3 fichiers
+   * // et afficher les boutons appropriés
+   */
   processAllOpenFiles() {
     console.log("\u{1F50D} Traitement initial de tous les fichiers ouverts...");
     this.plugin.app.workspace.iterateAllLeaves((leaf) => {
@@ -1262,6 +2855,36 @@ var ModelDetector = class {
       }
     });
   }
+  // ===========================================================================
+  // LOGIQUE MÉTIER PRINCIPALE
+  // ===========================================================================
+  /**
+   * Traite un fichier individuel et met à jour l'interface si nécessaire
+   * 
+   * ALGORITHME :
+   * 1. Filtrer les fichiers non-markdown
+   * 2. Générer une clé de cache unique
+   * 3. Vérifier si déjà traité (cache hit)
+   * 4. Détecter si le fichier a un layout agile-board
+   * 5. Mettre à jour l'interface via ViewSwitcher
+   * 6. Nettoyer le cache si nécessaire
+   * 
+   * OPTIMISATION DE CACHE :
+   * La clé inclut le timestamp de modification (mtime) pour invalider
+   * automatiquement le cache quand le fichier change.
+   * 
+   * @param file - Fichier à traiter
+   * 
+   * @example
+   * // Première fois : traitement complet
+   * processFile(myFile); // Cache miss → traitement
+   * 
+   * // Deuxième fois (fichier inchangé) : cache hit
+   * processFile(myFile); // Cache hit → pas de traitement
+   * 
+   * // Après modification du fichier : cache invalidé
+   * processFile(myFile); // Cache miss → traitement
+   */
   processFile(file) {
     if (!file.path.endsWith(".md"))
       return;
@@ -1276,6 +2899,33 @@ var ModelDetector = class {
       this.plugin.viewSwitcher.updateSwitchButtonForFile(file);
     }, 50);
   }
+  /**
+   * Vérifie si un fichier a un layout agile-board valide
+   * 
+   * VALIDATION EN DEUX ÉTAPES :
+   * 1. Vérifier la présence du champ 'agile-board' dans le frontmatter
+   * 2. Vérifier que le layout existe dans le LayoutService
+   * 
+   * GESTION D'ERREURS :
+   * Si un layout est spécifié mais n'existe pas, log un warning
+   * mais retourne false (traitement gracieux).
+   * 
+   * @param file - Fichier à vérifier
+   * @returns boolean - true si le fichier a un layout valide
+   * 
+   * @example
+   * // Fichier avec frontmatter valide :
+   * // ---
+   * // agile-board: layout_eisenhower
+   * // ---
+   * hasAgileBoardLayout(file); // true
+   * 
+   * // Fichier avec layout inexistant :
+   * // ---
+   * // agile-board: layout_inexistant
+   * // ---
+   * hasAgileBoardLayout(file); // false + warning
+   */
   hasAgileBoardLayout(file) {
     var _a;
     const fileCache = this.plugin.app.metadataCache.getFileCache(file);
@@ -1289,17 +2939,68 @@ var ModelDetector = class {
     }
     return true;
   }
+  // ===========================================================================
+  // GESTION DU CACHE ET OPTIMISATIONS
+  // ===========================================================================
+  /**
+   * Nettoie le cache pour éviter une croissance excessive
+   * 
+   * STRATÉGIE DE NETTOYAGE :
+   * - Limite : 100 entrées maximum dans le cache
+   * - Méthode : Garder les 50 entrées les plus récentes
+   * - Déclenchement : À chaque ajout dans le cache
+   * 
+   * POURQUOI NETTOYER :
+   * - Éviter la fuite mémoire avec de gros vaults
+   * - Maintenir des performances optimales
+   * - Les anciennes entrées sont probablement obsolètes
+   * 
+   * ALGORITHME LRU SIMPLE :
+   * Les entrées sont dans l'ordre d'insertion dans le Set.
+   * On garde les dernières ajoutées (= les plus récemment utilisées).
+   * 
+   * @example
+   * // Cache avec 100+ entrées
+   * cleanupProcessedFiles();
+   * // → Cache réduit à 50 entrées les plus récentes
+   */
   cleanupProcessedFiles() {
     if (this.processedFiles.size > 100) {
       const entries = Array.from(this.processedFiles);
       const toKeep = entries.slice(-50);
       this.processedFiles.clear();
       toKeep.forEach((entry) => this.processedFiles.add(entry));
+      console.log("\u{1F9F9} Cache nettoy\xE9: gard\xE9 50 entr\xE9es sur", entries.length);
     }
   }
+  // ===========================================================================
+  // MÉTHODES UTILITAIRES PUBLIQUES
+  // ===========================================================================
+  /**
+   * Force une mise à jour complète de tous les fichiers ouverts
+   * 
+   * UTILISATION :
+   * - Commande de débogage
+   * - Après rechargement de layouts
+   * - Récupération d'état incohérent
+   * 
+   * PROCESSUS :
+   * 1. Vider complètement le cache
+   * 2. Retraiter tous les fichiers ouverts
+   * 3. Mettre à jour toute l'interface
+   * 
+   * PERFORMANCE :
+   * Opération coûteuse, à utiliser avec parcimonie.
+   * 
+   * @example
+   * // L'utilisateur utilise la commande "Force Update Board Buttons"
+   * modelDetector.forceUpdate();
+   * // → Tous les boutons sont recalculés et mis à jour
+   */
   forceUpdate() {
     this.processedFiles.clear();
     this.processAllOpenFiles();
+    console.log("\u{1F504} Mise \xE0 jour forc\xE9e termin\xE9e");
   }
 };
 
@@ -1315,23 +3016,49 @@ var DEFAULT_LAYOUTS = {
 // src/utils/settings.ts
 function createDefaultSettings() {
   return {
+    // Layout utilisé par défaut pour les nouvelles notes
+    // Eisenhower est choisi car c'est un système de priorisation universel
     defaultModel: DEFAULT_LAYOUTS.EISENHOWER,
+    // Activer le basculement automatique vers la vue board
+    // Améliore l'expérience utilisateur en affichant directement le board
     autoSwitchEnabled: true,
+    // Délai de 1 seconde avant sauvegarde automatique
+    // Évite de sauvegarder à chaque frappe tout en restant réactif
     debounceDelay: 1e3
   };
 }
 
 // src/main.ts
 var AgileBoardPlugin = class extends import_obsidian3.Plugin {
+  // =============================================================================
+  // MÉTHODES DU CYCLE DE VIE OBSIDIAN
+  // =============================================================================
   /**
-   * Initialisation du plugin
+   * MÉTHODE onload() - Point d'entrée du plugin
+   * 
+   * CONCEPT OBSIDIAN :
+   * Cette méthode est appelée automatiquement par Obsidian quand :
+   * - L'utilisateur active le plugin
+   * - Obsidian démarre avec le plugin déjà activé
+   * 
+   * RESPONSABILITÉS :
+   * - Initialiser tous les composants du plugin
+   * - Enregistrer les vues, commandes, et événements
+   * - Préparer l'interface utilisateur
+   * 
+   * Le mot-clé "async" permet d'utiliser "await" pour les opérations asynchrones
    */
   async onload() {
     console.log("\u{1F680} Loading Agile Board Plugin...");
     try {
       await this.loadSettings();
       await this.initializeServices();
-      this.registerView(BOARD_VIEW_TYPE, (leaf) => new BoardView(leaf, this));
+      this.registerView(
+        BOARD_VIEW_TYPE,
+        // Identifiant unique de la vue
+        (leaf) => new BoardView(leaf, this)
+        // Factory function pour créer la vue
+      );
       await this.initializeManagers();
       this.registerCommands();
       this.addStatusBarItem().setText("Agile Board Ready");
@@ -1342,7 +3069,18 @@ var AgileBoardPlugin = class extends import_obsidian3.Plugin {
     }
   }
   /**
-   * Nettoyage lors du déchargement du plugin
+   * MÉTHODE onunload() - Nettoyage du plugin
+   * 
+   * CONCEPT OBSIDIAN :
+   * Cette méthode est appelée quand :
+   * - L'utilisateur désactive le plugin
+   * - Obsidian se ferme
+   * - Le plugin est rechargé
+   * 
+   * RESPONSABILITÉS :
+   * - Nettoyer les ressources utilisées
+   * - Désactiver les gestionnaires d'événements
+   * - Éviter les fuites mémoire
    */
   async onunload() {
     var _a, _b;
@@ -1351,8 +3089,16 @@ var AgileBoardPlugin = class extends import_obsidian3.Plugin {
     (_b = this.viewSwitcher) == null ? void 0 : _b.stop();
     console.log("\u2705 Agile Board Plugin unloaded");
   }
+  // =============================================================================
+  // MÉTHODES D'INITIALISATION PRIVÉES
+  // =============================================================================
   /**
-   * Initialise tous les services
+   * Initialise tous les services métier
+   * 
+   * PRINCIPE DE CONCEPTION :
+   * - Les services sont initialisés avant les managers
+   * - Chaque service reçoit les dépendances dont il a besoin
+   * - L'ordre d'initialisation est important
    */
   async initializeServices() {
     this.layoutService = new LayoutService(this);
@@ -1360,28 +3106,49 @@ var AgileBoardPlugin = class extends import_obsidian3.Plugin {
     this.fileService = new FileService(this.app);
   }
   /**
-   * Initialise tous les managers
+   * Initialise tous les gestionnaires de fonctionnalités
+   * 
+   * ORDRE D'INITIALISATION :
+   * 1. Créer les instances avec leurs dépendances
+   * 2. Activer leurs fonctionnalités (boutons, surveillance, etc.)
    */
   async initializeManagers() {
     this.viewSwitcher = new ViewSwitcher(this);
-    this.modelDetector = new ModelDetector(this);
     this.viewSwitcher.addSwitchButton();
+    this.modelDetector = new ModelDetector(this);
     this.modelDetector.onLoad();
   }
+  // =============================================================================
+  // MÉTHODES D'ENREGISTREMENT DES COMMANDES
+  // =============================================================================
   /**
    * Enregistre toutes les commandes du plugin
+   * 
+   * CONCEPT OBSIDIAN - COMMANDES :
+   * Les commandes sont des actions que l'utilisateur peut déclencher via :
+   * - La palette de commandes (Ctrl+P)
+   * - Des raccourcis clavier personnalisés
+   * - Des boutons dans l'interface
    */
   registerCommands() {
     this.addCommand({
       id: "switch-to-board-view",
+      // Identifiant unique
       name: "Switch to Board View",
+      // Nom affiché dans la palette
       callback: () => this.activateBoardView()
+      // Fonction à exécuter
     });
     this.registerCreationCommands();
     this.registerUtilityCommands();
   }
   /**
-   * Enregistre les commandes de création de notes
+   * Enregistre les commandes de création de notes avec layouts prédéfinis
+   * 
+   * PATTERN DE CONCEPTION :
+   * - Définir une liste de layouts disponibles
+   * - Créer dynamiquement une commande pour chaque layout
+   * - Utiliser une convention de nommage cohérente
    */
   registerCreationCommands() {
     const layouts = [
@@ -1399,13 +3166,23 @@ var AgileBoardPlugin = class extends import_obsidian3.Plugin {
     layouts.forEach((layout) => {
       this.addCommand({
         id: `create-${layout.id}-note`,
+        // ID unique : create-kanban-note
         name: `Create ${layout.name} Note`,
-        callback: () => this.createNoteWithLayout(`layout_${layout.id.replace("-", "_")}`)
+        // Nom : Create Kanban Board Note
+        callback: () => {
+          const layoutName = `layout_${layout.id.replace("-", "_")}`;
+          this.createNoteWithLayout(layoutName);
+        }
       });
     });
   }
   /**
-   * Enregistre les commandes utilitaires
+   * Enregistre les commandes utilitaires et de débogage
+   * 
+   * TYPES DE COMMANDES UTILITAIRES :
+   * - Informations : Lister les layouts disponibles
+   * - Maintenance : Créer les sections manquantes
+   * - Débogage : Forcer la mise à jour des boutons
    */
   registerUtilityCommands() {
     this.addCommand({
@@ -1440,8 +3217,16 @@ var AgileBoardPlugin = class extends import_obsidian3.Plugin {
       }
     });
   }
+  // =============================================================================
+  // MÉTHODES D'ACTION PUBLIQUES
+  // =============================================================================
   /**
-   * Active la vue Board pour le fichier actuel
+   * Active la vue Board pour le fichier actuellement ouvert
+   * 
+   * CONCEPT OBSIDIAN - WORKSPACES ET VUES :
+   * - workspace : Gestion des onglets et panneaux
+   * - leaf : Un onglet individuel dans l'interface
+   * - setViewState : Changer le type de vue d'un onglet
    */
   async activateBoardView() {
     const activeFile = this.app.workspace.getActiveFile();
@@ -1453,13 +3238,23 @@ var AgileBoardPlugin = class extends import_obsidian3.Plugin {
     if (leaf) {
       await leaf.setViewState({
         type: BOARD_VIEW_TYPE,
+        // Notre type de vue personnalisé
         state: { file: activeFile.path }
+        // État initial : quel fichier afficher
       });
       console.log("\u{1F3AF} Basculement vers Board View pour:", activeFile.basename);
     }
   }
   /**
-   * Crée une note avec un layout spécifique
+   * Crée une nouvelle note avec un layout spécifique
+   * 
+   * PROCESSUS DE CRÉATION :
+   * 1. Vérifier que le layout existe
+   * 2. Générer le contenu markdown avec frontmatter
+   * 3. Créer le fichier dans le vault
+   * 4. Ouvrir le fichier dans l'interface
+   * 
+   * @param layoutName - Nom du layout à utiliser (ex: "layout_eisenhower")
    */
   async createNoteWithLayout(layoutName) {
     const layout = this.layoutService.getModel(layoutName);
@@ -1487,8 +3282,14 @@ agile-board: ${layoutName}
       console.error(`\u274C Erreur cr\xE9ation note:`, error);
     }
   }
+  // =============================================================================
+  // MÉTHODES D'INTERFACE UTILISATEUR
+  // =============================================================================
   /**
-   * Affiche la liste des layouts disponibles
+   * Affiche une modale avec la liste des layouts disponibles
+   * 
+   * CONCEPT OBSIDIAN - MODALES :
+   * Une modale est une fenêtre popup qui s'affiche par-dessus l'interface
    */
   showAvailableLayouts() {
     const layouts = this.layoutService.getAllModelsInfo();
@@ -1508,7 +3309,12 @@ agile-board: ${layoutName}
     modal.open();
   }
   /**
-   * Crée les sections manquantes pour le fichier actuel
+   * Crée les sections manquantes pour le fichier actuellement ouvert
+   * 
+   * PROCESSUS :
+   * 1. Vérifier le contexte (fichier actif avec layout)
+   * 2. Déléguer au FileService pour créer les sections
+   * 3. Rafraîchir la vue Board si nécessaire
    */
   async createMissingSectionsForCurrentFile() {
     var _a;
@@ -1539,14 +3345,32 @@ agile-board: ${layoutName}
       console.error("\u274C Erreur lors de la cr\xE9ation des sections:", error);
     }
   }
+  // =============================================================================
+  // MÉTHODES DE GESTION DES PARAMÈTRES
+  // =============================================================================
   /**
-   * Charge les paramètres du plugin
+   * Charge les paramètres du plugin depuis le stockage d'Obsidian
+   * 
+   * CONCEPT OBSIDIAN - PERSISTANCE :
+   * - loadData() : Récupère les données sauvegardées du plugin
+   * - Les données sont stockées dans .obsidian/plugins/[plugin-id]/data.json
+   * - Object.assign() fusionne les paramètres par défaut avec les sauvegardés
    */
   async loadSettings() {
-    this.settings = Object.assign({}, createDefaultSettings(), await this.loadData());
+    this.settings = Object.assign(
+      {},
+      // Objet de base vide
+      createDefaultSettings(),
+      // Paramètres par défaut
+      await this.loadData()
+      // Paramètres sauvegardés (peuvent être null)
+    );
   }
   /**
-   * Sauvegarde les paramètres du plugin
+   * Sauvegarde les paramètres actuels du plugin
+   * 
+   * UTILISATION :
+   * Appelée chaque fois que l'utilisateur modifie un paramètre
    */
   async saveSettings() {
     await this.saveData(this.settings);

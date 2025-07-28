@@ -2,35 +2,29 @@
  * =============================================================================
  * COMPOSANT D'ÉDITION MARKDOWN INTERACTIF POUR LES SECTIONS DE BOARD
  * =============================================================================
- * 
- * Ce composant gère l'affichage et l'édition d'une section markdown individuelle
+ * * Ce composant gère l'affichage et l'édition d'une section markdown individuelle
  * dans une frame de board. Il permet de basculer entre vue preview et édition.
- * 
- * RESPONSABILITÉS PRINCIPALES :
+ * * RESPONSABILITÉS PRINCIPALES :
  * - Afficher le contenu markdown rendu (mode preview)
  * - Permettre l'édition inline du contenu (mode édition)
  * - Gérer les interactions avec les éléments markdown (tâches, liens)
  * - Sauvegarder automatiquement les modifications
  * - Intégrer avec le moteur de rendu Obsidian
- * 
- * MODES DE FONCTIONNEMENT :
+ * * MODES DE FONCTIONNEMENT :
  * 1. Mode Preview : Affichage du markdown rendu avec interactions
  * 2. Mode Édition : Textarea pour modification directe du contenu
  * 3. Basculement automatique : Clic → édition, Blur/Escape → preview
- * 
- * CONCEPTS OBSIDIAN IMPORTANTS :
+ * * CONCEPTS OBSIDIAN IMPORTANTS :
  * - MarkdownRenderer : Moteur de rendu officiel d'Obsidian
  * - Component : Système de cycle de vie pour les rendus
  * - Plugins Markdown : Support des extensions comme Tasks, Dataview
  * - Variables CSS : Intégration avec le thème d'Obsidian
- * 
- * INTERACTIONS SUPPORTÉES :
+ * * INTERACTIONS SUPPORTÉES :
  * - Tâches cochables (checkbox tasks)
  * - Liens internes Obsidian [[...]]
  * - Éléments Dataview et autres plugins
  * - Navigation par liens avec openLinkText()
- * 
- * PATTERN DE CONCEPTION :
+ * * PATTERN DE CONCEPTION :
  * - Component Pattern : Composant réutilisable et auto-géré
  * - State Machine : Bascule entre états preview/édition
  * - Observer Pattern : Callback pour notifier les changements
@@ -54,19 +48,16 @@ import { FileSection } from '../types';
 
 /**
  * Composant d'édition markdown interactif
- * 
- * ARCHITECTURE :
+ * * ARCHITECTURE :
  * Ce composant encapsule complètement la logique d'affichage et d'édition
  * d'une section markdown. Il gère son propre état et cycle de vie.
- * 
- * CYCLE DE VIE :
+ * * CYCLE DE VIE :
  * 1. Construction avec paramètres
  * 2. Initialisation de l'interface (preview + éditeur)
  * 3. Gestion des événements utilisateur
  * 4. Mise à jour du contenu selon les modifications
  * 5. Destruction propre lors du nettoyage
- * 
- * ÉTAT INTERNE :
+ * * ÉTAT INTERNE :
  * - Mode actuel (preview/édition)
  * - Contenu markdown
  * - Références aux éléments DOM
@@ -80,8 +71,7 @@ export class MarkdownFrame {
   
   /**
    * Indicateur du mode d'édition actuel
-   * 
-   * ÉTATS POSSIBLES :
+   * * ÉTATS POSSIBLES :
    * - false : Mode preview (affichage rendu)
    * - true : Mode édition (textarea visible)
    */
@@ -89,8 +79,7 @@ export class MarkdownFrame {
   
   /**
    * Conteneur pour l'affichage du markdown rendu
-   * 
-   * UTILISATION :
+   * * UTILISATION :
    * Contient le HTML généré par le moteur de rendu Obsidian.
    * Visible en mode preview, caché en mode édition.
    */
@@ -98,8 +87,7 @@ export class MarkdownFrame {
   
   /**
    * Conteneur pour l'interface d'édition
-   * 
-   * UTILISATION :
+   * * UTILISATION :
    * Contient le textarea d'édition.
    * Visible en mode édition, caché en mode preview.
    */
@@ -107,8 +95,7 @@ export class MarkdownFrame {
   
   /**
    * Zone de texte pour l'édition directe
-   * 
-   * CONFIGURATION :
+   * * CONFIGURATION :
    * Styling pour s'intégrer avec le thème Obsidian.
    * Événements pour sauvegarder et basculer les modes.
    */
@@ -116,8 +103,7 @@ export class MarkdownFrame {
   
   /**
    * Contenu markdown actuel de la section
-   * 
-   * SYNCHRONISATION :
+   * * SYNCHRONISATION :
    * Maintenu en sync avec le textarea et les callbacks.
    * Source de vérité pour l'état du composant.
    */
@@ -125,8 +111,7 @@ export class MarkdownFrame {
   
   /**
    * Timer pour la sauvegarde différée
-   * 
-   * DEBOUNCING :
+   * * DEBOUNCING :
    * Évite de sauvegarder à chaque frappe.
    * Améliore les performances et l'expérience utilisateur.
    */
@@ -138,29 +123,25 @@ export class MarkdownFrame {
 
   /**
    * CONSTRUCTEUR du composant MarkdownFrame
-   * 
-   * @param app - Instance principale d'Obsidian
+   * * @param app - Instance principale d'Obsidian
    * @param container - Élément DOM parent où injecter le composant
    * @param file - Fichier source contenant cette section
    * @param section - Métadonnées de la section (lignes, position)
    * @param onChange - Callback appelé lors des modifications
-   * 
-   * INJECTION DE DÉPENDANCES :
+   * * INJECTION DE DÉPENDANCES :
    * - app : Pour accès aux APIs Obsidian (rendu, navigation)
    * - container : Pour manipulation DOM
    * - file : Pour contexte de rendu (chemins relatifs, etc.)
    * - onChange : Pour notifier le parent des changements
-   * 
-   * INITIALISATION :
+   * * INITIALISATION :
    * Le constructeur démarre immédiatement l'initialisation complète.
-   * 
-   * @example
+   * * @example
    * const frame = new MarkdownFrame(
-   *   app,
-   *   frameElement,
-   *   currentFile,
-   *   sectionData,
-   *   (newContent) => saveToFile(sectionName, newContent)
+   * app,
+   * frameElement,
+   * currentFile,
+   * sectionData,
+   * (newContent) => saveToFile(sectionName, newContent)
    * );
    */
   constructor(
@@ -180,14 +161,12 @@ export class MarkdownFrame {
 
   /**
    * Initialise complètement l'interface du composant
-   * 
-   * ÉTAPES D'INITIALISATION :
+   * * ÉTAPES D'INITIALISATION :
    * 1. Configuration du conteneur principal
    * 2. Création du conteneur preview
    * 3. Création du conteneur d'édition
    * 4. Affichage initial en mode preview
-   * 
-   * PATTERN TEMPLATE METHOD :
+   * * PATTERN TEMPLATE METHOD :
    * Orchestration de l'initialisation en étapes définies.
    */
   private initializeFrame(): void {
@@ -199,11 +178,9 @@ export class MarkdownFrame {
 
   /**
    * Configure le conteneur principal du composant
-   * 
-   * NETTOYAGE :
+   * * NETTOYAGE :
    * Vide le conteneur existant pour éviter les conflits.
-   * 
-   * STYLES CSS :
+   * * STYLES CSS :
    * - Position relative pour positionnement des enfants
    * - Overflow hidden pour contenir le contenu
    * - Dimensions 100% pour remplir l'espace disponible
@@ -227,13 +204,11 @@ export class MarkdownFrame {
 
   /**
    * Crée et configure le conteneur de preview (affichage rendu)
-   * 
-   * RESPONSABILITÉS :
+   * * RESPONSABILITÉS :
    * - Affichage du contenu markdown rendu
    * - Gestion des interactions (clics, tâches, liens)
    * - Détection du basculement vers l'édition
-   * 
-   * STYLES :
+   * * STYLES :
    * Intégration avec les variables CSS d'Obsidian pour cohérence visuelle.
    */
   private createPreviewContainer(): void {
@@ -259,13 +234,11 @@ export class MarkdownFrame {
 
   /**
    * Crée et configure le conteneur d'édition (textarea)
-   * 
-   * RESPONSABILITÉS :
+   * * RESPONSABILITÉS :
    * - Interface de modification directe du markdown
    * - Sauvegarde automatique des changements
    * - Gestion des raccourcis clavier (Escape)
-   * 
-   * VISIBILITÉ :
+   * * VISIBILITÉ :
    * Initialement caché, affiché seulement en mode édition.
    */
   private createEditorContainer(): void {
@@ -308,19 +281,16 @@ export class MarkdownFrame {
 
   /**
    * Rend le contenu markdown avec le moteur officiel d'Obsidian
-   * 
-   * MOTEUR DE RENDU :
+   * * MOTEUR DE RENDU :
    * Utilise MarkdownRenderer.renderMarkdown() qui supporte :
    * - Toutes les extensions markdown d'Obsidian
    * - Plugins tiers (Tasks, Dataview, etc.)
    * - Liens internes et navigation
    * - Syntaxe avancée (callouts, etc.)
-   * 
-   * FALLBACK :
+   * * FALLBACK :
    * En cas d'erreur, utilise un moteur de rendu simple
    * pour maintenir la fonctionnalité de base.
-   * 
-   * GESTION DU CONTENU VIDE :
+   * * GESTION DU CONTENU VIDE :
    * Affiche un placeholder engageant pour inciter à l'édition.
    */
   private async renderContent(): Promise<void> {
@@ -362,18 +332,15 @@ export class MarkdownFrame {
 
   /**
    * Configure les interactions avec les éléments rendus
-   * 
-   * INTERACTIONS SUPPORTÉES :
+   * * INTERACTIONS SUPPORTÉES :
    * 1. Tâches cochables (Tasks plugin)
    * 2. Liens internes Obsidian
    * 3. Liens externes
    * 4. Éléments Dataview
-   * 
-   * PATTERN EVENT DELEGATION :
+   * * PATTERN EVENT DELEGATION :
    * Ajoute des écouteurs sur les éléments spécifiques
    * plutôt que sur le conteneur global.
-   * 
-   * PRÉVENTION DE PROPAGATION :
+   * * PRÉVENTION DE PROPAGATION :
    * Empêche les clics sur éléments interactifs de déclencher
    * le mode édition.
    */
@@ -417,19 +384,15 @@ export class MarkdownFrame {
 
   /**
    * Gère le cochage/décochage des tâches
-   * 
-   * ALGORITHME :
+   * * ALGORITHME :
    * 1. Identifier la tâche modifiée dans le DOM
    * 2. Trouver la ligne correspondante dans le markdown
    * 3. Mettre à jour la syntaxe de tâche ([ ] ↔ [x])
    * 4. Déclencher la sauvegarde automatique
-   * 
-   * SYNCHRONISATION :
+   * * SYNCHRONISATION :
    * Maintient la cohérence entre affichage et source markdown.
-   * 
-   * @param checkbox - Élément checkbox qui a été modifié
-   * 
-   * @example
+   * * @param checkbox - Élément checkbox qui a été modifié
+   * * @example
    * // Utilisateur coche une tâche dans l'affichage
    * // handleTaskToggle() met à jour le markdown :
    * // "- [ ] Tâche" → "- [x] Tâche"
@@ -472,8 +435,7 @@ export class MarkdownFrame {
 
   /**
    * Extrait le texte d'une tâche depuis un élément de liste DOM
-   * 
-   * @param listItem - Élément <li> contenant la tâche
+   * * @param listItem - Élément <li> contenant la tâche
    * @returns string | null - Texte de la tâche ou null si non trouvé
    */
   private getTaskTextFromListItem(listItem: HTMLElement): string | null {
@@ -484,11 +446,9 @@ export class MarkdownFrame {
 
   /**
    * Vérifie si une ligne markdown est une tâche
-   * 
-   * @param line - Ligne de texte à vérifier
+   * * @param line - Ligne de texte à vérifier
    * @returns boolean - true si c'est une ligne de tâche
-   * 
-   * @example
+   * * @example
    * isTaskLine("- [x] Tâche terminée");  // true
    * isTaskLine("- [ ] Tâche à faire");   // true
    * isTaskLine("- Simple liste");        // false
@@ -500,8 +460,7 @@ export class MarkdownFrame {
 
   /**
    * Extrait le texte d'une tâche depuis une ligne markdown
-   * 
-   * @param line - Ligne markdown contenant une tâche
+   * * @param line - Ligne markdown contenant une tâche
    * @returns string - Texte de la tâche (sans la syntaxe de liste/checkbox)
    */
   private getTaskTextFromLine(line: string): string {
@@ -511,18 +470,15 @@ export class MarkdownFrame {
 
   /**
    * Moteur de rendu markdown simple (fallback)
-   * 
-   * UTILISATION :
+   * * UTILISATION :
    * Quand le moteur Obsidian n'est pas disponible ou échoue.
    * Supporte la syntaxe markdown de base.
-   * 
-   * FONCTIONNALITÉS :
+   * * FONCTIONNALITÉS :
    * - Liens internes [[...]]
    * - Gras **texte**
    * - Italique *texte*
    * - Listes simples
-   * 
-   * @param content - Contenu markdown à rendre
+   * * @param content - Contenu markdown à rendre
    * @returns string - HTML généré
    */
   private renderSimpleMarkdown(content: string): string {
@@ -578,8 +534,7 @@ export class MarkdownFrame {
 
   /**
    * Affiche un état vide engageant pour inciter à l'édition
-   * 
-   * DESIGN UX :
+   * * DESIGN UX :
    * Message clair et incitatif plutôt qu'un vide intimidant.
    * Style cohérent avec l'interface Obsidian.
    */
@@ -604,8 +559,7 @@ export class MarkdownFrame {
 
   /**
    * Configure les événements du mode preview
-   * 
-   * DÉTECTION INTELLIGENTE :
+   * * DÉTECTION INTELLIGENTE :
    * Distingue les clics sur éléments interactifs des clics d'édition.
    * Évite le basculement involontaire vers l'édition.
    */
@@ -626,18 +580,15 @@ export class MarkdownFrame {
 
   /**
    * Détecte si un élément est interactif (ne doit pas déclencher l'édition)
-   * 
-   * ÉLÉMENTS INTERACTIFS :
+   * * ÉLÉMENTS INTERACTIFS :
    * - Éléments HTML standard : input, button, a, select
    * - Éléments Obsidian : liens internes, tags
    * - Éléments de plugins : dataview, tasks
    * - Éléments avec attributs spéciaux
-   * 
-   * ALGORITHME :
+   * * ALGORITHME :
    * Remonte la hiérarchie DOM pour vérifier tous les parents.
    * Un élément est interactif si lui ou un parent l'est.
-   * 
-   * @param element - Élément à vérifier
+   * * @param element - Élément à vérifier
    * @returns boolean - true si interactif
    */
   private isInteractiveElement(element: HTMLElement): boolean {
@@ -687,8 +638,7 @@ export class MarkdownFrame {
 
   /**
    * Configure les événements du mode édition
-   * 
-   * ÉVÉNEMENTS GÉRÉS :
+   * * ÉVÉNEMENTS GÉRÉS :
    * - input : Sauvegarde différée des modifications
    * - blur : Retour automatique au mode preview
    * - keydown : Raccourcis clavier (Escape)
@@ -726,8 +676,7 @@ export class MarkdownFrame {
 
   /**
    * Bascule vers le mode édition
-   * 
-   * PROCESSUS :
+   * * PROCESSUS :
    * 1. Marquer l'état comme "en édition"
    * 2. Cacher le preview
    * 3. Afficher l'éditeur
@@ -745,8 +694,7 @@ export class MarkdownFrame {
 
   /**
    * Bascule vers le mode preview
-   * 
-   * PROCESSUS :
+   * * PROCESSUS :
    * 1. Vérifier qu'on est bien en édition
    * 2. Récupérer le contenu du textarea
    * 3. Cacher l'éditeur
@@ -766,8 +714,7 @@ export class MarkdownFrame {
 
   /**
    * Force l'affichage du mode preview
-   * 
-   * UTILISATION :
+   * * UTILISATION :
    * Initialisation du composant et réinitialisations.
    */
   private showPreview(): void {
@@ -782,12 +729,10 @@ export class MarkdownFrame {
 
   /**
    * Met à jour le contenu de la section
-   * 
-   * UTILISATION :
+   * * UTILISATION :
    * Quand le fichier source est modifié externement.
    * Maintient la synchronisation avec la source de vérité.
-   * 
-   * @param section - Nouvelles données de section
+   * * @param section - Nouvelles données de section
    */
   updateContent(section: FileSection): void {
     this.section = section;
@@ -804,8 +749,7 @@ export class MarkdownFrame {
 
   /**
    * Obtient le contenu actuel de la section
-   * 
-   * @returns string - Contenu markdown actuel
+   * * @returns string - Contenu markdown actuel
    */
   getContent(): string {
     return this.isEditing ? this.textArea.value : this.content;
@@ -813,12 +757,15 @@ export class MarkdownFrame {
 
   /**
    * Détruit proprement le composant
-   * 
-   * NETTOYAGE :
+   * * NETTOYAGE :
    * - Vide le conteneur DOM
    * - Annule les timers en cours
    * - Libère les références
-   * 
-   * UTILISATION :
+   * * UTILISATION :
    * Appelée lors du nettoyage de la BoardView.
    */
+  destroy(): void {
+    this.container.empty();
+    console.log('🗑️ MarkdownFrame détruite');
+  }
+}

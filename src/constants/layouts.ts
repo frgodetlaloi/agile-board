@@ -649,16 +649,109 @@ export const BUILT_IN_LAYOUTS: BoardModel = {
       x: 12, y: 12, w: 12, h: 12
       // Métriques, tendances, analyse de productivité
     }
-  ],
+  ]
+};
 
-  /**
-   * ANALYTICS DATAVIEW - Tableaux de bord avec le plugin Dataview
-   * 
-   * MÉTHODOLOGIE :
-   * Exploitation des capacités d'analyse du plugin Dataview pour créer
-   * des tableaux de bord analytiques sur le contenu du vault.
-   * 
-   * PHILOSOPHIE :
-   * "Data-driven knowledge management" - Comprendre ses habitudes
-   * et l'évolution de sa base de connaissances.
-   *
+// =============================================================================
+// MÉTADONNÉES DES LAYOUTS - INFORMATIONS D'AFFICHAGE
+// =============================================================================
+
+/**
+ * Métadonnées enrichies pour chaque layout
+ * 
+ * OBJECTIF :
+ * Fournir des informations conviviales pour l'interface utilisateur :
+ * - Noms d'affichage traduits
+ * - Descriptions explicatives
+ * - Catégorisation pour l'organisation
+ * - Listes des sections pour preview
+ * 
+ * UTILISATION :
+ * Ces métadonnées sont utilisées par LayoutService pour :
+ * - Afficher des noms conviviaux dans les menus
+ * - Générer des descriptions d'aide
+ * - Organiser les layouts par catégorie
+ * - Fournir des aperçus des sections
+ */
+export const LAYOUT_INFO: Record<string, LayoutInfo> = {
+  layout_eisenhower: {
+    name: "layout_eisenhower",
+    displayName: "Matrice d'Eisenhower",
+    description: "Système de priorisation basé sur l'urgence et l'importance. Parfait pour la gestion quotidienne et les décisions stratégiques.",
+    sections: ["Urgent et Important", "Pas urgent mais Important", "Urgent mais Pas important", "Ni urgent ni important"],
+    blockCount: 4,
+    category: "productivité"
+  },
+
+  layout_gtd: {
+    name: "layout_gtd",
+    displayName: "Getting Things Done (GTD)",
+    description: "Méthode complète de productivité de David Allen. Système d'externalisation de la mémoire et de clarification systématique.",
+    sections: ["Inbox", "Actions suivantes", "En attente", "Projets", "Someday Maybe", "Référence"],
+    blockCount: 6,
+    category: "productivité"
+  },
+
+  layout_kanban: {
+    name: "layout_kanban",
+    displayName: "Tableau Kanban",
+    description: "Visualisation du flux de travail avec limitation du travail en cours. Idéal pour le développement et la gestion d'équipe.",
+    sections: ["À faire", "En cours", "Terminé"],
+    blockCount: 3,
+    category: "workflow"
+  },
+
+  layout_weekly: {
+    name: "layout_weekly",
+    displayName: "Planificateur Hebdomadaire",
+    description: "Organisation par jour de la semaine avec équilibre travail/repos. Parfait pour la planification personnelle et la coordination d'équipe.",
+    sections: ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Weekend", "Notes"],
+    blockCount: 7,
+    category: "planification"
+  },
+
+  layout_daily: {
+    name: "layout_daily",
+    displayName: "Planificateur Quotidien",
+    description: "Structure détaillée d'une journée avec focus sur l'apprentissage et la réflexion. Idéal pour le développement personnel.",
+    sections: ["Objectifs du jour", "Tâches prioritaires", "Planning", "Notes", "Apprentissages", "Réflexions"],
+    blockCount: 6,
+    category: "planification"
+  },
+
+  layout_project: {
+    name: "layout_project",
+    displayName: "Gestion de Projet",
+    description: "Vue d'ensemble complète d'un projet avec tous les aspects essentiels. Inspiré des méthodologies PMI et Agile.",
+    sections: ["Vue d'ensemble", "Objectifs", "Étapes", "Ressources", "Risques", "Suivi"],
+    blockCount: 6,
+    category: "projet"
+  },
+
+  layout_simple: {
+    name: "layout_simple",
+    displayName: "Board Simple",
+    description: "Approche minimaliste à 2 colonnes. Parfait pour débuter ou pour des besoins basiques de brainstorming et comparaison.",
+    sections: ["Ideas", "Actions"],
+    blockCount: 2,
+    category: "basique"
+  },
+
+  layout_cornell: {
+    name: "layout_cornell",
+    displayName: "Notes Cornell",
+    description: "Système de prise de notes universitaire optimisant la capture, révision et mémorisation. Développé à Cornell University.",
+    sections: ["Notes", "Mots-clés", "Résumé"],
+    blockCount: 3,
+    category: "notes"
+  },
+
+  layout_tasks_dashboard: {
+    name: "layout_tasks_dashboard",
+    displayName: "Dashboard Tasks",
+    description: "Intégration avancée avec le plugin Tasks d'Obsidian. Affichage intelligent des tâches par contexte temporel et projet.",
+    sections: ["Tâches du jour", "Cette semaine", "En retard", "Projets actifs", "Statistiques"],
+    blockCount: 5,
+    category: "intégration"
+  }
+};
