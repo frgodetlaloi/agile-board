@@ -43,6 +43,9 @@ import { BoardSettings, DEFAULT_SETTINGS } from './utils/settings';
 // Ces classes contiennent la logique principale du plugin
 import { LayoutService } from './services/LayoutService';  // Gère les layouts de board
 import { FileService } from './services/FileService';      // Gère les opérations sur les fichiers
+import { NoteCreatorService } from './services/NoteCreatorService';
+import { BoardViewService } from './services/BoardViewService';
+import { SectionManagerService } from './services/SectionManagerService';
 
 // Import de la vue personnalisée
 // BoardView est notre interface utilisateur principale pour afficher les boards
@@ -73,6 +76,13 @@ export default class AgileBoardPlugin extends Plugin {
     fileService: FileService;
     viewSwitcher: ViewSwitcher;
     modelDetector: ModelDetector;
+
+    // Service pour la création de notes
+    /** Service pour la création de notes avec des layouts prédéfinis */
+    noteCreator: NoteCreatorService;
+    boardViewService: BoardViewService;
+    sectionManager: SectionManagerService;
+
 
     /**
      * Initialisation du plugin - appelée au chargement d'Obsidian
@@ -136,6 +146,13 @@ export default class AgileBoardPlugin extends Plugin {
     async onunload() {
         this.logger.info('Arrêt du plugin Agile-Board en cours');
         
+        // Nettoyer les services
+        if (this.modelDetector) {
+            this.modelDetector.onUnload(); 
+        }
+        //if (this.viewSwitcher) {
+        //    this.viewSwitcher.onUnload(); 
+        //}
         // Sauvegarder les logs avant fermeture si activé
         if (this.settings.debug.logToFile) {
             this.logger.info('Sauvegarde finale des logs avant arrêt');
@@ -206,10 +223,35 @@ export default class AgileBoardPlugin extends Plugin {
             // Initialiser les services existants
             this.layoutService = new LayoutService(this);
             this.fileService = new FileService(this.app);
-            this.logger.success('LayoutService et FileService initialisés', {
-                 layoutsCount: this.layoutService.getAllModelNames().length
-             });
-            
+            this.layoutService.load(); // Charger les modèles de layout
+            this.noteCreator = new NoteCreatorService(
+                this.app,
+                this.layoutService,
+                this.logger
+            );
+            this.boardViewService = new BoardViewService(
+                this.app,
+                this.layoutService,
+                this.logger
+            );
+            this.sectionManager = new SectionManagerService(
+                this.app,
+                this.layoutService,
+                this.logger
+            );
+            this.viewSwitcher = new ViewSwitcher(this);
+            this.modelDetector = new ModelDetector(this);
+
+            this.modelDetector.onLoad();
+
+            this.logger.success('Tous les services initialisés', {
+                layoutsCount: this.layoutService.getAllModelNames().length,
+                noteCreatorReady: !!this.noteCreator,
+                boardViewServiceReady: !!this.boardViewService,
+                sectionManagerReady: !!this.sectionManager,
+                viewSwitcherReady: !!this.viewSwitcher, 
+                modelDetectorReady: !!this.modelDetector 
+            });
             this.logger.debug('Tous les services ont été initialisés avec succès');
             
         } catch (error) {
@@ -304,6 +346,48 @@ export default class AgileBoardPlugin extends Plugin {
         // COMMANDES DE DEBUG (NOUVELLES v0.7.0)
         // ====================================================================
         this.addCommand({
+            id: 'debug-button-state',
+            name: '🔍 Debug État des Boutons',
+            callback: () => {
+                const activeFile = this.app.workspace.getActiveFile();
+                const activeLeaf = this.app.workspace.activeLeaf;
+                
+                if (activeFile && activeLeaf) {
+                    const debugInfo = {
+                        fileName: activeFile.name,
+                        currentViewType: activeLeaf.view.getViewType(),
+                        hasAgileBoardLayout: !!this.app.metadataCache.getFileCache(activeFile)?.frontmatter?.['agile-board'],
+                        services: {
+                            viewSwitcher: !!this.viewSwitcher,
+                            boardViewService: !!this.boardViewService,
+                            modelDetector: !!this.modelDetector
+                        }
+                    };
+                    
+                    console.log('🔍 État actuel:', debugInfo);
+                    this.logger.debug('Debug état boutons', debugInfo);
+                    
+                    // Forcer toutes les mises à jour possibles
+                    if (this.viewSwitcher) {
+                        console.log('🔄 Mise à jour ViewSwitcher...');
+                        this.viewSwitcher.updateSwitchButtonForFile(activeFile);
+                    }
+                    
+                    if (this.modelDetector) {
+                        console.log('🔄 Force update ModelDetector...');
+                        this.modelDetector.forceUpdate();
+                    }
+                    
+                    new Notice(`🔍 Debug: ${debugInfo.currentViewType} | Check console F12`, 4000);
+                }
+            }
+        });
+        this.addCommand({
+            id: 'force-update-buttons',
+            name: '🔄 Forcer mise à jour des boutons',
+            callback: () => this.forceUpdateButtons()
+        });
+        this.addCommand({
             id: 'toggle-debug',
             name: 'Activer/Désactiver le debug',
             callback: () => this.toggleDebug()
@@ -382,95 +466,472 @@ export default class AgileBoardPlugin extends Plugin {
     // ====================================================================
 
     /**
-     * Crée une nouvelle note avec un layout spécifique
-     */
+    * Crée une note avec un layout spécifique
+    */
     private async createNoteWithLayout(layoutName: string): Promise<void> {
-        this.logger.fileOperation('Création de note avec layout', { layoutName });
+        this.logger.fileOperation('Création de note demandée', { layoutName });
+        
+    try {
+        // Vérification de la disponibilité du service
+        if (!this.noteCreator) {
+            throw new Error('NoteCreatorService non initialisé');
+        }
+        
+        // Délégation au service spécialisé
+        const result = await this.noteCreator.createNoteWithLayout({
+            layoutName,
+            autoOpen: true
+        });
+        this.logger.success('Note créée via NoteCreatorService', {
+            fileName: result.file.name,
+            filePath: result.file.path,
+            sectionsCount: result.sectionsCount,
+            layoutUsed: result.layoutName
+        });
+        
+    } catch (error) {
+        // 🎯 CORRECTION : Mieux capturer l'erreur
+        this.logger.error('Erreur lors de la création de note', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name,
+            layoutName
+        }, 'main.ts');
+        
+        // Ne pas re-lancer l'erreur car NoteCreatorService gère déjà la notification
+        console.error('Détail erreur createNoteWithLayout:', error);
+    }
+    }
+
+    /**
+    * Crée une note avec des options avancées
+    */
+    async createAdvancedNote(layoutName: string, options?: {
+        fileName?: string;
+        folder?: string;
+        customContent?: Record<string, string>;
+    }): Promise<void> {
+        if (!this.noteCreator) {
+            new Notice('❌ Service de création non disponible');
+            return;
+        }
         
         try {
-            // Implémentation à adapter selon votre structure existante
-            //const note = await this.fileService.createNoteWithLayout(layoutName);
-            //this.logger.success('Note créée avec succès', { layoutName, notePath: note.path });
-            
-            // Pour l'instant, log temporaire
-            this.logger.info(`Création de note ${layoutName} - À implémenter`);
-            
+            await this.noteCreator.createNoteWithLayout({
+                layoutName,
+                customFileName: options?.fileName,
+                folder: options?.folder,
+                customContent: options?.customContent,
+                autoOpen: true
+            });
         } catch (error) {
-            this.logger.error('Erreur lors de la création de note', error, 'main.ts');
+            this.logger.error('Erreur création note avancée', error);
         }
+    }
+
+    /**
+     * Méthode pour obtenir les layouts disponibles (pour l'interface)
+     */
+    getAvailableLayoutsForUI(): Array<{name: string, displayName: string, description: string}> {
+        return this.noteCreator?.getAvailableLayouts() || [];
     }
 
     /**
      * Bascule vers la vue board pour le fichier actuel
      */
-    private switchToBoardView(): void {
+    private async switchToBoardView(): Promise<void> {
         this.logger.navigation('Basculement vers vue board demandé');
         
-        // Implémentation à adapter selon votre structure
-        //this.viewSwitcher.switchToBoardView();
-        
-        this.logger.info('Basculement vers vue board - À implémenter');
+        try {
+            if (!this.boardViewService) {
+                throw new Error('BoardViewService non initialisé');
+            }
+            
+            const result = await this.boardViewService.switchToBoardView({
+                forceSwitch: false,
+                newTab: false
+            });
+            
+            if (result.success) {
+                this.logger.success('Basculement réussi via BoardViewService', {
+                    fileName: result.file.name,
+                    layoutName: result.layoutName,
+                    message: result.message
+                });
+                setTimeout(() => {
+                    if (this.viewSwitcher && result.file) {
+                        this.logger.debug('Mise à jour ViewSwitcher après basculement board');
+                        this.viewSwitcher.updateSwitchButtonForFile(result.file);
+                    }
+                }, 500); // Délai pour laisser la vue se stabiliser
+            } else {
+                this.logger.warn('Basculement échoué', {
+                    fileName: result.file.name,
+                    message: result.message
+                });
+            }
+            
+        } catch (error) {
+            this.logger.error('Erreur lors du basculement vers vue board', error, 'main.ts');
+        }
     }
+    /**
+     * Bascule vers la vue markdown
+     */
+    private async switchToMarkdownView(): Promise<void> {
+        this.logger.navigation('Basculement vers vue markdown demandé');
+        
+        try {
+            if (!this.boardViewService) {
+                throw new Error('BoardViewService non initialisé');
+            }
+            
+            const activeFile = this.app.workspace.getActiveFile();
+            if (!activeFile) {
+                new Notice('❌ Aucun fichier actif');
+                return;
+            }
+            
+            const success = await this.boardViewService.switchToMarkdownView(activeFile);
+            
+            if (success) {
+                this.logger.success('Basculement vers markdown réussi', {
+                    fileName: activeFile.name
+                });
+                
+                // 🎯 NOTIFIER LE VIEWSWITCHER DU CHANGEMENT
+                setTimeout(() => {
+                    if (this.viewSwitcher) {
+                        this.logger.debug('Mise à jour ViewSwitcher après basculement markdown');
+                        this.viewSwitcher.updateSwitchButtonForFile(activeFile);
+                    }
+                }, 500);
+                
+            } else {
+                this.logger.warn('Basculement vers markdown échoué');
+            }
+            
+        } catch (error) {
+            this.logger.error('Erreur basculement vers markdown', error);
+        }
+    }
+    /**
+     * Force la mise à jour des boutons
+     */
+    private forceUpdateButtons(): void {
+        try {
+            const activeFile = this.app.workspace.getActiveFile();
+            if (activeFile && this.viewSwitcher) {
+                this.logger.debug('Mise à jour forcée des boutons', { fileName: activeFile.name });
+                this.viewSwitcher.updateSwitchButtonForFile(activeFile);
+                new Notice('🔄 Boutons mis à jour', 2000);
+            } else {
+                new Notice('❌ Aucun fichier actif ou ViewSwitcher indisponible', 3000);
+            }
+        } catch (error) {
+            this.logger.error('Erreur mise à jour boutons', error);
+            new Notice(`❌ Erreur: ${error.message}`, 3000);
+        }
+    }
+    /**
+     * =============================================================================
+     * AMÉLIORATION DE listAvailableLayouts()
+     * =============================================================================
+     */
 
     /**
-     * Affiche la liste des layouts disponibles
+     * Affiche la liste détaillée des layouts disponibles
+     * 
+     * Version améliorée qui :
+     * - Affiche les informations dans la console ET dans une notification
+     * - Groupe les layouts par catégorie
+     * - Montre des détails utiles pour l'utilisateur
+     * - Propose des actions supplémentaires
      */
     private listAvailableLayouts(): void {
         this.logger.navigation('Liste des layouts demandée');
-        const layouts = this.layoutService.getAllModelsInfo();
-        this.logger.info('Layouts disponibles', { layouts });
         
+        try {
+            if (!this.layoutService) {
+                throw new Error('LayoutService non initialisé');
+            }
+
+            // Récupérer tous les layouts avec leurs métadonnées
+            const allLayouts = this.layoutService.getAllModelsInfo();
+            
+            if (allLayouts.length === 0) {
+                const message = 'Aucun layout disponible';
+                this.logger.warn(message);
+                new Notice(`⚠️ ${message}`, 3000);
+                return;
+            }
+
+            // Grouper par catégorie
+            const layoutsByCategory = this.groupLayoutsByCategory(allLayouts);
+            
+            // Afficher dans les logs (détaillé)
+            this.logDetailedLayoutInfo(allLayouts, layoutsByCategory);
+            
+            // Afficher à l'utilisateur (résumé)
+            this.showLayoutSummaryToUser(allLayouts, layoutsByCategory);
+            
+            // Optionnel : Créer une note avec la liste complète
+            this.offerToCreateLayoutGuide(allLayouts);
+            
+        } catch (error) {
+            this.logger.error('Erreur lors de l\'affichage des layouts', error);
+            new Notice(`❌ Erreur: ${error.message}`, 4000);
+        }
     }
 
     /**
- * Crée les sections manquantes pour le fichier actuel
- */
-private async createMissingSections(): Promise<void> {
-    this.logger.fileOperation('Création des sections manquantes demandée');
-    
-    try {
-        const activeFile = this.app.workspace.getActiveFile();
-        if (!activeFile) {
-            this.logger.warn('Aucun fichier actif pour créer les sections');
-            return;
-        }
-
-        // Tenter de récupérer le layout depuis le frontmatter
-        const fileCache = this.app.metadataCache.getFileCache(activeFile);
-        let layoutName = fileCache?.frontmatter?.['agile-board'];
+     * Groupe les layouts par catégorie
+     */
+    private groupLayoutsByCategory(layouts: any[]): Record<string, any[]> {
+        const grouped: Record<string, any[]> = {};
         
-        // Fallback vers le layout par défaut si aucun spécifié
-        if (!layoutName) {
-            layoutName = this.settings.defaultLayouts[0];
-            this.logger.info('Aucun layout spécifié, utilisation du layout par défaut', {
-                fileName: activeFile.name,
-                defaultLayout: layoutName
-            });
+        for (const layout of layouts) {
+            const category = layout.category || 'custom';
+            if (!grouped[category]) {
+                grouped[category] = [];
+            }
+            grouped[category].push(layout);
         }
-
-        // Récupérer le layout depuis le LayoutService
-        const targetLayout = this.layoutService.getModel(layoutName);
         
-        if (!targetLayout) {
-            this.logger.error(`Layout "${layoutName}" non trouvé`, {
-                fileName: activeFile.name,
-                layoutName
-            });
-            return;
-        }
+        return grouped;
+    }
 
-        // Créer les sections manquantes
-        await this.fileService.createMissingSections(activeFile, targetLayout);
-        
-        this.logger.success('Sections manquantes créées', { 
-            fileName: activeFile.name,
-            layoutUsed: layoutName
+    /**
+     * Affiche les informations détaillées dans les logs
+     */
+    private logDetailedLayoutInfo(allLayouts: any[], layoutsByCategory: Record<string, any[]>): void {
+        // Log général
+        this.logger.info('Layouts disponibles - Résumé', {
+            totalLayouts: allLayouts.length,
+            categories: Object.keys(layoutsByCategory),
+            layoutNames: allLayouts.map(l => l.name)
         });
         
-    } catch (error) {
-        this.logger.error('Erreur lors de la création des sections', error);
+        // Log détaillé par catégorie
+        for (const [category, layouts] of Object.entries(layoutsByCategory)) {
+            this.logger.info(`Layouts - Catégorie: ${category}`, {
+                category,
+                count: layouts.length,
+                layouts: layouts.map(layout => ({
+                    name: layout.name,
+                    displayName: layout.displayName,
+                    description: layout.description,
+                    sectionsCount: layout.sections.length,
+                    sections: layout.sections
+                }))
+            });
+        }
     }
-}
+
+    /**
+     * Affiche un résumé à l'utilisateur
+     */
+    private showLayoutSummaryToUser(allLayouts: any[], layoutsByCategory: Record<string, any[]>): void {
+        // Créer le message résumé
+        const categoryTexts = Object.entries(layoutsByCategory).map(([category, layouts]) => {
+            const categoryName = this.getCategoryDisplayName(category);
+            const layoutNames = layouts.map(l => l.displayName).join(', ');
+            return `📂 **${categoryName}** (${layouts.length}) : ${layoutNames}`;
+        });
+        
+        const summaryText = [
+            `📋 **${allLayouts.length} layouts disponibles**`,
+            '',
+            ...categoryTexts,
+            '',
+            '🔍 Voir console (F12) pour détails complets'
+        ].join('\n');
+        
+        // Afficher la notification
+        new Notice(summaryText, 8000);
+        
+        // Log pour la console aussi
+        console.group('🎯 LAYOUTS AGILE BOARD DISPONIBLES');
+        console.log(`Total: ${allLayouts.length} layouts`);
+        
+        for (const [category, layouts] of Object.entries(layoutsByCategory)) {
+            console.group(`📂 ${this.getCategoryDisplayName(category)} (${layouts.length})`);
+            
+            for (const layout of layouts) {
+                console.log(`📋 ${layout.displayName} (${layout.name})`);
+                console.log(`   Description: ${layout.description}`);
+                console.log(`   Sections (${layout.sections.length}): ${layout.sections.join(', ')}`);
+                console.log('');
+            }
+            
+            console.groupEnd();
+        }
+        
+        console.groupEnd();
+    }
+
+    /**
+     * Nom d'affichage convivial pour les catégories
+     */
+    private getCategoryDisplayName(category: string): string {
+        const categoryNames: Record<string, string> = {
+            'productivity': '🎯 Productivité',
+            'planning': '📅 Planification',
+            'project': '🚀 Projets',
+            'personal': '👤 Personnel',
+            'custom': '🔧 Personnalisé'
+        };
+        
+        return categoryNames[category] || `📁 ${category}`;
+    }
+
+    /**
+     * Propose de créer une note guide avec tous les layouts
+     */
+    private offerToCreateLayoutGuide(allLayouts: any[]): void {
+        // Pour l'instant, juste log l'option
+        this.logger.debug('Option guide layouts disponible', {
+            layoutsCount: allLayouts.length,
+            suggestion: 'Possibilité de créer une note guide avec tous les layouts'
+        });
+        
+        // TODO: Implémenter la création d'une note guide
+        // this.createLayoutGuideNote(allLayouts);
+    }
+
+    /**
+     * Crée une note guide avec tous les layouts (fonction bonus)
+     */
+    private async createLayoutGuideNote(allLayouts: any[]): Promise<void> {
+        try {
+            if (!this.noteCreator) {
+                return;
+            }
+            
+            // Générer le contenu du guide
+            const guideContent = this.generateLayoutGuideContent(allLayouts);
+            
+            // Créer le fichier guide
+            const fileName = `Guide Layouts Agile Board ${new Date().toISOString().split('T')[0]}.md`;
+            await this.app.vault.create(fileName, guideContent);
+            
+            this.logger.success('Guide des layouts créé', { fileName });
+            new Notice(`📖 Guide créé: ${fileName}`, 4000);
+            
+        } catch (error) {
+            this.logger.error('Erreur création guide layouts', error);
+        }
+    }
+
+    /**
+     * Génère le contenu du guide des layouts
+     */
+    private generateLayoutGuideContent(allLayouts: any[]): string {
+        const today = new Date().toISOString().split('T')[0];
+        
+        const sections = [
+            '---',
+            'type: guide',
+            `created: ${today}`,
+            'tags: [agile-board, layouts, guide]',
+            '---',
+            '',
+            '# 📋 Guide des Layouts Agile Board',
+            '',
+            `> Guide complet des ${allLayouts.length} layouts disponibles`,
+            `> Généré automatiquement le ${today}`,
+            '',
+            '## 🎯 Résumé',
+            '',
+            `- **Total layouts** : ${allLayouts.length}`,
+            `- **Plugin** : Agile Board v0.7.0`,
+            `- **Utilisation** : Commandes de création de notes`,
+            '',
+            '## 📚 Layouts disponibles',
+            ''
+        ];
+        
+        // Grouper par catégorie pour le guide
+        const layoutsByCategory = this.groupLayoutsByCategory(allLayouts);
+        
+        for (const [category, layouts] of Object.entries(layoutsByCategory)) {
+            sections.push(`### ${this.getCategoryDisplayName(category)}`);
+            sections.push('');
+            
+            for (const layout of layouts) {
+                sections.push(`#### 📋 ${layout.displayName}`);
+                sections.push('');
+                sections.push(`- **Nom technique** : \`${layout.name}\``);
+                sections.push(`- **Description** : ${layout.description}`);
+                sections.push(`- **Sections** (${layout.sections.length}) : ${layout.sections.join(', ')}`);
+                sections.push('');
+                sections.push('**Utilisation :**');
+                sections.push(`\`\`\`markdown`);
+                sections.push(`---`);
+                sections.push(`agile-board: ${layout.name}`);
+                sections.push(`---`);
+                sections.push(`\`\`\``);
+                sections.push('');
+            }
+        }
+        
+        sections.push('---');
+        sections.push('');
+        sections.push('## 📖 Comment utiliser');
+        sections.push('');
+        sections.push('1. **Créer une note** : Utilisez les commandes "Créer une note [Type]"');
+        sections.push('2. **Ajouter un layout** : Ajoutez `agile-board: layout_name` dans le frontmatter');
+        sections.push('3. **Basculer en vue board** : Commande "Basculer vers la vue board"');
+        sections.push('4. **Compléter les sections** : Commande "Créer les sections manquantes"');
+        sections.push('');
+        sections.push('> 💡 **Astuce** : Tous les layouts sont personnalisables selon vos besoins !');
+        
+        return sections.join('\n');
+    }
+
+    /**
+     * Crée les sections manquantes pour le fichier actuel
+     */
+    private async createMissingSections(): Promise<void> {
+        this.logger.fileOperation('Création des sections manquantes demandée');
+        
+        try {
+            const activeFile = this.app.workspace.getActiveFile();
+            if (!activeFile) {
+                this.logger.warn('Aucun fichier actif pour créer les sections');
+                new Notice('❌ Aucun fichier actif');
+                return;
+            }
+
+            if (!this.sectionManager) {
+                throw new Error('SectionManagerService non initialisé');
+            }
+
+            // Déléguer au service spécialisé
+            const result = await this.sectionManager.createMissingSections(activeFile, {
+                insertPosition: 'layout-order',
+                addDefaultContent: true,
+                autoSave: true
+            });
+
+            if (result.success) {
+                this.logger.success('Sections créées via SectionManagerService', {
+                    fileName: activeFile.name,
+                    sectionsAdded: result.sectionsAdded,
+                    addedSections: result.addedSectionNames
+                });
+            } else {
+                this.logger.warn('Création de sections échouée', {
+                    fileName: activeFile.name,
+                    messages: result.messages
+                });
+            }
+
+        } catch (error) {
+            this.logger.error('Erreur lors de la création des sections', error);
+            new Notice(`❌ Erreur: ${error.message}`, 4000);
+        }
+    }
 
     // ====================================================================
     // COMMANDES DE DEBUG (NOUVELLES v0.7.0)
@@ -546,10 +1007,11 @@ private async createMissingSections(): Promise<void> {
         const services = ['LoggerService'];
         
         // Ajouter les autres services selon votre structure
-         if (this.layoutService) services.push('LayoutService');
-         if (this.fileService) services.push('FileService');
-         if (this.viewSwitcher) services.push('ViewSwitcher');
-         if (this.modelDetector) services.push('ModelDetector');
+        if (this.layoutService) services.push('LayoutService');
+        if (this.fileService) services.push('FileService');
+        if (this.viewSwitcher) services.push('ViewSwitcher');
+        if (this.modelDetector) services.push('ModelDetector');
+        if (this.noteCreator) services.push('NoteCreatorService');
         
         return services;
     }
