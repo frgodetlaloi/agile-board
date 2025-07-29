@@ -39,7 +39,6 @@
 import { App, TFile } from 'obsidian';
 
 // Import des types personnalisés depuis notre fichier de types
-// ATTENTION : Chemin relatif corrigé (pas d'alias @/)
 import { FileSection } from '../types';
 
 // =============================================================================

@@ -41,7 +41,6 @@
 // =============================================================================
 
 // Import des types depuis notre fichier de définitions
-// ATTENTION : Utilisation du chemin relatif corrigé (pas d'alias @/)
 import { BoardModel, LayoutInfo } from '../types';
 
 // =============================================================================

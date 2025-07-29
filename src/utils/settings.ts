@@ -2,55 +2,49 @@
 // 📁 src/utils/settings.ts - Configuration par défaut mise à jour
 // ====================================================================
 
-import { BoardSettings, LogLevel } from '../types';
-
-/**
- * Configuration par défaut du plugin
- * Optimisée pour un usage en production avec debug désactivé
- */
+// Extrait corrigé de src/utils/settings.ts
+import { LogLevel, DebugSettings, BoardSettings } from '../types';
+export { BoardSettings } from '../types';
+// Configuration par défaut
 export const DEFAULT_SETTINGS: BoardSettings = {
-    // Paramètres généraux existants
-    defaultLayouts: ['layout_eisenhower', 'layout_kanban', 'layout_gtd'],
     autoCreateSections: true,
-    
-    // Nouvelle configuration de debug
+    defaultLayouts: ['layout_kanban', 'layout_eisenhower', 'layout_gtd'],
     debug: {
-        enabled: false,                    // Debug désactivé par défaut (production)
-        logLevel: LogLevel.INFO,          // Niveau INFO quand activé
-        showTimestamps: true,             // Affichage des timestamps
-        showSourceLocation: true,         // Affichage de la source des logs
-        logToFile: false,                 // Pas de sauvegarde fichier par défaut
-        logFileName: 'agile-board-debug.log', // Nom du fichier de log
-        maxLogFileSize: 1024              // 1MB maximum avant rotation
+        enabled: false,
+        logLevel: LogLevel.INFO,
+        showTimestamps: true,
+        showSourceLocation: true,
+        logToFile: false,
+        logToConsole: true,              // ← Ajouté
+        logFileName: 'agile-board-debug.log',
+        maxLogFileSize: 5 * 1024 * 1024  // 5MB
     }
 };
 
-/**
- * Configuration recommandée pour le développement
- */
-export const DEVELOPMENT_SETTINGS: Partial<BoardSettings> = {
+// Configuration de développement
+export const DEV_SETTINGS: Partial<BoardSettings> = {
     debug: {
         enabled: true,
         logLevel: LogLevel.VERBOSE,
         showTimestamps: true,
         showSourceLocation: true,
-        logToFile: false, // Console uniquement pour dev
-        logFileName: 'agile-board-dev.log',
-        maxLogFileSize: 2048
+        logToFile: false,
+        logToConsole: true,              // ← Ajouté
+        logFileName: 'agile-board-debug.log',
+        maxLogFileSize: 5 * 1024 * 1024
     }
 };
 
-/**
- * Configuration recommandée pour diagnostiquer des problèmes
- */
-export const DIAGNOSTIC_SETTINGS: Partial<BoardSettings> = {
+// Configuration de production avec logs
+export const PROD_WITH_LOGS_SETTINGS: Partial<BoardSettings> = {
     debug: {
         enabled: true,
         logLevel: LogLevel.DEBUG,
         showTimestamps: true,
         showSourceLocation: true,
-        logToFile: true, // Fichier pour partager les logs
-        logFileName: 'agile-board-diagnostic.log',
-        maxLogFileSize: 512
+        logToFile: true,
+        logToConsole: false,             // ← Ajouté (false pour la production)
+        logFileName: 'agile-board-debug.log',
+        maxLogFileSize: 5 * 1024 * 1024
     }
 };

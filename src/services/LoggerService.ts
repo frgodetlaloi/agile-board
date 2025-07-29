@@ -1,273 +1,204 @@
-// ====================================================================
-// 📁 src/services/LoggerService.ts - Service de logging centralisé
-// ====================================================================
-
-import { Plugin, TFile, Notice } from 'obsidian';
-import { LogLevel, DebugSettings, LogStats } from '../types';
-
 /**
- * Service centralisé de logging avec support de niveaux configurables
- * et sauvegarde optionnelle dans un fichier
+ * =============================================================================
+ * SERVICE DE LOGGING CENTRALISÉ POUR AGILE BOARD
+ * =============================================================================
+ * 
+ * Version adaptée pour buffer de strings (Solution 1)
  */
-export class LoggerService {
-    private plugin: Plugin;
-    private settings: DebugSettings;
-    private logBuffer: string[] = [];
-    private readonly MAX_BUFFER_SIZE = 1000;
-    private readonly LOG_PREFIX = 'Agile-Board';
 
-    constructor(plugin: Plugin, settings: DebugSettings) {
+import { LogLevel, DebugSettings, LogStats } from '../types';
+import type AgileBoardPlugin from '../main';
+
+export class LoggerService {
+    private plugin: AgileBoardPlugin;
+    private settings: DebugSettings;
+    private logBuffer: string[] = [];  // Buffer de strings
+
+    constructor(plugin: AgileBoardPlugin, settings: DebugSettings) {
         this.plugin = plugin;
         this.settings = settings;
     }
 
     /**
-     * Met à jour la configuration de debug
-     * @param settings Nouveaux paramètres de debug
+     * Met à jour les paramètres de debug
      */
     updateSettings(settings: DebugSettings): void {
-        const wasEnabled = this.settings.enabled;
         this.settings = settings;
-        
-        // Si le debug vient d'être désactivé, vider le buffer
-        if (wasEnabled && !settings.enabled) {
-            this.clearBuffer();
-        }
-        
-        this.debug('Configuration de debug mise à jour', settings, 'LoggerService.ts');
     }
 
-    // ====================================================================
-    // MÉTHODES DE LOGGING PAR NIVEAU
-    // ====================================================================
-
     /**
-     * Log de niveau ERROR - Erreurs critiques uniquement
-     * Toujours visibles si le debug est activé
+     * Ajoute un message au buffer
      */
-    error(message: string, data?: any, source?: string): void {
-        this.log(LogLevel.ERROR, '❌', message, data, source);
+    private addToBuffer(level: LogLevel, message: string, data?: any, source?: string): void {
+        const timestamp = new Date().toISOString();
+        const levelStr = LogLevel[level];
+        const dataStr = data ? ` | Data: ${JSON.stringify(data)}` : '';
+        const sourceStr = source ? ` | Source: ${source}` : '';
+        
+        const logEntry = `[${timestamp}] ${levelStr}: ${message}${dataStr}${sourceStr}`;
+        
+        this.logBuffer.push(logEntry);
+        
+        // Limiter la taille du buffer
+        if (this.logBuffer.length > 1000) {
+            this.logBuffer = this.logBuffer.slice(-500); // Garder les 500 plus récents
+        }
     }
 
     /**
-     * Log de niveau WARN - Avertissements importants
-     * Situations potentiellement problématiques
+     * Log d'erreur
+     */
+    error(message: string, error?: any, source?: string): void {
+        if (!this.settings.enabled || this.settings.logLevel < LogLevel.ERROR) return;
+        
+        this.addToBuffer(LogLevel.ERROR, message, error, source);
+        
+        if (this.settings.logToConsole) {
+            console.error(`❌ [Agile-Board] ${message}`, error);
+        }
+    }
+
+    /**
+     * Log d'avertissement
      */
     warn(message: string, data?: any, source?: string): void {
-        this.log(LogLevel.WARN, '⚠️', message, data, source);
+        if (!this.settings.enabled || this.settings.logLevel < LogLevel.WARN) return;
+        
+        this.addToBuffer(LogLevel.WARN, message, data, source);
+        
+        if (this.settings.logToConsole) {
+            console.warn(`⚠️ [Agile-Board] ${message}`, data);
+        }
     }
 
     /**
-     * Log de niveau INFO - Informations importantes
-     * Événements significatifs du cycle de vie
+     * Log d'information
      */
     info(message: string, data?: any, source?: string): void {
-        this.log(LogLevel.INFO, 'ℹ️', message, data, source);
+        if (!this.settings.enabled || this.settings.logLevel < LogLevel.INFO) return;
+        
+        this.addToBuffer(LogLevel.INFO, message, data, source);
+        
+        if (this.settings.logToConsole) {
+            console.info(`ℹ️ [Agile-Board] ${message}`, data);
+        }
     }
 
     /**
-     * Log de niveau DEBUG - Informations de debug détaillées
-     * Utile pour diagnostiquer des problèmes
+     * Log de debug
      */
     debug(message: string, data?: any, source?: string): void {
-        this.log(LogLevel.DEBUG, '🔧', message, data, source);
+        if (!this.settings.enabled || this.settings.logLevel < LogLevel.DEBUG) return;
+        
+        this.addToBuffer(LogLevel.DEBUG, message, data, source);
+        
+        if (this.settings.logToConsole) {
+            console.debug(`🔧 [Agile-Board] ${message}`, data);
+        }
     }
 
     /**
-     * Log de niveau VERBOSE - Traces très détaillées
-     * Toutes les opérations internes
+     * Log verbose
      */
     verbose(message: string, data?: any, source?: string): void {
-        this.log(LogLevel.VERBOSE, '🔍', message, data, source);
+        if (!this.settings.enabled || this.settings.logLevel < LogLevel.VERBOSE) return;
+        
+        this.addToBuffer(LogLevel.VERBOSE, message, data, source);
+        
+        if (this.settings.logToConsole) {
+            console.debug(`🔍 [Agile-Board] ${message}`, data);
+        }
     }
 
-    // ====================================================================
-    // MÉTHODES DE LOGGING SPÉCIALISÉES
-    // ====================================================================
-
     /**
-     * Log spécialisé pour les événements de démarrage
+     * Log de démarrage (toujours affiché)
      */
     startup(message: string, data?: any): void {
-        this.log(LogLevel.INFO, '🚀', `[STARTUP] ${message}`, data, 'main.ts');
+        this.addToBuffer(LogLevel.INFO, `STARTUP: ${message}`, data, 'startup');
+        console.log(`🚀 [Agile-Board] ${message}`, data);
     }
 
     /**
-     * Log spécialisé pour les opérations réussies
+     * Log de succès
      */
     success(message: string, data?: any, source?: string): void {
-        this.log(LogLevel.INFO, '✅', `[SUCCESS] ${message}`, data, source);
-    }
-
-    /**
-     * Log spécialisé pour la navigation dans l'interface
-     */
-    navigation(message: string, data?: any, source?: string): void {
-        this.log(LogLevel.DEBUG, '🎯', `[NAVIGATION] ${message}`, data, source);
-    }
-
-    /**
-     * Log spécialisé pour les opérations sur les fichiers
-     */
-    fileOperation(message: string, data?: any, source?: string): void {
-        this.log(LogLevel.DEBUG, '📂', `[FILE] ${message}`, data, source);
-    }
-
-    /**
-     * Log spécialisé pour les mesures de performance
-     */
-    performance(message: string, data?: any, source?: string): void {
-        this.log(LogLevel.VERBOSE, '⚡', `[PERF] ${message}`, data, source);
-    }
-
-    /**
-     * Log spécialisé pour les opérations de configuration
-     */
-    config(message: string, data?: any, source?: string): void {
-        this.log(LogLevel.DEBUG, '⚙️', `[CONFIG] ${message}`, data, source);
-    }
-
-    // ====================================================================
-    // MÉTHODE PRINCIPALE DE LOGGING
-    // ====================================================================
-
-    /**
-     * Méthode principale de logging avec gestion des niveaux et formatage
-     */
-    private log(level: LogLevel, icon: string, message: string, data?: any, source?: string): void {
-        // Vérifier si le logging est activé et si le niveau est suffisant
-        if (!this.settings.enabled || level > this.settings.logLevel) {
-            return;
-        }
-
-        // Construire les composants du message
-        const timestamp = this.settings.showTimestamps ? this.getTimestamp() : '';
-        const sourceInfo = this.settings.showSourceLocation && source ? `[${source}]` : '';
+        if (!this.settings.enabled || this.settings.logLevel < LogLevel.INFO) return;
         
-        // Assembler le message formaté
-        let formattedMessage = `${icon} ${this.LOG_PREFIX}${timestamp}${sourceInfo}: ${message}`;
+        this.addToBuffer(LogLevel.INFO, `SUCCESS: ${message}`, data, source);
         
-        // Afficher dans la console avec la méthode appropriée
-        const consoleMethod = this.getConsoleMethod(level);
-        if (data !== undefined) {
-            consoleMethod(formattedMessage, data);
-        } else {
-            consoleMethod(formattedMessage);
-        }
-
-        // Ajouter au buffer pour sauvegarde fichier si activée
-        if (this.settings.logToFile) {
-            this.addToBuffer(formattedMessage, data);
+        if (this.settings.logToConsole) {
+            console.log(`✅ [Agile-Board] ${message}`, data);
         }
     }
 
     /**
-     * Détermine la méthode console appropriée selon le niveau de log
+     * Log de configuration
      */
-    private getConsoleMethod(level: LogLevel): (...args: any[]) => void {
-        switch (level) {
-            case LogLevel.ERROR:
-                return console.error;
-            case LogLevel.WARN:
-                return console.warn;
-            default:
-                return console.log;
-        }
-    }
-
-    /**
-     * Génère un timestamp formaté avec millisecondes
-     */
-    private getTimestamp(): string {
-        const now = new Date();
-        const hours = now.getHours().toString().padStart(2, '0');
-        const minutes = now.getMinutes().toString().padStart(2, '0');
-        const seconds = now.getSeconds().toString().padStart(2, '0');
-        const ms = now.getMilliseconds().toString().padStart(3, '0');
+    config(message: string, data?: any): void {
+        if (!this.settings.enabled || this.settings.logLevel < LogLevel.DEBUG) return;
         
-        return ` [${hours}:${minutes}:${seconds}.${ms}]`;
-    }
-
-    // ====================================================================
-    // GESTION DU BUFFER ET SAUVEGARDE FICHIER
-    // ====================================================================
-
-    /**
-     * Ajoute une entrée au buffer de logs pour sauvegarde
-     */
-    private addToBuffer(message: string, data?: any): void {
-        const logEntry = data ? `${message} | Data: ${JSON.stringify(data)}` : message;
-        this.logBuffer.push(logEntry);
-
-        // Maintenir la taille du buffer sous contrôle
-        if (this.logBuffer.length > this.MAX_BUFFER_SIZE) {
-            this.logBuffer.shift(); // Supprime l'entrée la plus ancienne
+        this.addToBuffer(LogLevel.DEBUG, `CONFIG: ${message}`, data, 'config');
+        
+        if (this.settings.logToConsole) {
+            console.debug(`⚙️ [Agile-Board] ${message}`, data);
         }
     }
 
     /**
-     * Sauvegarde le buffer de logs dans un fichier du vault
-     * Gère la rotation automatique des fichiers volumineux
+     * Log de navigation
      */
-    async saveLogsToFile(): Promise<void> {
-        if (!this.settings.logToFile || this.logBuffer.length === 0) {
-            return;
-        }
-
-        try {
-            const logContent = this.logBuffer.join('\n');
-            const fileName = this.settings.logFileName || 'agile-board-debug.log';
-            
-            // Vérifier si le fichier existe déjà
-            const existingFile = this.plugin.app.vault.getAbstractFileByPath(fileName);
-            
-            if (existingFile instanceof TFile) {
-                // Vérifier la taille du fichier existant
-                const stat = await this.plugin.app.vault.adapter.stat(fileName);
-                if (stat && stat.size > this.settings.maxLogFileSize * 1024) {
-                    // Fichier trop volumineux : créer un backup et recommencer
-                    const backupName = `${fileName}.backup-${Date.now()}`;
-                    const content = await this.plugin.app.vault.read(existingFile);
-                    await this.plugin.app.vault.create(backupName, content);
-                    await this.plugin.app.vault.modify(existingFile, logContent);
-                    
-                    this.info('Rotation du fichier de log effectuée', { 
-                        fileName, 
-                        backupName,
-                        newSize: logContent.length 
-                    }, 'LoggerService.ts');
-                } else {
-                    // Ajouter au fichier existant
-                    const existingContent = await this.plugin.app.vault.read(existingFile);
-                    await this.plugin.app.vault.modify(existingFile, existingContent + '\n' + logContent);
-                }
-            } else {
-                // Créer un nouveau fichier
-                await this.plugin.app.vault.create(fileName, logContent);
-                this.info('Nouveau fichier de log créé', { fileName }, 'LoggerService.ts');
-            }
-
-            // Vider le buffer après sauvegarde réussie
-            this.clearBuffer();
-            
-        } catch (error) {
-            // Utiliser console.error directement pour éviter une récursion
-            console.error('❌ Agile-Board: Erreur lors de la sauvegarde des logs:', error);
+    navigation(message: string, data?: any): void {
+        if (!this.settings.enabled || this.settings.logLevel < LogLevel.VERBOSE) return;
+        
+        this.addToBuffer(LogLevel.VERBOSE, `NAV: ${message}`, data, 'navigation');
+        
+        if (this.settings.logToConsole) {
+            console.debug(`🧭 [Agile-Board] ${message}`, data);
         }
     }
 
     /**
-     * Vide complètement le buffer de logs
+     * Log d'opération sur fichier
      */
-    clearBuffer(): void {
-        this.logBuffer = [];
+    fileOperation(message: string, data?: any): void {
+        if (!this.settings.enabled || this.settings.logLevel < LogLevel.DEBUG) return;
+        
+        this.addToBuffer(LogLevel.DEBUG, `FILE: ${message}`, data, 'file');
+        
+        if (this.settings.logToConsole) {
+            console.debug(`📁 [Agile-Board] ${message}`, data);
+        }
     }
 
     /**
-     * Retourne les statistiques actuelles du système de logging
+     * Test du système de logging
+     */
+    testSystem(): void {
+        this.info('Test du système de logging lancé');
+        this.debug('Message de debug test');
+        this.verbose('Message verbeux test');
+        this.warn('Message d\'avertissement test');
+        this.error('Message d\'erreur test (test uniquement)');
+        this.success('Test du système de logging terminé');
+    }
+
+    /**
+     * Retourne les statistiques du logger
      */
     getStats(): LogStats {
         return {
+            totalLogs: this.logBuffer.length,
+            // Pour un buffer de strings, on analyse le contenu pour compter par type
+            errorCount: this.logBuffer.filter(log => 
+                log.includes('ERROR:') || log.includes('❌') || log.includes('Message d\'erreur')
+            ).length,
+            warningCount: this.logBuffer.filter(log => 
+                log.includes('WARN:') || log.includes('⚠️') || log.includes('Message d\'avertissement')
+            ).length,
+            debugCount: this.logBuffer.filter(log => 
+                log.includes('DEBUG:') || log.includes('🔧') || log.includes('VERBOSE:') || log.includes('🔍')
+            ).length,
+            lastLogTime: new Date().toISOString(), // Timestamp actuel
             bufferSize: this.logBuffer.length,
             isEnabled: this.settings.enabled,
             currentLevel: LogLevel[this.settings.logLevel],
@@ -276,20 +207,97 @@ export class LoggerService {
     }
 
     /**
-     * Effectue un test complet du système de debug
-     * Utile pour vérifier la configuration
+     * Vide le buffer de logs
      */
-    testSystem(): void {
-        this.startup('🧪 Test du système de debug démarré');
-        this.error('Test du niveau ERROR', { level: 'error', timestamp: Date.now() });
-        this.warn('Test du niveau WARN', { level: 'warning', timestamp: Date.now() });
-        this.info('Test du niveau INFO', { level: 'info', timestamp: Date.now() });
-        this.debug('Test du niveau DEBUG', { level: 'debug', timestamp: Date.now() });
-        this.verbose('Test du niveau VERBOSE', { level: 'verbose', timestamp: Date.now() });
-        this.performance('Test des performances', { 
-            startTime: performance.now(),
-            memoryUsage: (performance as any).memory?.usedJSHeapSize || 'N/A'
-        });
-        this.success('🧪 Test du système de debug terminé avec succès');
+    clearBuffer(): void {
+        this.logBuffer.length = 0;
+        this.debug('Buffer de logs vidé');
+    }
+
+    /**
+     * Retourne tout le contenu du buffer
+     */
+    getBuffer(): string[] {
+        return [...this.logBuffer];
+    }
+
+    /**
+     * Sauvegarde les logs dans un fichier
+     */
+    async saveLogsToFile(): Promise<void> {
+        if (!this.settings.logToFile || this.logBuffer.length === 0) {
+            return;
+        }
+
+        try {
+            const fileName = this.settings.logFileName || 'agile-board-debug.log';
+            const content = this.logBuffer.join('\n');
+            
+            // Créer le fichier de log dans le vault
+            const adapter = this.plugin.app.vault.adapter;
+            
+            // Vérifier si le fichier existe déjà
+            const exists = await adapter.exists(fileName);
+            
+            if (exists) {
+                // Ajouter au fichier existant
+                const existingContent = await adapter.read(fileName);
+                const newContent = existingContent + '\n' + content;
+                
+                // Vérifier la taille du fichier
+                if (newContent.length > (this.settings.maxLogFileSize || 5 * 1024 * 1024)) {
+                    // Garder seulement la moitié du contenu le plus récent
+                    const lines = newContent.split('\n');
+                    const halfLines = lines.slice(Math.floor(lines.length / 2));
+                    await adapter.write(fileName, halfLines.join('\n'));
+                } else {
+                    await adapter.write(fileName, newContent);
+                }
+            } else {
+                // Créer un nouveau fichier
+                await adapter.write(fileName, content);
+            }
+            
+            this.debug(`Logs sauvegardés dans ${fileName} (${this.logBuffer.length} entrées)`);
+            
+        } catch (error) {
+            console.error('[Agile-Board] Erreur lors de la sauvegarde des logs:', error);
+        }
+    }
+
+    /**
+     * Formate un message de log avec horodatage et source
+     */
+    private formatLogMessage(level: LogLevel, message: string, source?: string): string {
+        const timestamp = this.settings.showTimestamps ? 
+            `[${new Date().toISOString()}] ` : '';
+        const sourceStr = this.settings.showSourceLocation && source ? 
+            ` (${source})` : '';
+        const levelStr = LogLevel[level];
+        
+        return `${timestamp}${levelStr}: ${message}${sourceStr}`;
+    }
+
+    /**
+     * Retourne la configuration actuelle
+     */
+    getSettings(): DebugSettings {
+        return { ...this.settings };
+    }
+
+    /**
+     * Active ou désactive le logging
+     */
+    setEnabled(enabled: boolean): void {
+        this.settings.enabled = enabled;
+        this.config(`Logging ${enabled ? 'activé' : 'désactivé'}`);
+    }
+
+    /**
+     * Change le niveau de log
+     */
+    setLogLevel(level: LogLevel): void {
+        this.settings.logLevel = level;
+        this.config(`Niveau de log changé vers: ${LogLevel[level]}`);
     }
 }

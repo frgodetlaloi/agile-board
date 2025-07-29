@@ -28,6 +28,451 @@ __export(main_exports, {
 });
 module.exports = __toCommonJS(main_exports);
 var import_obsidian3 = require("obsidian");
+var import_obsidian4 = require("obsidian");
+
+// src/types.ts
+var LogLevel = /* @__PURE__ */ ((LogLevel2) => {
+  LogLevel2[LogLevel2["ERROR"] = 0] = "ERROR";
+  LogLevel2[LogLevel2["WARN"] = 1] = "WARN";
+  LogLevel2[LogLevel2["INFO"] = 2] = "INFO";
+  LogLevel2[LogLevel2["DEBUG"] = 3] = "DEBUG";
+  LogLevel2[LogLevel2["VERBOSE"] = 4] = "VERBOSE";
+  return LogLevel2;
+})(LogLevel || {});
+
+// src/services/LoggerService.ts
+var LoggerService = class {
+  // Buffer de strings
+  constructor(plugin, settings) {
+    this.logBuffer = [];
+    this.plugin = plugin;
+    this.settings = settings;
+  }
+  /**
+   * Met à jour les paramètres de debug
+   */
+  updateSettings(settings) {
+    this.settings = settings;
+  }
+  /**
+   * Ajoute un message au buffer
+   */
+  addToBuffer(level, message, data, source) {
+    const timestamp = new Date().toISOString();
+    const levelStr = LogLevel[level];
+    const dataStr = data ? ` | Data: ${JSON.stringify(data)}` : "";
+    const sourceStr = source ? ` | Source: ${source}` : "";
+    const logEntry = `[${timestamp}] ${levelStr}: ${message}${dataStr}${sourceStr}`;
+    this.logBuffer.push(logEntry);
+    if (this.logBuffer.length > 1e3) {
+      this.logBuffer = this.logBuffer.slice(-500);
+    }
+  }
+  /**
+   * Log d'erreur
+   */
+  error(message, error, source) {
+    if (!this.settings.enabled || this.settings.logLevel < 0 /* ERROR */)
+      return;
+    this.addToBuffer(0 /* ERROR */, message, error, source);
+    if (this.settings.logToConsole) {
+      console.error(`\u274C [Agile-Board] ${message}`, error);
+    }
+  }
+  /**
+   * Log d'avertissement
+   */
+  warn(message, data, source) {
+    if (!this.settings.enabled || this.settings.logLevel < 1 /* WARN */)
+      return;
+    this.addToBuffer(1 /* WARN */, message, data, source);
+    if (this.settings.logToConsole) {
+      console.warn(`\u26A0\uFE0F [Agile-Board] ${message}`, data);
+    }
+  }
+  /**
+   * Log d'information
+   */
+  info(message, data, source) {
+    if (!this.settings.enabled || this.settings.logLevel < 2 /* INFO */)
+      return;
+    this.addToBuffer(2 /* INFO */, message, data, source);
+    if (this.settings.logToConsole) {
+      console.info(`\u2139\uFE0F [Agile-Board] ${message}`, data);
+    }
+  }
+  /**
+   * Log de debug
+   */
+  debug(message, data, source) {
+    if (!this.settings.enabled || this.settings.logLevel < 3 /* DEBUG */)
+      return;
+    this.addToBuffer(3 /* DEBUG */, message, data, source);
+    if (this.settings.logToConsole) {
+      console.debug(`\u{1F527} [Agile-Board] ${message}`, data);
+    }
+  }
+  /**
+   * Log verbose
+   */
+  verbose(message, data, source) {
+    if (!this.settings.enabled || this.settings.logLevel < 4 /* VERBOSE */)
+      return;
+    this.addToBuffer(4 /* VERBOSE */, message, data, source);
+    if (this.settings.logToConsole) {
+      console.debug(`\u{1F50D} [Agile-Board] ${message}`, data);
+    }
+  }
+  /**
+   * Log de démarrage (toujours affiché)
+   */
+  startup(message, data) {
+    this.addToBuffer(2 /* INFO */, `STARTUP: ${message}`, data, "startup");
+    console.log(`\u{1F680} [Agile-Board] ${message}`, data);
+  }
+  /**
+   * Log de succès
+   */
+  success(message, data, source) {
+    if (!this.settings.enabled || this.settings.logLevel < 2 /* INFO */)
+      return;
+    this.addToBuffer(2 /* INFO */, `SUCCESS: ${message}`, data, source);
+    if (this.settings.logToConsole) {
+      console.log(`\u2705 [Agile-Board] ${message}`, data);
+    }
+  }
+  /**
+   * Log de configuration
+   */
+  config(message, data) {
+    if (!this.settings.enabled || this.settings.logLevel < 3 /* DEBUG */)
+      return;
+    this.addToBuffer(3 /* DEBUG */, `CONFIG: ${message}`, data, "config");
+    if (this.settings.logToConsole) {
+      console.debug(`\u2699\uFE0F [Agile-Board] ${message}`, data);
+    }
+  }
+  /**
+   * Log de navigation
+   */
+  navigation(message, data) {
+    if (!this.settings.enabled || this.settings.logLevel < 4 /* VERBOSE */)
+      return;
+    this.addToBuffer(4 /* VERBOSE */, `NAV: ${message}`, data, "navigation");
+    if (this.settings.logToConsole) {
+      console.debug(`\u{1F9ED} [Agile-Board] ${message}`, data);
+    }
+  }
+  /**
+   * Log d'opération sur fichier
+   */
+  fileOperation(message, data) {
+    if (!this.settings.enabled || this.settings.logLevel < 3 /* DEBUG */)
+      return;
+    this.addToBuffer(3 /* DEBUG */, `FILE: ${message}`, data, "file");
+    if (this.settings.logToConsole) {
+      console.debug(`\u{1F4C1} [Agile-Board] ${message}`, data);
+    }
+  }
+  /**
+   * Test du système de logging
+   */
+  testSystem() {
+    this.info("Test du syst\xE8me de logging lanc\xE9");
+    this.debug("Message de debug test");
+    this.verbose("Message verbeux test");
+    this.warn("Message d'avertissement test");
+    this.error("Message d'erreur test (test uniquement)");
+    this.success("Test du syst\xE8me de logging termin\xE9");
+  }
+  /**
+   * Retourne les statistiques du logger
+   */
+  getStats() {
+    return {
+      totalLogs: this.logBuffer.length,
+      // Pour un buffer de strings, on analyse le contenu pour compter par type
+      errorCount: this.logBuffer.filter(
+        (log) => log.includes("ERROR:") || log.includes("\u274C") || log.includes("Message d'erreur")
+      ).length,
+      warningCount: this.logBuffer.filter(
+        (log) => log.includes("WARN:") || log.includes("\u26A0\uFE0F") || log.includes("Message d'avertissement")
+      ).length,
+      debugCount: this.logBuffer.filter(
+        (log) => log.includes("DEBUG:") || log.includes("\u{1F527}") || log.includes("VERBOSE:") || log.includes("\u{1F50D}")
+      ).length,
+      lastLogTime: new Date().toISOString(),
+      // Timestamp actuel
+      bufferSize: this.logBuffer.length,
+      isEnabled: this.settings.enabled,
+      currentLevel: LogLevel[this.settings.logLevel],
+      fileLoggingEnabled: this.settings.logToFile
+    };
+  }
+  /**
+   * Vide le buffer de logs
+   */
+  clearBuffer() {
+    this.logBuffer.length = 0;
+    this.debug("Buffer de logs vid\xE9");
+  }
+  /**
+   * Retourne tout le contenu du buffer
+   */
+  getBuffer() {
+    return [...this.logBuffer];
+  }
+  /**
+   * Sauvegarde les logs dans un fichier
+   */
+  async saveLogsToFile() {
+    if (!this.settings.logToFile || this.logBuffer.length === 0) {
+      return;
+    }
+    try {
+      const fileName = this.settings.logFileName || "agile-board-debug.log";
+      const content = this.logBuffer.join("\n");
+      const adapter = this.plugin.app.vault.adapter;
+      const exists = await adapter.exists(fileName);
+      if (exists) {
+        const existingContent = await adapter.read(fileName);
+        const newContent = existingContent + "\n" + content;
+        if (newContent.length > (this.settings.maxLogFileSize || 5 * 1024 * 1024)) {
+          const lines = newContent.split("\n");
+          const halfLines = lines.slice(Math.floor(lines.length / 2));
+          await adapter.write(fileName, halfLines.join("\n"));
+        } else {
+          await adapter.write(fileName, newContent);
+        }
+      } else {
+        await adapter.write(fileName, content);
+      }
+      this.debug(`Logs sauvegard\xE9s dans ${fileName} (${this.logBuffer.length} entr\xE9es)`);
+    } catch (error) {
+      console.error("[Agile-Board] Erreur lors de la sauvegarde des logs:", error);
+    }
+  }
+  /**
+   * Formate un message de log avec horodatage et source
+   */
+  formatLogMessage(level, message, source) {
+    const timestamp = this.settings.showTimestamps ? `[${new Date().toISOString()}] ` : "";
+    const sourceStr = this.settings.showSourceLocation && source ? ` (${source})` : "";
+    const levelStr = LogLevel[level];
+    return `${timestamp}${levelStr}: ${message}${sourceStr}`;
+  }
+  /**
+   * Retourne la configuration actuelle
+   */
+  getSettings() {
+    return { ...this.settings };
+  }
+  /**
+   * Active ou désactive le logging
+   */
+  setEnabled(enabled) {
+    this.settings.enabled = enabled;
+    this.config(`Logging ${enabled ? "activ\xE9" : "d\xE9sactiv\xE9"}`);
+  }
+  /**
+   * Change le niveau de log
+   */
+  setLogLevel(level) {
+    this.settings.logLevel = level;
+    this.config(`Niveau de log chang\xE9 vers: ${LogLevel[level]}`);
+  }
+};
+
+// src/components/SettingsTab.ts
+var import_obsidian = require("obsidian");
+var AgileBoardSettingsTab = class extends import_obsidian.PluginSettingTab {
+  constructor(app, plugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
+  display() {
+    const { containerEl } = this;
+    containerEl.empty();
+    containerEl.createEl("h1", { text: "Agile Board - Configuration" });
+    this.createDebugSection(containerEl);
+    this.createGeneralSection(containerEl);
+  }
+  /**
+   * Crée la section de configuration du debug
+   */
+  createDebugSection(containerEl) {
+    containerEl.createEl("h2", { text: "\u{1F527} Configuration du Debug" });
+    const debugDesc = containerEl.createEl("div", { cls: "setting-item-description" });
+    debugDesc.innerHTML = `
+            <p>Configurez le niveau de verbosit\xE9 et les options de debug du plugin.</p>
+            <p><strong>Conseil :</strong> Gardez le debug <em>d\xE9sactiv\xE9</em> en usage normal pour optimiser les performances.</p>
+        `;
+    new import_obsidian.Setting(containerEl).setName("Activer le debug").setDesc("Active ou d\xE9sactive compl\xE8tement le syst\xE8me de debug").addToggle((toggle) => toggle.setValue(this.plugin.settings.debug.enabled).onChange(async (value) => {
+      this.plugin.settings.debug.enabled = value;
+      await this.plugin.saveSettings();
+      new import_obsidian.Notice(`Debug ${value ? "activ\xE9" : "d\xE9sactiv\xE9"}`);
+      this.display();
+    }));
+    if (this.plugin.settings.debug.enabled) {
+      this.createDebugAdvancedOptions(containerEl);
+    }
+  }
+  /**
+   * Crée les options avancées de debug (quand activé)
+   */
+  createDebugAdvancedOptions(containerEl) {
+    new import_obsidian.Setting(containerEl).setName("Niveau de verbosit\xE9").setDesc("Contr\xF4le la quantit\xE9 d'informations affich\xE9es dans les logs").addDropdown((dropdown) => dropdown.addOption(0 /* ERROR */.toString(), "\u274C Erreurs uniquement").addOption(1 /* WARN */.toString(), "\u26A0\uFE0F Erreurs + Avertissements").addOption(2 /* INFO */.toString(), "\u2139\uFE0F Informations importantes (recommand\xE9)").addOption(3 /* DEBUG */.toString(), "\u{1F527} Debug d\xE9taill\xE9").addOption(4 /* VERBOSE */.toString(), "\u{1F50D} Tout afficher (tr\xE8s verbeux)").setValue(this.plugin.settings.debug.logLevel.toString()).onChange(async (value) => {
+      this.plugin.settings.debug.logLevel = parseInt(value);
+      await this.plugin.saveSettings();
+      new import_obsidian.Notice(`Niveau de debug: ${LogLevel[parseInt(value)]}`);
+    }));
+    new import_obsidian.Setting(containerEl).setName("Afficher les timestamps").setDesc("Ajoute l'heure pr\xE9cise \xE0 chaque message de log").addToggle((toggle) => toggle.setValue(this.plugin.settings.debug.showTimestamps).onChange(async (value) => {
+      this.plugin.settings.debug.showTimestamps = value;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian.Setting(containerEl).setName("Afficher la source").setDesc("Indique le fichier source de chaque message de log").addToggle((toggle) => toggle.setValue(this.plugin.settings.debug.showSourceLocation).onChange(async (value) => {
+      this.plugin.settings.debug.showSourceLocation = value;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian.Setting(containerEl).setName("Sauvegarder dans un fichier").setDesc("Enregistre automatiquement les logs dans un fichier de votre vault").addToggle((toggle) => toggle.setValue(this.plugin.settings.debug.logToFile).onChange(async (value) => {
+      this.plugin.settings.debug.logToFile = value;
+      await this.plugin.saveSettings();
+      this.display();
+    }));
+    if (this.plugin.settings.debug.logToFile) {
+      this.createFileLoggingOptions(containerEl);
+    }
+    this.createDebugActions(containerEl);
+  }
+  /**
+   * Crée les options de sauvegarde fichier
+   */
+  createFileLoggingOptions(containerEl) {
+    new import_obsidian.Setting(containerEl).setName("Nom du fichier de log").setDesc("Nom du fichier o\xF9 sauvegarder les logs (dans la racine du vault)").addText((text) => text.setPlaceholder("agile-board-debug.log").setValue(this.plugin.settings.debug.logFileName).onChange(async (value) => {
+      this.plugin.settings.debug.logFileName = value || "agile-board-debug.log";
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian.Setting(containerEl).setName("Taille maximale du fichier").setDesc("Taille maximale en KB avant rotation automatique").addSlider((slider) => slider.setLimits(100, 1e4, 100).setValue(this.plugin.settings.debug.maxLogFileSize).setDynamicTooltip().onChange(async (value) => {
+      this.plugin.settings.debug.maxLogFileSize = value;
+      await this.plugin.saveSettings();
+    }));
+  }
+  /**
+   * Crée les boutons d'action pour le debug
+   */
+  createDebugActions(containerEl) {
+    const actionsContainer = containerEl.createDiv("debug-actions");
+    actionsContainer.style.cssText = `
+            margin-top: 20px;
+            padding: 15px;
+            background-color: var(--background-secondary);
+            border-radius: 6px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        `;
+    const testButton = actionsContainer.createEl("button", {
+      text: "\u{1F9EA} Tester le syst\xE8me",
+      cls: "mod-cta"
+    });
+    testButton.onclick = () => {
+      this.plugin.logger.testSystem();
+      new import_obsidian.Notice("Test de debug ex\xE9cut\xE9 - v\xE9rifiez la console (F12)", 3e3);
+    };
+    if (this.plugin.settings.debug.logToFile) {
+      const saveButton = actionsContainer.createEl("button", {
+        text: "\u{1F4BE} Sauvegarder maintenant"
+      });
+      saveButton.onclick = async () => {
+        await this.plugin.logger.saveLogsToFile();
+        new import_obsidian.Notice("Logs sauvegard\xE9s", 2e3);
+      };
+    }
+    const statsButton = actionsContainer.createEl("button", {
+      text: "\u{1F4CA} Statistiques"
+    });
+    statsButton.onclick = () => this.showDebugStats();
+    const clearButton = actionsContainer.createEl("button", {
+      text: "\u{1F5D1}\uFE0F Vider le buffer"
+    });
+    clearButton.onclick = () => {
+      this.plugin.logger.clearBuffer();
+      new import_obsidian.Notice("Buffer de logs vid\xE9", 2e3);
+    };
+  }
+  /**
+   * Affiche les statistiques de debug dans une notification
+   */
+  showDebugStats() {
+    const stats = this.plugin.logger.getStats();
+    const message = `\u{1F4CA} Statistiques de Debug:
+
+\u2022 Statut: ${stats.isEnabled ? "\u2705 Activ\xE9" : "\u274C D\xE9sactiv\xE9"}
+\u2022 Niveau: ${stats.currentLevel}
+\u2022 Buffer: ${stats.bufferSize} entr\xE9es
+\u2022 Fichier: ${stats.fileLoggingEnabled ? "\u2705 Activ\xE9" : "\u274C D\xE9sactiv\xE9"}`;
+    new import_obsidian.Notice(message, 6e3);
+  }
+  /**
+   * Crée la section de configuration générale
+   */
+  createGeneralSection(containerEl) {
+    containerEl.createEl("h2", { text: "\u2699\uFE0F Param\xE8tres G\xE9n\xE9raux" });
+    new import_obsidian.Setting(containerEl).setName("Cr\xE9ation automatique des sections").setDesc("Cr\xE9e automatiquement les sections manquantes lors de l'ouverture d'un board").addToggle((toggle) => toggle.setValue(this.plugin.settings.autoCreateSections).onChange(async (value) => {
+      this.plugin.settings.autoCreateSections = value;
+      await this.plugin.saveSettings();
+      this.plugin.logger.config("Auto-cr\xE9ation sections modifi\xE9e", { enabled: value });
+    }));
+    const layoutDesc = containerEl.createEl("div", { cls: "setting-item-description" });
+    layoutDesc.innerHTML = `
+            <p><strong>Layouts disponibles:</strong> Eisenhower, Kanban, GTD, Weekly Planner, Daily Planner, Project Board, Cornell Notes, Tasks Dashboard</p>
+        `;
+  }
+};
+
+// src/utils/settings.ts
+var DEFAULT_SETTINGS = {
+  autoCreateSections: true,
+  defaultLayouts: ["layout_kanban", "layout_eisenhower", "layout_gtd"],
+  debug: {
+    enabled: false,
+    logLevel: 2 /* INFO */,
+    showTimestamps: true,
+    showSourceLocation: true,
+    logToFile: false,
+    logToConsole: true,
+    // ← Ajouté
+    logFileName: "agile-board-debug.log",
+    maxLogFileSize: 5 * 1024 * 1024
+    // 5MB
+  }
+};
+var DEV_SETTINGS = {
+  debug: {
+    enabled: true,
+    logLevel: 4 /* VERBOSE */,
+    showTimestamps: true,
+    showSourceLocation: true,
+    logToFile: false,
+    logToConsole: true,
+    // ← Ajouté
+    logFileName: "agile-board-debug.log",
+    maxLogFileSize: 5 * 1024 * 1024
+  }
+};
+var PROD_WITH_LOGS_SETTINGS = {
+  debug: {
+    enabled: true,
+    logLevel: 3 /* DEBUG */,
+    showTimestamps: true,
+    showSourceLocation: true,
+    logToFile: true,
+    logToConsole: false,
+    // ← Ajouté (false pour la production)
+    logFileName: "agile-board-debug.log",
+    maxLogFileSize: 5 * 1024 * 1024
+  }
+};
 
 // src/constants/layouts.ts
 var BUILT_IN_LAYOUTS = {
@@ -1461,7 +1906,7 @@ var FileService = class {
 };
 
 // src/views/BoardView.ts
-var import_obsidian = require("obsidian");
+var import_obsidian2 = require("obsidian");
 
 // src/components/MarkdownFrame.ts
 var MarkdownFrame = class {
@@ -2004,7 +2449,7 @@ var MarkdownFrame = class {
 
 // src/views/BoardView.ts
 var BOARD_VIEW_TYPE = "agile-board-view";
-var BoardView = class extends import_obsidian.FileView {
+var BoardView = class extends import_obsidian2.FileView {
   constructor(leaf, plugin) {
     super(leaf);
     this.gridContainer = null;
@@ -2323,1056 +2768,404 @@ var BoardView = class extends import_obsidian.FileView {
   }
 };
 
-// src/managers/ViewSwitcher.ts
-var import_obsidian2 = require("obsidian");
-var ViewSwitcher = class {
-  /**
-   * CONSTRUCTEUR avec injection de dépendance
-   * 
-   * @param plugin - Instance du plugin principal
-   * 
-   * INJECTION DE DÉPENDANCE :
-   * Le plugin donne accès à :
-   * - app : Instance Obsidian pour les opérations
-   * - layoutService : Pour vérifier les layouts disponibles
-   * - registerEvent : Pour s'abonner aux événements
-   */
-  constructor(plugin) {
-    this.plugin = plugin;
-  }
-  // ===========================================================================
-  // MÉTHODES DE BASCULEMENT ENTRE VUES
-  // ===========================================================================
-  /**
-   * Bascule vers la vue Board pour un fichier donné
-   * 
-   * PROCESSUS :
-   * 1. Obtenir l'onglet actif (activeLeaf)
-   * 2. Changer son type de vue vers BOARD_VIEW_TYPE
-   * 3. Passer le chemin du fichier en paramètre d'état
-   * 
-   * CONCEPT OBSIDIAN - SETVIEWSTATE :
-   * setViewState permet de changer complètement le type de vue d'un onglet.
-   * C'est comme transformer un onglet "texte" en onglet "image" par exemple.
-   * 
-   * @param file - Fichier à afficher en mode Board
-   * 
-   * @example
-   * // L'utilisateur clique sur le bouton "Mode Board"
-   * viewSwitcher.switchToBoardView(currentFile);
-   * // L'onglet passe de MarkdownView à BoardView
-   */
-  async switchToBoardView(file) {
-    const activeLeaf = this.plugin.app.workspace.activeLeaf;
-    if (activeLeaf) {
-      await activeLeaf.setViewState({
-        type: BOARD_VIEW_TYPE,
-        // Notre type de vue personnalisé
-        state: { file: file.path }
-        // État initial : quel fichier afficher
-      });
-      console.log("\u{1F3AF} Basculement vers Board View");
-    }
-  }
-  /**
-   * Bascule vers la vue Markdown standard pour un fichier donné
-   * 
-   * PROCESSUS INVERSE :
-   * Même principe que switchToBoardView mais vers la vue standard d'Obsidian.
-   * 
-   * @param file - Fichier à afficher en mode Markdown
-   * 
-   * @example
-   * // L'utilisateur clique sur le bouton "Mode Markdown"
-   * viewSwitcher.switchToMarkdownView(currentFile);
-   * // L'onglet passe de BoardView à MarkdownView
-   */
-  async switchToMarkdownView(file) {
-    const activeLeaf = this.plugin.app.workspace.activeLeaf;
-    if (activeLeaf) {
-      await activeLeaf.setViewState({
-        type: "markdown",
-        // Type de vue standard d'Obsidian
-        state: { file: file.path }
-        // Même fichier, vue différente
-      });
-      console.log("\u{1F4DD} Basculement vers Markdown View");
-    }
-  }
-  // ===========================================================================
-  // MÉTHODES DE DÉTECTION DE CONTEXTE
-  // ===========================================================================
-  /**
-   * Vérifie si la vue actuelle est notre BoardView
-   * 
-   * UTILITÉ :
-   * Permet de savoir quel bouton afficher (Board → Markdown ou Markdown → Board).
-   * 
-   * MÉTHODE OBSIDIAN :
-   * getActiveViewOfType() cherche une vue d'un type spécifique dans l'espace de travail.
-   * Retourne l'instance ou null si aucune vue de ce type n'est active.
-   * 
-   * @returns boolean - true si on est en mode Board
-   * 
-   * @example
-   * if (viewSwitcher.isCurrentViewBoardView()) {
-   *   showMarkdownButton();
-   * } else {
-   *   showBoardButton();
-   * }
-   */
-  isCurrentViewBoardView() {
-    return this.plugin.app.workspace.getActiveViewOfType(BoardView) !== null;
-  }
-  /**
-   * Vérifie si la vue actuelle est la MarkdownView standard
-   * 
-   * COMPLÉMENT DE isCurrentViewBoardView :
-   * Ces deux méthodes permettent de couvrir tous les cas de figure.
-   * 
-   * @returns boolean - true si on est en mode Markdown
-   */
-  isCurrentViewMarkdownView() {
-    return this.plugin.app.workspace.getActiveViewOfType(import_obsidian2.MarkdownView) !== null;
-  }
-  /**
-   * Vérifie si un fichier a un layout agile-board configuré
-   * 
-   * LOGIQUE MÉTIER :
-   * - Seuls les fichiers avec layout agile-board peuvent utiliser la vue Board
-   * - Cette vérification détermine si les boutons doivent être affichés
-   * 
-   * ACCÈS AUX MÉTADONNÉES :
-   * - metadataCache : Cache des métadonnées des fichiers
-   * - getFileCache : Obtient les métadonnées d'un fichier
-   * - frontmatter : Bloc YAML en début de fichier
-   * 
-   * @param file - Fichier à vérifier
-   * @returns boolean - true si le fichier a un layout agile-board
-   * 
-   * @example
-   * // Fichier avec frontmatter :
-   * // ---
-   * // agile-board: layout_eisenhower
-   * // ---
-   * hasAgileBoardLayout(file); // true
-   * 
-   * // Fichier normal sans frontmatter
-   * hasAgileBoardLayout(file); // false
-   */
-  hasAgileBoardLayout(file) {
-    var _a;
-    const fileCache = this.plugin.app.metadataCache.getFileCache(file);
-    return ((_a = fileCache == null ? void 0 : fileCache.frontmatter) == null ? void 0 : _a["agile-board"]) !== void 0;
-  }
-  // ===========================================================================
-  // MÉTHODES DE GESTION DES BOUTONS D'INTERFACE
-  // ===========================================================================
-  /**
-   * Configure les écouteurs d'événements pour la gestion automatique des boutons
-   * 
-   * ÉVÉNEMENTS OBSIDIAN SURVEILLÉS :
-   * 1. active-leaf-change : Changement d'onglet actif
-   * 2. file-open : Ouverture d'un nouveau fichier
-   * 3. metadataCache.on('changed') : Modification des métadonnées
-   * 
-   * PATTERN OBSERVER :
-   * S'abonne aux événements système plutôt que de sonder constamment.
-   * Plus efficace et réactif.
-   * 
-   * DÉLAIS (setTimeout) :
-   * Petits délais pour laisser le temps à Obsidian de finaliser les changements
-   * avant de mettre à jour l'interface.
-   * 
-   * @example
-   * viewSwitcher.addSwitchButton();
-   * // À partir de maintenant, les boutons apparaissent/disparaissent automatiquement
-   */
-  addSwitchButton() {
-    this.plugin.registerEvent(
-      this.plugin.app.workspace.on("active-leaf-change", () => {
-        setTimeout(() => this.updateSwitchButton(), 50);
-      })
-    );
-    this.plugin.registerEvent(
-      this.plugin.app.workspace.on("file-open", () => {
-        setTimeout(() => this.updateSwitchButton(), 50);
-      })
-    );
-    this.plugin.registerEvent(
-      this.plugin.app.metadataCache.on("changed", (file) => {
-        const activeFile = this.plugin.app.workspace.getActiveFile();
-        if (activeFile && activeFile.path === file.path) {
-          setTimeout(() => this.updateSwitchButtonForFile(file), 100);
-        }
-      })
-    );
-    setTimeout(() => this.updateSwitchButton(), 100);
-  }
-  /**
-   * Met à jour les boutons pour un fichier spécifique
-   * 
-   * UTILISATION :
-   * Appelée depuis l'extérieur (ModelDetector) quand un changement est détecté.
-   * Version optimisée qui évite de re-analyser le contexte.
-   * 
-   * @param file - Fichier pour lequel mettre à jour les boutons
-   */
-  updateSwitchButtonForFile(file) {
-    const hasLayout = this.hasAgileBoardLayout(file);
-    if (hasLayout) {
-      if (this.isCurrentViewMarkdownView()) {
-        this.ensureBoardModeButton();
-      } else if (this.isCurrentViewBoardView()) {
-        this.ensureNormalModeButton();
-      }
-    } else {
-      this.removeSwitchButtons();
-    }
-  }
-  /**
-   * Met à jour les boutons selon le contexte actuel
-   * 
-   * LOGIQUE GLOBALE :
-   * 1. Identifier le fichier actif
-   * 2. Vérifier s'il a un layout agile-board
-   * 3. Déterminer la vue actuelle
-   * 4. Afficher le bouton approprié
-   * 
-   * MÉTHODE PRINCIPALE :
-   * Point d'entrée pour toutes les mises à jour automatiques.
-   */
-  updateSwitchButton() {
-    const activeFile = this.plugin.app.workspace.getActiveFile();
-    if (!activeFile)
-      return;
-    const hasLayout = this.hasAgileBoardLayout(activeFile);
-    if (!hasLayout) {
-      this.removeSwitchButtons();
-      return;
-    }
-    if (this.isCurrentViewMarkdownView()) {
-      this.ensureBoardModeButton();
-    } else if (this.isCurrentViewBoardView()) {
-      this.ensureNormalModeButton();
-    } else {
-      this.removeSwitchButtons();
-    }
-  }
-  /**
-   * S'assure qu'un bouton "Mode Board" est présent en vue Markdown
-   * 
-   * PROCESSUS :
-   * 1. Trouver la vue Markdown active
-   * 2. Localiser la zone des actions de vue (.view-actions)
-   * 3. Supprimer le bouton existant s'il y en a un
-   * 4. Créer et configurer le nouveau bouton
-   * 5. Ajouter les styles et l'événement click
-   * 
-   * GESTION D'ERREURS :
-   * Try-catch pour éviter que les erreurs d'interface cassent le plugin.
-   * 
-   * CONCEPT OBSIDIAN - addAction :
-   * addAction() est la méthode officielle pour ajouter des boutons aux vues.
-   * Paramètres : (icône, tooltip, callback)
-   */
-  ensureBoardModeButton() {
-    const markdownView = this.plugin.app.workspace.getActiveViewOfType(import_obsidian2.MarkdownView);
-    if (!markdownView)
-      return;
-    const viewActions = markdownView.containerEl.querySelector(".view-actions");
-    if (!viewActions)
-      return;
-    const existingButton = viewActions.querySelector(".agile-board-switch-button");
-    if (existingButton) {
-      existingButton.remove();
-    }
-    try {
-      const button = markdownView.addAction("layout-grid", "Mode Board", () => {
-        const activeFile = this.plugin.app.workspace.getActiveFile();
-        if (activeFile) {
-          this.switchToBoardView(activeFile);
-        }
-      });
-      button.addClass("agile-board-switch-button");
-      button.setAttribute("data-agile-board-button", "board-mode");
-      button.style.cssText = `
-        background-color: var(--interactive-accent);
-        color: var(--text-on-accent);
-        border-radius: 3px;
-        opacity: 1;
-      `;
-      console.log("\u{1F518} Bouton Mode Board ajout\xE9");
-    } catch (error) {
-      console.error("Erreur lors de l'ajout du bouton Mode Board:", error);
-    }
-  }
-  /**
-   * S'assure qu'un bouton "Mode Markdown" est présent en vue Board
-   * 
-   * PROCESSUS SIMILAIRE à ensureBoardModeButton mais pour BoardView.
-   * 
-   * DIFFÉRENCES :
-   * - Utilise getActiveViewOfType(BoardView)
-   * - Icône 'document' au lieu de 'layout-grid'
-   * - Callback vers switchToMarkdownView
-   */
-  ensureNormalModeButton() {
-    const boardView = this.plugin.app.workspace.getActiveViewOfType(BoardView);
-    if (!boardView)
-      return;
-    const viewActions = boardView.containerEl.querySelector(".view-actions");
-    if (!viewActions)
-      return;
-    const existingButton = viewActions.querySelector(".agile-board-switch-button");
-    if (existingButton) {
-      existingButton.remove();
-    }
-    try {
-      const button = boardView.addAction("document", "Mode Markdown", () => {
-        const activeFile = this.plugin.app.workspace.getActiveFile();
-        if (activeFile) {
-          this.switchToMarkdownView(activeFile);
-        }
-      });
-      button.addClass("agile-board-switch-button");
-      button.setAttribute("data-agile-board-button", "normal-mode");
-      button.style.cssText = `
-        background-color: var(--interactive-accent);
-        color: var(--text-on-accent);
-        border-radius: 3px;
-        opacity: 1;
-      `;
-      console.log("\u{1F518} Bouton Mode Markdown ajout\xE9");
-    } catch (error) {
-      console.error("Erreur lors de l'ajout du bouton Mode Markdown:", error);
-    }
-  }
-  /**
-   * Supprime tous les boutons de basculement de l'interface
-   * 
-   * UTILISATION :
-   * - Quand on ouvre un fichier sans layout agile-board
-   * - Quand on bascule vers une vue non supportée
-   * - Lors du nettoyage du plugin
-   * 
-   * SÉLECTEUR GLOBAL :
-   * Utilise document.querySelectorAll pour trouver tous les boutons,
-   * même s'ils sont dans des onglets différents.
-   * 
-   * CLASSE IDENTIFICATRICE :
-   * Tous nos boutons ont la classe 'agile-board-switch-button'
-   * pour un nettoyage facile et sûr.
-   */
-  removeSwitchButtons() {
-    const buttons = document.querySelectorAll(".agile-board-switch-button");
-    buttons.forEach((button) => button.remove());
-  }
-  // ===========================================================================
-  // MÉTHODES DE CYCLE DE VIE
-  // ===========================================================================
-  /**
-   * Nettoie les ressources utilisées par le ViewSwitcher
-   * 
-   * APPELÉE PAR :
-   * Le plugin principal lors de son déchargement (onunload).
-   * 
-   * NETTOYAGE :
-   * - Supprime tous les boutons de l'interface
-   * - Les écouteurs d'événements sont automatiquement nettoyés par Obsidian
-   *   grâce à registerEvent() utilisé dans addSwitchButton()
-   * 
-   * IMPORTANCE :
-   * Évite les fuites mémoire et les boutons orphelins dans l'interface.
-   */
-  stop() {
-    this.removeSwitchButtons();
-  }
-};
-
-// src/managers/ModelDetector.ts
-var ModelDetector = class {
-  /**
-   * CONSTRUCTEUR avec injection de dépendance
-   * 
-   * @param plugin - Instance du plugin principal
-   * 
-   * DÉPENDANCES UTILISÉES :
-   * - plugin.app : Pour accéder aux APIs Obsidian
-   * - plugin.layoutService : Pour valider les layouts
-   * - plugin.viewSwitcher : Pour mettre à jour l'interface
-   * - plugin.registerEvent : Pour l'abonnement sécurisé aux événements
-   */
-  constructor(plugin) {
-    this.plugin = plugin;
-    /**
-     * Cache des fichiers déjà traités
-     * 
-     * STRUCTURE DE DONNÉES :
-     * Set<string> pour un accès O(1) et éviter les doublons.
-     * 
-     * CLÉ DE CACHE :
-     * "chemin-du-fichier-timestamp" pour invalidation automatique
-     * quand le fichier est modifié.
-     * 
-     * AVANTAGES :
-     * - Évite les retraitements inutiles
-     * - Performance optimisée pour les gros vaults
-     * - Invalidation automatique lors des modifications
-     */
-    this.processedFiles = /* @__PURE__ */ new Set();
-  }
-  // ===========================================================================
-  // MÉTHODES DE CYCLE DE VIE
-  // ===========================================================================
-  /**
-   * Initialise la surveillance des événements Obsidian
-   * 
-   * ÉVÉNEMENTS SURVEILLÉS :
-   * 1. metadataCache.on('changed') : Modification des métadonnées
-   * 2. workspace.on('file-open') : Ouverture de fichier
-   * 3. workspace.on('active-leaf-change') : Changement d'onglet actif
-   * 
-   * DÉLAIS D'INITIALISATION :
-   * Délai de 1 seconde pour laisser Obsidian finir son initialisation
-   * avant de traiter les fichiers déjà ouverts.
-   * 
-   * PATTERN REGISTER-EVENT :
-   * Utilise plugin.registerEvent() pour un nettoyage automatique
-   * des écouteurs lors du déchargement du plugin.
-   * 
-   * @example
-   * modelDetector.onLoad();
-   * // À partir de maintenant, les changements sont détectés automatiquement
-   */
-  onLoad() {
-    this.plugin.registerEvent(
-      this.plugin.app.metadataCache.on("changed", (file) => {
-        this.handleMetadataChanged(file);
-      })
-    );
-    this.plugin.registerEvent(
-      this.plugin.app.workspace.on("file-open", (file) => {
-        if (file) {
-          this.handleFileOpen(file);
-        }
-      })
-    );
-    this.plugin.registerEvent(
-      this.plugin.app.workspace.on("active-leaf-change", () => {
-        setTimeout(() => {
-          const activeFile = this.plugin.app.workspace.getActiveFile();
-          if (activeFile) {
-            this.handleFileOpen(activeFile);
-          }
-        }, 100);
-      })
-    );
-    setTimeout(() => {
-      this.processAllOpenFiles();
-    }, 1e3);
-  }
-  /**
-   * Nettoie les ressources utilisées par le détecteur
-   * 
-   * APPELÉE PAR :
-   * Le plugin principal lors de son déchargement (onunload).
-   * 
-   * NETTOYAGE :
-   * - Vide le cache des fichiers traités
-   * - Les écouteurs d'événements sont automatiquement nettoyés par Obsidian
-   * 
-   * IMPORTANCE :
-   * Évite les fuites mémoire et prépare un rechargement propre du plugin.
-   */
-  onUnload() {
-    this.processedFiles.clear();
-  }
-  // ===========================================================================
-  // GESTIONNAIRES D'ÉVÉNEMENTS PRIVÉS
-  // ===========================================================================
-  /**
-   * Gère les changements de métadonnées d'un fichier
-   * 
-   * DÉCLENCHEMENT :
-   * Quand l'utilisateur modifie le frontmatter d'un fichier.
-   * Par exemple, ajouter ou changer "agile-board: layout_kanban".
-   * 
-   * LOGIQUE :
-   * Les métadonnées changées peuvent affecter l'affichage des boutons,
-   * donc on relance le traitement du fichier.
-   * 
-   * @param file - Fichier dont les métadonnées ont changé
-   * 
-   * @example
-   * // L'utilisateur ajoute dans le frontmatter :
-   * // agile-board: layout_eisenhower
-   * // → handleMetadataChanged() est appelée
-   * // → Les boutons de basculement apparaissent
-   */
-  handleMetadataChanged(file) {
-    console.log("\u{1F4DD} M\xE9tadonn\xE9es chang\xE9es pour:", file.basename);
-    this.processFile(file);
-  }
-  /**
-   * Gère l'ouverture d'un fichier
-   * 
-   * DÉCLENCHEMENT :
-   * - Ouverture d'un nouveau fichier
-   * - Basculement vers un onglet existant
-   * - Navigation par liens internes
-   * 
-   * @param file - Fichier qui vient d'être ouvert/activé
-   */
-  handleFileOpen(file) {
-    console.log("\u{1F4C2} Fichier ouvert:", file.basename);
-    this.processFile(file);
-  }
-  /**
-   * Traite tous les fichiers déjà ouverts au démarrage
-   * 
-   * UTILISATION :
-   * Appelée une fois lors de l'initialisation pour traiter les fichiers
-   * qui étaient déjà ouverts avant l'activation du plugin.
-   * 
-   * MÉTHODE OBSIDIAN :
-   * iterateAllLeaves() parcourt tous les onglets ouverts dans l'espace de travail.
-   * 
-   * FILTRAGE :
-   * Seuls les onglets avec vue markdown et fichier valide sont traités.
-   * 
-   * @example
-   * // Au démarrage d'Obsidian avec 3 fichiers ouverts :
-   * // processAllOpenFiles() va traiter les 3 fichiers
-   * // et afficher les boutons appropriés
-   */
-  processAllOpenFiles() {
-    console.log("\u{1F50D} Traitement initial de tous les fichiers ouverts...");
-    this.plugin.app.workspace.iterateAllLeaves((leaf) => {
-      const view = leaf.view;
-      if (view.getViewType() === "markdown" && view.file) {
-        this.processFile(view.file);
-      }
-    });
-  }
-  // ===========================================================================
-  // LOGIQUE MÉTIER PRINCIPALE
-  // ===========================================================================
-  /**
-   * Traite un fichier individuel et met à jour l'interface si nécessaire
-   * 
-   * ALGORITHME :
-   * 1. Filtrer les fichiers non-markdown
-   * 2. Générer une clé de cache unique
-   * 3. Vérifier si déjà traité (cache hit)
-   * 4. Détecter si le fichier a un layout agile-board
-   * 5. Mettre à jour l'interface via ViewSwitcher
-   * 6. Nettoyer le cache si nécessaire
-   * 
-   * OPTIMISATION DE CACHE :
-   * La clé inclut le timestamp de modification (mtime) pour invalider
-   * automatiquement le cache quand le fichier change.
-   * 
-   * @param file - Fichier à traiter
-   * 
-   * @example
-   * // Première fois : traitement complet
-   * processFile(myFile); // Cache miss → traitement
-   * 
-   * // Deuxième fois (fichier inchangé) : cache hit
-   * processFile(myFile); // Cache hit → pas de traitement
-   * 
-   * // Après modification du fichier : cache invalidé
-   * processFile(myFile); // Cache miss → traitement
-   */
-  processFile(file) {
-    if (!file.path.endsWith(".md"))
-      return;
-    const fileKey = `${file.path}-${file.stat.mtime}`;
-    if (this.processedFiles.has(fileKey))
-      return;
-    this.processedFiles.add(fileKey);
-    this.cleanupProcessedFiles();
-    const hasLayout = this.hasAgileBoardLayout(file);
-    console.log(`\u{1F3AF} Fichier "${file.basename}" - Layout agile-board: ${hasLayout ? "OUI" : "NON"}`);
-    setTimeout(() => {
-      this.plugin.viewSwitcher.updateSwitchButtonForFile(file);
-    }, 50);
-  }
-  /**
-   * Vérifie si un fichier a un layout agile-board valide
-   * 
-   * VALIDATION EN DEUX ÉTAPES :
-   * 1. Vérifier la présence du champ 'agile-board' dans le frontmatter
-   * 2. Vérifier que le layout existe dans le LayoutService
-   * 
-   * GESTION D'ERREURS :
-   * Si un layout est spécifié mais n'existe pas, log un warning
-   * mais retourne false (traitement gracieux).
-   * 
-   * @param file - Fichier à vérifier
-   * @returns boolean - true si le fichier a un layout valide
-   * 
-   * @example
-   * // Fichier avec frontmatter valide :
-   * // ---
-   * // agile-board: layout_eisenhower
-   * // ---
-   * hasAgileBoardLayout(file); // true
-   * 
-   * // Fichier avec layout inexistant :
-   * // ---
-   * // agile-board: layout_inexistant
-   * // ---
-   * hasAgileBoardLayout(file); // false + warning
-   */
-  hasAgileBoardLayout(file) {
-    var _a;
-    const fileCache = this.plugin.app.metadataCache.getFileCache(file);
-    const layoutName = (_a = fileCache == null ? void 0 : fileCache.frontmatter) == null ? void 0 : _a["agile-board"];
-    if (!layoutName)
-      return false;
-    const layout = this.plugin.layoutService.getModel(layoutName);
-    if (!layout) {
-      console.warn(`\u26A0\uFE0F Layout "${layoutName}" sp\xE9cifi\xE9 mais non trouv\xE9`);
-      return false;
-    }
-    return true;
-  }
-  // ===========================================================================
-  // GESTION DU CACHE ET OPTIMISATIONS
-  // ===========================================================================
-  /**
-   * Nettoie le cache pour éviter une croissance excessive
-   * 
-   * STRATÉGIE DE NETTOYAGE :
-   * - Limite : 100 entrées maximum dans le cache
-   * - Méthode : Garder les 50 entrées les plus récentes
-   * - Déclenchement : À chaque ajout dans le cache
-   * 
-   * POURQUOI NETTOYER :
-   * - Éviter la fuite mémoire avec de gros vaults
-   * - Maintenir des performances optimales
-   * - Les anciennes entrées sont probablement obsolètes
-   * 
-   * ALGORITHME LRU SIMPLE :
-   * Les entrées sont dans l'ordre d'insertion dans le Set.
-   * On garde les dernières ajoutées (= les plus récemment utilisées).
-   * 
-   * @example
-   * // Cache avec 100+ entrées
-   * cleanupProcessedFiles();
-   * // → Cache réduit à 50 entrées les plus récentes
-   */
-  cleanupProcessedFiles() {
-    if (this.processedFiles.size > 100) {
-      const entries = Array.from(this.processedFiles);
-      const toKeep = entries.slice(-50);
-      this.processedFiles.clear();
-      toKeep.forEach((entry) => this.processedFiles.add(entry));
-      console.log("\u{1F9F9} Cache nettoy\xE9: gard\xE9 50 entr\xE9es sur", entries.length);
-    }
-  }
-  // ===========================================================================
-  // MÉTHODES UTILITAIRES PUBLIQUES
-  // ===========================================================================
-  /**
-   * Force une mise à jour complète de tous les fichiers ouverts
-   * 
-   * UTILISATION :
-   * - Commande de débogage
-   * - Après rechargement de layouts
-   * - Récupération d'état incohérent
-   * 
-   * PROCESSUS :
-   * 1. Vider complètement le cache
-   * 2. Retraiter tous les fichiers ouverts
-   * 3. Mettre à jour toute l'interface
-   * 
-   * PERFORMANCE :
-   * Opération coûteuse, à utiliser avec parcimonie.
-   * 
-   * @example
-   * // L'utilisateur utilise la commande "Force Update Board Buttons"
-   * modelDetector.forceUpdate();
-   * // → Tous les boutons sont recalculés et mis à jour
-   */
-  forceUpdate() {
-    this.processedFiles.clear();
-    this.processAllOpenFiles();
-    console.log("\u{1F504} Mise \xE0 jour forc\xE9e termin\xE9e");
-  }
-};
-
-// src/types/index.ts
-var DEFAULT_LAYOUTS = {
-  EISENHOWER: "layout_eisenhower",
-  KANBAN: "layout_kanban",
-  GTD: "layout_gtd",
-  WEEKLY: "layout_weekly",
-  DAILY: "layout_daily"
-};
-
-// src/utils/settings.ts
-function createDefaultSettings() {
-  return {
-    // Layout utilisé par défaut pour les nouvelles notes
-    // Eisenhower est choisi car c'est un système de priorisation universel
-    defaultModel: DEFAULT_LAYOUTS.EISENHOWER,
-    // Activer le basculement automatique vers la vue board
-    // Améliore l'expérience utilisateur en affichant directement le board
-    autoSwitchEnabled: true,
-    // Délai de 1 seconde avant sauvegarde automatique
-    // Évite de sauvegarder à chaque frappe tout en restant réactif
-    debounceDelay: 1e3
-  };
-}
-
 // src/main.ts
 var AgileBoardPlugin = class extends import_obsidian3.Plugin {
-  // =============================================================================
-  // MÉTHODES DU CYCLE DE VIE OBSIDIAN
-  // =============================================================================
   /**
-   * MÉTHODE onload() - Point d'entrée du plugin
-   * 
-   * CONCEPT OBSIDIAN :
-   * Cette méthode est appelée automatiquement par Obsidian quand :
-   * - L'utilisateur active le plugin
-   * - Obsidian démarre avec le plugin déjà activé
-   * 
-   * RESPONSABILITÉS :
-   * - Initialiser tous les composants du plugin
-   * - Enregistrer les vues, commandes, et événements
-   * - Préparer l'interface utilisateur
-   * 
-   * Le mot-clé "async" permet d'utiliser "await" pour les opérations asynchrones
+   * Initialisation du plugin - appelée au chargement d'Obsidian
    */
   async onload() {
-    console.log("\u{1F680} Loading Agile Board Plugin...");
-    try {
-      await this.loadSettings();
-      await this.initializeServices();
-      this.registerView(
-        BOARD_VIEW_TYPE,
-        // Identifiant unique de la vue
-        (leaf) => new BoardView(leaf, this)
-        // Factory function pour créer la vue
-      );
-      await this.initializeManagers();
-      this.registerCommands();
-      this.addStatusBarItem().setText("Agile Board Ready");
-      console.log("\u2705 Agile Board Plugin loaded successfully");
-      console.log("\u{1F4CB} Layouts disponibles:", this.layoutService.getAllModelNames());
-    } catch (error) {
-      console.error("\u274C Erreur lors du chargement du plugin:", error);
-    }
+    await this.loadSettings();
+    this.logger = new LoggerService(this, this.settings.debug);
+    this.logger.startup("Plugin Agile-Board v0.7.0 en cours d'initialisation", {
+      debugEnabled: this.settings.debug.enabled,
+      logLevel: this.settings.debug.logLevel,
+      autoCreateSections: this.settings.autoCreateSections
+    });
+    await this.initializeServices();
+    this.registerViews();
+    this.registerCommands();
+    this.addSettingTab(new AgileBoardSettingsTab(this.app, this));
+    this.logger.config("Onglet de configuration enregistr\xE9");
+    this.setupPeriodicLogSaving();
+    this.setupEventListeners();
+    this.logger.success("Plugin Agile-Board initialis\xE9 avec succ\xE8s", {
+      version: "0.7.0",
+      loadTime: performance.now(),
+      services: this.getLoadedServices()
+    });
   }
   /**
-   * MÉTHODE onunload() - Nettoyage du plugin
-   * 
-   * CONCEPT OBSIDIAN :
-   * Cette méthode est appelée quand :
-   * - L'utilisateur désactive le plugin
-   * - Obsidian se ferme
-   * - Le plugin est rechargé
-   * 
-   * RESPONSABILITÉS :
-   * - Nettoyer les ressources utilisées
-   * - Désactiver les gestionnaires d'événements
-   * - Éviter les fuites mémoire
+   * Arrêt du plugin - appelée à la fermeture d'Obsidian
    */
   async onunload() {
-    var _a, _b;
-    console.log("\u{1F6D1} Unloading Agile Board Plugin...");
-    (_a = this.modelDetector) == null ? void 0 : _a.onUnload();
-    (_b = this.viewSwitcher) == null ? void 0 : _b.stop();
-    console.log("\u2705 Agile Board Plugin unloaded");
-  }
-  // =============================================================================
-  // MÉTHODES D'INITIALISATION PRIVÉES
-  // =============================================================================
-  /**
-   * Initialise tous les services métier
-   * 
-   * PRINCIPE DE CONCEPTION :
-   * - Les services sont initialisés avant les managers
-   * - Chaque service reçoit les dépendances dont il a besoin
-   * - L'ordre d'initialisation est important
-   */
-  async initializeServices() {
-    this.layoutService = new LayoutService(this);
-    this.layoutService.load();
-    this.fileService = new FileService(this.app);
-  }
-  /**
-   * Initialise tous les gestionnaires de fonctionnalités
-   * 
-   * ORDRE D'INITIALISATION :
-   * 1. Créer les instances avec leurs dépendances
-   * 2. Activer leurs fonctionnalités (boutons, surveillance, etc.)
-   */
-  async initializeManagers() {
-    this.viewSwitcher = new ViewSwitcher(this);
-    this.viewSwitcher.addSwitchButton();
-    this.modelDetector = new ModelDetector(this);
-    this.modelDetector.onLoad();
-  }
-  // =============================================================================
-  // MÉTHODES D'ENREGISTREMENT DES COMMANDES
-  // =============================================================================
-  /**
-   * Enregistre toutes les commandes du plugin
-   * 
-   * CONCEPT OBSIDIAN - COMMANDES :
-   * Les commandes sont des actions que l'utilisateur peut déclencher via :
-   * - La palette de commandes (Ctrl+P)
-   * - Des raccourcis clavier personnalisés
-   * - Des boutons dans l'interface
-   */
-  registerCommands() {
-    this.addCommand({
-      id: "switch-to-board-view",
-      // Identifiant unique
-      name: "Switch to Board View",
-      // Nom affiché dans la palette
-      callback: () => this.activateBoardView()
-      // Fonction à exécuter
-    });
-    this.registerCreationCommands();
-    this.registerUtilityCommands();
-  }
-  /**
-   * Enregistre les commandes de création de notes avec layouts prédéfinis
-   * 
-   * PATTERN DE CONCEPTION :
-   * - Définir une liste de layouts disponibles
-   * - Créer dynamiquement une commande pour chaque layout
-   * - Utiliser une convention de nommage cohérente
-   */
-  registerCreationCommands() {
-    const layouts = [
-      { id: "eisenhower", name: "Eisenhower Matrix" },
-      { id: "kanban", name: "Kanban Board" },
-      { id: "gtd", name: "GTD Board" },
-      { id: "weekly", name: "Weekly Planner" },
-      { id: "daily", name: "Daily Planner" },
-      { id: "project", name: "Project Board" },
-      { id: "simple", name: "Simple Board" },
-      { id: "cornell", name: "Cornell Notes" },
-      { id: "tasks-dashboard", name: "Tasks Dashboard" },
-      { id: "dataview-analytics", name: "Dataview Analytics" }
-    ];
-    layouts.forEach((layout) => {
-      this.addCommand({
-        id: `create-${layout.id}-note`,
-        // ID unique : create-kanban-note
-        name: `Create ${layout.name} Note`,
-        // Nom : Create Kanban Board Note
-        callback: () => {
-          const layoutName = `layout_${layout.id.replace("-", "_")}`;
-          this.createNoteWithLayout(layoutName);
-        }
-      });
-    });
-  }
-  /**
-   * Enregistre les commandes utilitaires et de débogage
-   * 
-   * TYPES DE COMMANDES UTILITAIRES :
-   * - Informations : Lister les layouts disponibles
-   * - Maintenance : Créer les sections manquantes
-   * - Débogage : Forcer la mise à jour des boutons
-   */
-  registerUtilityCommands() {
-    this.addCommand({
-      id: "list-layouts",
-      name: "List Available Layouts",
-      callback: () => this.showAvailableLayouts()
-    });
-    this.addCommand({
-      id: "create-missing-sections",
-      name: "Create Missing Sections for Current Layout",
-      checkCallback: (checking) => {
-        var _a;
-        const activeFile = this.app.workspace.getActiveFile();
-        if (!activeFile)
-          return false;
-        const fileCache = this.app.metadataCache.getFileCache(activeFile);
-        const layoutName = (_a = fileCache == null ? void 0 : fileCache.frontmatter) == null ? void 0 : _a["agile-board"];
-        if (!layoutName)
-          return false;
-        if (!checking) {
-          this.createMissingSectionsForCurrentFile();
-        }
-        return true;
-      }
-    });
-    this.addCommand({
-      id: "force-update-buttons",
-      name: "Force Update Board Buttons",
-      callback: () => {
-        this.modelDetector.forceUpdate();
-        console.log("\u{1F504} Boutons mis \xE0 jour manuellement");
-      }
-    });
-  }
-  // =============================================================================
-  // MÉTHODES D'ACTION PUBLIQUES
-  // =============================================================================
-  /**
-   * Active la vue Board pour le fichier actuellement ouvert
-   * 
-   * CONCEPT OBSIDIAN - WORKSPACES ET VUES :
-   * - workspace : Gestion des onglets et panneaux
-   * - leaf : Un onglet individuel dans l'interface
-   * - setViewState : Changer le type de vue d'un onglet
-   */
-  async activateBoardView() {
-    const activeFile = this.app.workspace.getActiveFile();
-    if (!activeFile) {
-      console.log("\u274C Aucun fichier actif");
-      return;
+    this.logger.info("Arr\xEAt du plugin Agile-Board en cours");
+    if (this.settings.debug.logToFile) {
+      this.logger.info("Sauvegarde finale des logs avant arr\xEAt");
+      await this.logger.saveLogsToFile();
     }
-    const leaf = this.app.workspace.activeLeaf;
-    if (leaf) {
-      await leaf.setViewState({
-        type: BOARD_VIEW_TYPE,
-        // Notre type de vue personnalisé
-        state: { file: activeFile.path }
-        // État initial : quel fichier afficher
-      });
-      console.log("\u{1F3AF} Basculement vers Board View pour:", activeFile.basename);
-    }
+    this.cleanupResources();
+    this.logger.success("Plugin Agile-Board arr\xEAt\xE9 proprement");
   }
+  // ====================================================================
+  // GESTION DE LA CONFIGURATION
+  // ====================================================================
   /**
-   * Crée une nouvelle note avec un layout spécifique
-   * 
-   * PROCESSUS DE CRÉATION :
-   * 1. Vérifier que le layout existe
-   * 2. Générer le contenu markdown avec frontmatter
-   * 3. Créer le fichier dans le vault
-   * 4. Ouvrir le fichier dans l'interface
-   * 
-   * @param layoutName - Nom du layout à utiliser (ex: "layout_eisenhower")
-   */
-  async createNoteWithLayout(layoutName) {
-    const layout = this.layoutService.getModel(layoutName);
-    if (!layout) {
-      console.error(`\u274C Layout "${layoutName}" non trouv\xE9`);
-      return;
-    }
-    const frontmatter = `---
-agile-board: ${layoutName}
----
-
-`;
-    const sections = layout.map((block) => `# ${block.title}
-
-`).join("");
-    const content = frontmatter + sections;
-    const layoutDisplayName = this.layoutService.getLayoutDisplayName(layoutName);
-    const timestamp = new Date().toISOString().split("T")[0];
-    const fileName = `${layoutDisplayName} ${timestamp}.md`;
-    try {
-      const file = await this.app.vault.create(fileName, content);
-      await this.app.workspace.getLeaf().openFile(file);
-      console.log(`\u2705 Note "${fileName}" cr\xE9\xE9e avec layout ${layoutName}`);
-    } catch (error) {
-      console.error(`\u274C Erreur cr\xE9ation note:`, error);
-    }
-  }
-  // =============================================================================
-  // MÉTHODES D'INTERFACE UTILISATEUR
-  // =============================================================================
-  /**
-   * Affiche une modale avec la liste des layouts disponibles
-   * 
-   * CONCEPT OBSIDIAN - MODALES :
-   * Une modale est une fenêtre popup qui s'affiche par-dessus l'interface
-   */
-  showAvailableLayouts() {
-    const layouts = this.layoutService.getAllModelsInfo();
-    let message = "Layouts disponibles :\n\n";
-    layouts.forEach((layout) => {
-      message += `\u2022 **${layout.displayName}** (${layout.blockCount} sections)
-`;
-      message += `  Sections: ${layout.sections.join(", ")}
-
-`;
-    });
-    const modal = new (require("obsidian")).Modal(this.app);
-    modal.contentEl.innerHTML = `
-      <h2>Layouts Agile Board</h2>
-      <div style="white-space: pre-wrap; font-family: var(--font-text);">${message}</div>
-    `;
-    modal.open();
-  }
-  /**
-   * Crée les sections manquantes pour le fichier actuellement ouvert
-   * 
-   * PROCESSUS :
-   * 1. Vérifier le contexte (fichier actif avec layout)
-   * 2. Déléguer au FileService pour créer les sections
-   * 3. Rafraîchir la vue Board si nécessaire
-   */
-  async createMissingSectionsForCurrentFile() {
-    var _a;
-    const activeFile = this.app.workspace.getActiveFile();
-    if (!activeFile)
-      return;
-    const fileCache = this.app.metadataCache.getFileCache(activeFile);
-    const layoutName = (_a = fileCache == null ? void 0 : fileCache.frontmatter) == null ? void 0 : _a["agile-board"];
-    if (!layoutName)
-      return;
-    const layout = this.layoutService.getModel(layoutName);
-    if (!layout)
-      return;
-    try {
-      const sectionsCreated = await this.fileService.createMissingSections(activeFile, layout);
-      if (sectionsCreated) {
-        console.log("\u2705 Sections manquantes cr\xE9\xE9es pour:", activeFile.basename);
-        const boardView = this.app.workspace.getActiveViewOfType(BoardView);
-        if (boardView) {
-          setTimeout(() => {
-            boardView.renderBoardLayout();
-          }, 500);
-        }
-      } else {
-        console.log("\u2139\uFE0F Aucune section manquante \xE0 cr\xE9er");
-      }
-    } catch (error) {
-      console.error("\u274C Erreur lors de la cr\xE9ation des sections:", error);
-    }
-  }
-  // =============================================================================
-  // MÉTHODES DE GESTION DES PARAMÈTRES
-  // =============================================================================
-  /**
-   * Charge les paramètres du plugin depuis le stockage d'Obsidian
-   * 
-   * CONCEPT OBSIDIAN - PERSISTANCE :
-   * - loadData() : Récupère les données sauvegardées du plugin
-   * - Les données sont stockées dans .obsidian/plugins/[plugin-id]/data.json
-   * - Object.assign() fusionne les paramètres par défaut avec les sauvegardés
+   * Charge la configuration depuis le stockage d'Obsidian
    */
   async loadSettings() {
-    this.settings = Object.assign(
-      {},
-      // Objet de base vide
-      createDefaultSettings(),
-      // Paramètres par défaut
-      await this.loadData()
-      // Paramètres sauvegardés (peuvent être null)
-    );
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    this.settings = this.validateSettings(this.settings);
   }
   /**
-   * Sauvegarde les paramètres actuels du plugin
-   * 
-   * UTILISATION :
-   * Appelée chaque fois que l'utilisateur modifie un paramètre
+   * Sauvegarde la configuration dans le stockage d'Obsidian
    */
   async saveSettings() {
     await this.saveData(this.settings);
+    if (this.logger) {
+      this.logger.updateSettings(this.settings.debug);
+      this.logger.config("Configuration sauvegard\xE9e et logger mis \xE0 jour");
+    }
+  }
+  /**
+   * Valide et corrige la configuration si nécessaire
+   */
+  validateSettings(settings) {
+    if (!settings.debug) {
+      settings.debug = DEFAULT_SETTINGS.debug;
+    }
+    if (!Array.isArray(settings.defaultLayouts) || settings.defaultLayouts.length === 0) {
+      settings.defaultLayouts = DEFAULT_SETTINGS.defaultLayouts;
+    }
+    return settings;
+  }
+  // ====================================================================
+  // INITIALISATION DES SERVICES
+  // ====================================================================
+  /**
+   * Initialise tous les services du plugin
+   */
+  async initializeServices() {
+    this.logger.debug("Initialisation des services en cours");
+    try {
+      this.layoutService = new LayoutService(this);
+      this.fileService = new FileService(this.app);
+      this.logger.success("LayoutService et FileService initialis\xE9s", {
+        layoutsCount: this.layoutService.getAllModelNames().length
+      });
+      this.logger.debug("Tous les services ont \xE9t\xE9 initialis\xE9s avec succ\xE8s");
+    } catch (error) {
+      this.logger.error("Erreur lors de l'initialisation des services", error);
+      throw error;
+    }
+  }
+  /**
+   * Enregistre les vues personnalisées
+   */
+  registerViews() {
+    this.logger.debug("Enregistrement des vues personnalis\xE9es");
+    try {
+      this.registerView("agile-board-view", (leaf) => new BoardView(leaf, this));
+      this.logger.success("Vue BoardView enregistr\xE9e");
+    } catch (error) {
+      this.logger.error("Erreur lors de l'enregistrement des vues", error);
+    }
+  }
+  /**
+   * Enregistre toutes les commandes du plugin
+   */
+  registerCommands() {
+    this.logger.debug("Enregistrement des commandes");
+    this.addCommand({
+      id: "create-eisenhower-note",
+      name: "Cr\xE9er une note Matrice d'Eisenhower",
+      callback: () => this.createNoteWithLayout("layout_eisenhower")
+    });
+    this.addCommand({
+      id: "create-kanban-note",
+      name: "Cr\xE9er une note Kanban",
+      callback: () => this.createNoteWithLayout("layout_kanban")
+    });
+    this.addCommand({
+      id: "create-gtd-note",
+      name: "Cr\xE9er une note GTD",
+      callback: () => this.createNoteWithLayout("layout_gtd")
+    });
+    this.addCommand({
+      id: "create-weekly-note",
+      name: "Cr\xE9er un planificateur hebdomadaire",
+      callback: () => this.createNoteWithLayout("layout_weekly")
+    });
+    this.addCommand({
+      id: "create-daily-note",
+      name: "Cr\xE9er un planificateur quotidien",
+      callback: () => this.createNoteWithLayout("layout_daily")
+    });
+    this.addCommand({
+      id: "create-project-note",
+      name: "Cr\xE9er un tableau de projet",
+      callback: () => this.createNoteWithLayout("layout_project")
+    });
+    this.addCommand({
+      id: "switch-to-board-view",
+      name: "Basculer vers la vue board",
+      callback: () => this.switchToBoardView()
+    });
+    this.addCommand({
+      id: "list-layouts",
+      name: "Afficher les layouts disponibles",
+      callback: () => this.listAvailableLayouts()
+    });
+    this.addCommand({
+      id: "create-missing-sections",
+      name: "Cr\xE9er les sections manquantes",
+      callback: () => this.createMissingSections()
+    });
+    this.addCommand({
+      id: "toggle-debug",
+      name: "Activer/D\xE9sactiver le debug",
+      callback: () => this.toggleDebug()
+    });
+    this.addCommand({
+      id: "test-debug-system",
+      name: "Tester le syst\xE8me de debug",
+      callback: () => this.testDebugSystem()
+    });
+    this.addCommand({
+      id: "save-logs-now",
+      name: "Sauvegarder les logs maintenant",
+      callback: () => this.saveLogsNow()
+    });
+    this.logger.success("Toutes les commandes ont \xE9t\xE9 enregistr\xE9es");
+  }
+  // ====================================================================
+  // CONFIGURATION AUTOMATIQUE
+  // ====================================================================
+  /**
+   * Configure la sauvegarde périodique des logs
+   */
+  setupPeriodicLogSaving() {
+    if (!this.settings.debug.logToFile) {
+      return;
+    }
+    this.registerInterval(
+      window.setInterval(async () => {
+        if (this.settings.debug.logToFile) {
+          this.logger.verbose("Sauvegarde p\xE9riodique des logs", {
+            timestamp: new Date().toISOString()
+          });
+          await this.logger.saveLogsToFile();
+        }
+      }, 5 * 60 * 1e3)
+      // 5 minutes
+    );
+    this.logger.config("Sauvegarde p\xE9riodique des logs configur\xE9e (5 min)");
+  }
+  /**
+   * Configure les écouteurs d'événements
+   */
+  setupEventListeners() {
+    this.registerEvent(
+      this.app.workspace.on("file-open", (file) => {
+        if (file) {
+          this.logger.navigation("Fichier ouvert", {
+            fileName: file.name,
+            path: file.path
+          });
+        }
+      })
+    );
+    this.registerEvent(
+      this.app.workspace.on("layout-change", () => {
+        this.logger.navigation("Layout workspace modifi\xE9");
+      })
+    );
+    this.logger.config("\xC9couteurs d'\xE9v\xE9nements configur\xE9s");
+  }
+  // ====================================================================
+  // IMPLÉMENTATION DES COMMANDES
+  // ====================================================================
+  /**
+   * Crée une nouvelle note avec un layout spécifique
+   */
+  async createNoteWithLayout(layoutName) {
+    this.logger.fileOperation("Cr\xE9ation de note avec layout", { layoutName });
+    try {
+      this.logger.info(`Cr\xE9ation de note ${layoutName} - \xC0 impl\xE9menter`);
+    } catch (error) {
+      this.logger.error("Erreur lors de la cr\xE9ation de note", error, "main.ts");
+    }
+  }
+  /**
+   * Bascule vers la vue board pour le fichier actuel
+   */
+  switchToBoardView() {
+    this.logger.navigation("Basculement vers vue board demand\xE9");
+    this.logger.info("Basculement vers vue board - \xC0 impl\xE9menter");
+  }
+  /**
+   * Affiche la liste des layouts disponibles
+   */
+  listAvailableLayouts() {
+    this.logger.navigation("Liste des layouts demand\xE9e");
+    const layouts = this.layoutService.getAllModelsInfo();
+    this.logger.info("Layouts disponibles", { layouts });
+  }
+  /**
+  * Crée les sections manquantes pour le fichier actuel
+  */
+  async createMissingSections() {
+    var _a;
+    this.logger.fileOperation("Cr\xE9ation des sections manquantes demand\xE9e");
+    try {
+      const activeFile = this.app.workspace.getActiveFile();
+      if (!activeFile) {
+        this.logger.warn("Aucun fichier actif pour cr\xE9er les sections");
+        return;
+      }
+      const fileCache = this.app.metadataCache.getFileCache(activeFile);
+      let layoutName = (_a = fileCache == null ? void 0 : fileCache.frontmatter) == null ? void 0 : _a["agile-board"];
+      if (!layoutName) {
+        layoutName = this.settings.defaultLayouts[0];
+        this.logger.info("Aucun layout sp\xE9cifi\xE9, utilisation du layout par d\xE9faut", {
+          fileName: activeFile.name,
+          defaultLayout: layoutName
+        });
+      }
+      const targetLayout = this.layoutService.getModel(layoutName);
+      if (!targetLayout) {
+        this.logger.error(`Layout "${layoutName}" non trouv\xE9`, {
+          fileName: activeFile.name,
+          layoutName
+        });
+        return;
+      }
+      await this.fileService.createMissingSections(activeFile, targetLayout);
+      this.logger.success("Sections manquantes cr\xE9\xE9es", {
+        fileName: activeFile.name,
+        layoutUsed: layoutName
+      });
+    } catch (error) {
+      this.logger.error("Erreur lors de la cr\xE9ation des sections", error);
+    }
+  }
+  // ====================================================================
+  // COMMANDES DE DEBUG (NOUVELLES v0.7.0)
+  // ====================================================================
+  /**
+   * Active/désactive le debug via commande
+   */
+  async toggleDebug() {
+    const wasEnabled = this.settings.debug.enabled;
+    this.settings.debug.enabled = !wasEnabled;
+    await this.saveSettings();
+    const status = this.settings.debug.enabled ? "activ\xE9" : "d\xE9sactiv\xE9";
+    const icon = this.settings.debug.enabled ? "\u2705" : "\u274C";
+    this.logger.config(`Debug ${status} via commande`);
+    new import_obsidian4.Notice(`${icon} Debug ${status}`, 3e3);
+  }
+  /**
+   * Lance un test complet du système de debug
+   */
+  testDebugSystem() {
+    this.logger.info("Test du syst\xE8me de debug lanc\xE9 via commande");
+    this.logger.testSystem();
+    new import_obsidian4.Notice("\u{1F9EA} Test de debug ex\xE9cut\xE9 - v\xE9rifiez la console (F12)", 4e3);
+  }
+  /**
+   * Force la sauvegarde immédiate des logs
+   */
+  async saveLogsNow() {
+    if (!this.settings.debug.logToFile) {
+      new import_obsidian4.Notice("\u26A0\uFE0F Sauvegarde fichier d\xE9sactiv\xE9e", 3e3);
+      return;
+    }
+    this.logger.info("Sauvegarde manuelle des logs demand\xE9e");
+    await this.logger.saveLogsToFile();
+    new import_obsidian4.Notice("\u{1F4BE} Logs sauvegard\xE9s avec succ\xE8s", 2e3);
+  }
+  // ====================================================================
+  // MÉTHODES UTILITAIRES
+  // ====================================================================
+  /**
+   * Nettoie les ressources avant arrêt du plugin
+   */
+  cleanupResources() {
+    this.logger.debug("Nettoyage des ressources en cours");
+    this.logger.clearBuffer();
+    this.logger.debug("Ressources nettoy\xE9es");
+  }
+  /**
+   * Retourne la liste des services chargés pour les logs
+   */
+  getLoadedServices() {
+    const services = ["LoggerService"];
+    if (this.layoutService)
+      services.push("LayoutService");
+    if (this.fileService)
+      services.push("FileService");
+    if (this.viewSwitcher)
+      services.push("ViewSwitcher");
+    if (this.modelDetector)
+      services.push("ModelDetector");
+    return services;
+  }
+  // ====================================================================
+  // MÉTHODES D'ACCÈS POUR LES AUTRES COMPOSANTS
+  // ====================================================================
+  /**
+   * Retourne le service de logging pour utilisation dans d'autres composants
+   * @returns Instance du LoggerService
+   */
+  getLogger() {
+    return this.logger;
+  }
+  /**
+   * Retourne la configuration actuelle du plugin
+   * @returns Configuration complète
+   */
+  getSettings() {
+    return this.settings;
+  }
+  /**
+   * Met à jour une partie de la configuration
+   * @param updates Mises à jour partielles
+   */
+  async updateSettings(updates) {
+    this.settings = { ...this.settings, ...updates };
+    await this.saveSettings();
+    this.logger.config("Configuration mise \xE0 jour via API", updates);
+  }
+  // ====================================================================
+  // GESTION DES ERREURS GLOBALES
+  // ====================================================================
+  /**
+   * Gestionnaire d'erreur global pour le plugin
+   * @param error Erreur capturée
+   * @param context Contexte où l'erreur s'est produite
+   */
+  handleError(error, context) {
+    this.logger.error(`Erreur dans ${context}`, {
+      message: error.message,
+      stack: error.stack,
+      context
+    });
+    new import_obsidian4.Notice(`\u274C Erreur Agile Board: ${error.message}`, 5e3);
+  }
+  // ====================================================================
+  // HOOKS POUR INTÉGRATION AVEC LES SERVICES EXISTANTS
+  // ====================================================================
+  /**
+   * Hook appelé après l'initialisation complète
+   * Permet aux services existants de s'initialiser avec le logger
+   */
+  onInitializationComplete() {
+    this.logger.success("Hook d'initialisation compl\xE8te appel\xE9");
+  }
+  /**
+   * Hook appelé lors du changement de configuration debug
+   * Permet aux services de réagir aux changements
+   */
+  onDebugSettingsChanged() {
+    this.logger.config("Configuration debug modifi\xE9e - notification aux services");
   }
 };
