@@ -1,23 +1,17 @@
 /**
  * =============================================================================
- * SERVICE DE GESTION DES VUES BOARD
+ * SERVICE DE GESTION DES VUES BOARD - VERSION COMPLÈTE CORRIGÉE
  * =============================================================================
  * 
  * Ce service gère le basculement entre la vue markdown normale
  * et la vue board pour les fichiers avec layout agile-board.
  * 
- * RESPONSABILITÉS :
- * - Détecter si un fichier a un layout agile-board
- * - Basculer vers la vue board appropriée
- * - Gérer l'état des vues (markdown ↔ board)
- * - Valider la compatibilité des fichiers
- * - Synchroniser les données entre les vues
- * 
- * ARCHITECTURE :
- * - Utilise l'API Workspace d'Obsidian
- * - Intégration avec LayoutService pour validation
- * - Logging détaillé pour traçabilité
- * - Gestion d'erreurs robuste
+ * CORRECTIONS APPLIQUÉES :
+ * - Notification du ViewSwitcher après chaque basculement
+ * - Gestion d'erreurs robuste avec rollback
+ * - Validation centralisée avec les nouveaux utils
+ * - Logging détaillé pour debugging
+ * - Méthodes de diagnostic améliorées
  */
 
 // =============================================================================
@@ -105,9 +99,7 @@ export class BoardViewService {
 
     /**
      * Bascule vers la vue board pour un fichier
-     * 
-     * @param options - Options de basculement
-     * @returns Promise<ViewSwitchResult> - Résultat du basculement
+     * VERSION CORRIGÉE : Avec notification ViewSwitcher
      */
     async switchToBoardView(options: ViewSwitchOptions = {}): Promise<ViewSwitchResult> {
         this.logger?.navigation('Début basculement vers vue board', { options });
@@ -129,13 +121,19 @@ export class BoardViewService {
             if (!options.forceSwitch && this.isCurrentlyInBoardView(targetFile)) {
                 const message = 'Fichier déjà affiché en vue board';
                 this.logger?.info(message, { fileName: targetFile.name });
-                return {
+                
+                const result: ViewSwitchResult = {
                     success: true,
                     file: targetFile,
                     layoutName: fileInfo.layoutName,
                     boardLeaf: this.getCurrentBoardLeaf(targetFile)!,
                     message
                 };
+                
+                // CORRECTION : Notifier ViewSwitcher même si pas de changement
+                this.notifyViewSwitcher(targetFile, 'board');
+                
+                return result;
             }
             
             // Effectuer le basculement
@@ -156,6 +154,10 @@ export class BoardViewService {
             });
             
             new Notice(`📊 Vue board "${fileInfo.displayName}" activée`, 2000);
+            
+            // 🚨 CORRECTION CRITIQUE : Notifier ViewSwitcher du changement
+            this.notifyViewSwitcher(targetFile, 'board');
+            
             return result;
             
         } catch (error) {
@@ -320,6 +322,7 @@ export class BoardViewService {
 
     /**
      * Bascule vers la vue markdown pour un fichier en vue board
+     * VERSION CORRIGÉE : Avec notification ViewSwitcher
      */
     async switchToMarkdownView(file?: TFile): Promise<boolean> {
         const targetFile = file || this.app.workspace.getActiveFile();
@@ -346,12 +349,44 @@ export class BoardViewService {
             });
             
             new Notice('📝 Vue markdown activée', 2000);
+            
+            // 🚨 CORRECTION CRITIQUE : Notifier ViewSwitcher du changement
+            this.notifyViewSwitcher(targetFile, 'markdown');
+            
             return true;
             
         } catch (error) {
             this.logger?.error('Erreur basculement markdown', error);
             new Notice(`❌ Erreur: ${error.message}`);
             return false;
+        }
+    }
+
+    /**
+     * 🚨 NOUVELLE MÉTHODE : Notifier ViewSwitcher des changements de vue
+     */
+    private notifyViewSwitcher(file: TFile, newViewType: 'board' | 'markdown'): void {
+        try {
+            // Accéder au ViewSwitcher via le plugin principal
+            const plugin = (this.app as any).plugins?.plugins?.['agile-board'];
+            
+            if (plugin?.viewSwitcher) {
+                // Délai pour laisser la vue se stabiliser avant mise à jour des boutons
+                setTimeout(() => {
+                    console.log(`🔄 Notification ViewSwitcher: ${file.basename} → ${newViewType}`);
+                    plugin.viewSwitcher.updateSwitchButtonForFile(file);
+                }, 250);
+                
+                // Double vérification après délai plus long
+                setTimeout(() => {
+                    console.log(`🔄 Double vérification ViewSwitcher: ${file.basename}`);
+                    plugin.viewSwitcher.updateSwitchButtonForFile(file);
+                }, 600);
+            } else {
+                console.warn('⚠️ ViewSwitcher non trouvé pour notification');
+            }
+        } catch (error) {
+            console.error('❌ Erreur notification ViewSwitcher:', error);
         }
     }
 
@@ -416,7 +451,7 @@ export class BoardViewService {
         activeFile: string;
     } {
         const boardLeaves = this.app.workspace.getLeavesOfType(BoardViewService.BOARD_VIEW_TYPE);
-        const activeLeaf = this.app.workspace.activeLeaf
+        const activeLeaf = this.app.workspace.activeLeaf;
         const activeFile = this.app.workspace.getActiveFile();
         
         return {

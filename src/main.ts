@@ -1,25 +1,16 @@
 /**
  * =============================================================================
- * PLUGIN AGILE BOARD POUR OBSIDIAN - FICHIER PRINCIPAL
+ * PLUGIN AGILE BOARD POUR OBSIDIAN - FICHIER PRINCIPAL CORRIGÉ
  * =============================================================================
  * 
  * Ce fichier est le POINT D'ENTRÉE principal du plugin Obsidian.
  * 
- * CONCEPTS OBSIDIAN IMPORTANTS :
- * - Un plugin Obsidian est une extension qui ajoute des fonctionnalités à l'app
- * - Chaque plugin doit hériter de la classe "Plugin" fournie par Obsidian
- * - Le cycle de vie d'un plugin : onload() → plugin actif → onunload()
- * - Obsidian fournit une API pour interagir avec l'app (fichiers, vues, UI, etc.)
- * 
- * ARCHITECTURE DE CE PLUGIN :
- * - Services : Logique métier (LayoutService, FileService)
- * - Views : Interfaces utilisateur personnalisées (BoardView)
- * - Managers : Gestionnaires de fonctionnalités (ViewSwitcher, ModelDetector)
- * - Utils : Fonctions utilitaires (settings)
- * - Types : Définitions TypeScript pour la cohérence du code
- * 
- * @author Votre nom
- * @version 1.0.0
+ * CORRECTIONS APPLIQUÉES :
+ * - Import TFile corrigé
+ * - Suppression des méthodes dupliquées
+ * - Ajout des notifications ViewSwitcher
+ * - Commandes de debugging améliorées
+ * - Gestion d'erreurs robuste
  */
 
 // =============================================================================
@@ -27,34 +18,28 @@
 // =============================================================================
 
 // Import de la classe de base Plugin d'Obsidian
-// Cette classe fournit toutes les méthodes nécessaires pour créer un plugin
-import { Plugin } from 'obsidian';
-import { Notice } from 'obsidian'; 
+import { Plugin, TFile, Notice } from 'obsidian';
 
-// revoir le commentaire
+// Import du service de logging
 import { LoggerService } from './services/LoggerService';
 import { AgileBoardSettingsTab } from './components/SettingsTab';
 
 // Import de notre type personnalisé pour les paramètres
-// BoardSettings définit la structure des options de configuration du plugin
 import { BoardSettings, DEFAULT_SETTINGS } from './utils/settings';
 
 // Import des services métier
-// Ces classes contiennent la logique principale du plugin
-import { LayoutService } from './services/LayoutService';  // Gère les layouts de board
-import { FileService } from './services/FileService';      // Gère les opérations sur les fichiers
+import { LayoutService } from './services/LayoutService';
+import { FileService } from './services/FileService';
 import { NoteCreatorService } from './services/NoteCreatorService';
 import { BoardViewService } from './services/BoardViewService';
 import { SectionManagerService } from './services/SectionManagerService';
 
 // Import de la vue personnalisée
-// BoardView est notre interface utilisateur principale pour afficher les boards
 import { BoardView, BOARD_VIEW_TYPE } from './views/BoardView';
 
 // Import des managers
-// Ces classes gèrent des fonctionnalités spécifiques du plugin
-import { ViewSwitcher } from './managers/ViewSwitcher';    // Bascule entre vues
-import { ModelDetector } from './managers/ModelDetector';  // Détecte les modèles automatiquement
+import { ViewSwitcher } from './managers/ViewSwitcher';
+import { ModelDetector } from './managers/ModelDetector';
 
 // =============================================================================
 // CLASSE PRINCIPALE DU PLUGIN
@@ -62,7 +47,7 @@ import { ModelDetector } from './managers/ModelDetector';  // Détecte les modè
 
 /**
  * Plugin principal Agile Board v0.7.0
- * Nouveau : Système de debug configurable et modulaire
+ * Version corrigée avec système de debug configurable et modulaire
  */
 export default class AgileBoardPlugin extends Plugin {
     /** Configuration globale du plugin */
@@ -77,12 +62,10 @@ export default class AgileBoardPlugin extends Plugin {
     viewSwitcher: ViewSwitcher;
     modelDetector: ModelDetector;
 
-    // Service pour la création de notes
-    /** Service pour la création de notes avec des layouts prédéfinis */
+    // Services spécialisés
     noteCreator: NoteCreatorService;
     boardViewService: BoardViewService;
     sectionManager: SectionManagerService;
-
 
     /**
      * Initialisation du plugin - appelée au chargement d'Obsidian
@@ -94,7 +77,7 @@ export default class AgileBoardPlugin extends Plugin {
         await this.loadSettings();
         
         // ====================================================================
-        // PHASE 2 : INITIALISATION DU LOGGER (NOUVEAU v0.7.0)
+        // PHASE 2 : INITIALISATION DU LOGGER
         // ====================================================================
         this.logger = new LoggerService(this, this.settings.debug);
         
@@ -150,9 +133,10 @@ export default class AgileBoardPlugin extends Plugin {
         if (this.modelDetector) {
             this.modelDetector.onUnload(); 
         }
-        //if (this.viewSwitcher) {
-        //    this.viewSwitcher.onUnload(); 
-        //}
+        if (this.viewSwitcher) {
+            this.viewSwitcher.stop(); 
+        }
+        
         // Sauvegarder les logs avant fermeture si activé
         if (this.settings.debug.logToFile) {
             this.logger.info('Sauvegarde finale des logs avant arrêt');
@@ -174,8 +158,6 @@ export default class AgileBoardPlugin extends Plugin {
      */
     async loadSettings() {
         this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-        
-        // Validation et correction de la configuration si nécessaire
         this.settings = this.validateSettings(this.settings);
     }
 
@@ -185,7 +167,6 @@ export default class AgileBoardPlugin extends Plugin {
     async saveSettings() {
         await this.saveData(this.settings);
         
-        // Mettre à jour le logger si il existe déjà
         if (this.logger) {
             this.logger.updateSettings(this.settings.debug);
             this.logger.config('Configuration sauvegardée et logger mis à jour');
@@ -196,12 +177,10 @@ export default class AgileBoardPlugin extends Plugin {
      * Valide et corrige la configuration si nécessaire
      */
     private validateSettings(settings: BoardSettings): BoardSettings {
-        // Assurer que les valeurs critiques sont définies
         if (!settings.debug) {
             settings.debug = DEFAULT_SETTINGS.debug;
         }
         
-        // Validation des layouts par défaut
         if (!Array.isArray(settings.defaultLayouts) || settings.defaultLayouts.length === 0) {
             settings.defaultLayouts = DEFAULT_SETTINGS.defaultLayouts;
         }
@@ -220,39 +199,42 @@ export default class AgileBoardPlugin extends Plugin {
         this.logger.debug('Initialisation des services en cours');
         
         try {
-            // Initialiser les services existants
+            // Initialiser les services de base
             this.layoutService = new LayoutService(this);
             this.fileService = new FileService(this.app);
-            this.layoutService.load(); // Charger les modèles de layout
+            this.layoutService.load();
+            
+            // Initialiser les services spécialisés
             this.noteCreator = new NoteCreatorService(
                 this.app,
                 this.layoutService,
                 this.logger
             );
+            
             this.boardViewService = new BoardViewService(
                 this.app,
                 this.layoutService,
                 this.logger
             );
+            
             this.sectionManager = new SectionManagerService(
                 this.app,
                 this.layoutService,
                 this.logger
             );
+            
+            // Initialiser les managers
             this.viewSwitcher = new ViewSwitcher(this);
             this.modelDetector = new ModelDetector(this);
 
+            // Démarrer les managers
             this.modelDetector.onLoad();
+            this.viewSwitcher.addSwitchButton();
 
             this.logger.success('Tous les services initialisés', {
                 layoutsCount: this.layoutService.getAllModelNames().length,
-                noteCreatorReady: !!this.noteCreator,
-                boardViewServiceReady: !!this.boardViewService,
-                sectionManagerReady: !!this.sectionManager,
-                viewSwitcherReady: !!this.viewSwitcher, 
-                modelDetectorReady: !!this.modelDetector 
+                services: this.getLoadedServices()
             });
-            this.logger.debug('Tous les services ont été initialisés avec succès');
             
         } catch (error) {
             this.logger.error('Erreur lors de l\'initialisation des services', error);
@@ -267,8 +249,7 @@ export default class AgileBoardPlugin extends Plugin {
         this.logger.debug('Enregistrement des vues personnalisées');
         
         try {
-            // Enregistrer la vue BoardView
-            this.registerView('agile-board-view', (leaf) => new BoardView(leaf, this));
+            this.registerView(BOARD_VIEW_TYPE, (leaf) => new BoardView(leaf, this));
             this.logger.success('Vue BoardView enregistrée');
             
         } catch (error) {
@@ -331,6 +312,12 @@ export default class AgileBoardPlugin extends Plugin {
         });
 
         this.addCommand({
+            id: 'switch-to-markdown-view',
+            name: 'Basculer vers la vue markdown',
+            callback: () => this.switchToMarkdownView()
+        });
+
+        this.addCommand({
             id: 'list-layouts',
             name: 'Afficher les layouts disponibles',
             callback: () => this.listAvailableLayouts()
@@ -343,50 +330,20 @@ export default class AgileBoardPlugin extends Plugin {
         });
 
         // ====================================================================
-        // COMMANDES DE DEBUG (NOUVELLES v0.7.0)
+        // COMMANDES DE DEBUG ET DIAGNOSTIC
         // ====================================================================
         this.addCommand({
             id: 'debug-button-state',
-            name: '🔍 Debug État des Boutons',
-            callback: () => {
-                const activeFile = this.app.workspace.getActiveFile();
-                const activeLeaf = this.app.workspace.activeLeaf;
-                
-                if (activeFile && activeLeaf) {
-                    const debugInfo = {
-                        fileName: activeFile.name,
-                        currentViewType: activeLeaf.view.getViewType(),
-                        hasAgileBoardLayout: !!this.app.metadataCache.getFileCache(activeFile)?.frontmatter?.['agile-board'],
-                        services: {
-                            viewSwitcher: !!this.viewSwitcher,
-                            boardViewService: !!this.boardViewService,
-                            modelDetector: !!this.modelDetector
-                        }
-                    };
-                    
-                    console.log('🔍 État actuel:', debugInfo);
-                    this.logger.debug('Debug état boutons', debugInfo);
-                    
-                    // Forcer toutes les mises à jour possibles
-                    if (this.viewSwitcher) {
-                        console.log('🔄 Mise à jour ViewSwitcher...');
-                        this.viewSwitcher.updateSwitchButtonForFile(activeFile);
-                    }
-                    
-                    if (this.modelDetector) {
-                        console.log('🔄 Force update ModelDetector...');
-                        this.modelDetector.forceUpdate();
-                    }
-                    
-                    new Notice(`🔍 Debug: ${debugInfo.currentViewType} | Check console F12`, 4000);
-                }
-            }
+            name: '🔍 Diagnostic État des Boutons',
+            callback: () => this.debugButtonState()
         });
+
         this.addCommand({
             id: 'force-update-buttons',
             name: '🔄 Forcer mise à jour des boutons',
             callback: () => this.forceUpdateButtons()
         });
+
         this.addCommand({
             id: 'toggle-debug',
             name: 'Activer/Désactiver le debug',
@@ -409,135 +366,44 @@ export default class AgileBoardPlugin extends Plugin {
     }
 
     // ====================================================================
-    // CONFIGURATION AUTOMATIQUE
+    // IMPLÉMENTATION DES COMMANDES PRINCIPALES
     // ====================================================================
 
     /**
-     * Configure la sauvegarde périodique des logs
+     * Crée une note avec un layout spécifique
      */
-    private setupPeriodicLogSaving(): void {
-        if (!this.settings.debug.logToFile) {
-            return;
-        }
-
-        // Sauvegarder automatiquement toutes les 5 minutes
-        this.registerInterval(
-            window.setInterval(async () => {
-                if (this.settings.debug.logToFile) {
-                    this.logger.verbose('Sauvegarde périodique des logs', { 
-                        timestamp: new Date().toISOString() 
-                    });
-                    await this.logger.saveLogsToFile();
-                }
-            }, 5 * 60 * 1000) // 5 minutes
-        );
-
-        this.logger.config('Sauvegarde périodique des logs configurée (5 min)');
-    }
-
-    /**
-     * Configure les écouteurs d'événements
-     */
-    private setupEventListeners(): void {
-        // Écouter les changements de fichier actif
-        this.registerEvent(
-            this.app.workspace.on('file-open', (file) => {
-                if (file) {
-                    this.logger.navigation('Fichier ouvert', { 
-                        fileName: file.name,
-                        path: file.path 
-                    });
-                }
-            })
-        );
-
-        // Écouter les changements de layout actif
-        this.registerEvent(
-            this.app.workspace.on('layout-change', () => {
-                this.logger.navigation('Layout workspace modifié');
-            })
-        );
-
-        this.logger.config('Écouteurs d\'événements configurés');
-    }
-
-    // ====================================================================
-    // IMPLÉMENTATION DES COMMANDES
-    // ====================================================================
-
-    /**
-    * Crée une note avec un layout spécifique
-    */
     private async createNoteWithLayout(layoutName: string): Promise<void> {
         this.logger.fileOperation('Création de note demandée', { layoutName });
         
-    try {
-        // Vérification de la disponibilité du service
-        if (!this.noteCreator) {
-            throw new Error('NoteCreatorService non initialisé');
-        }
-        
-        // Délégation au service spécialisé
-        const result = await this.noteCreator.createNoteWithLayout({
-            layoutName,
-            autoOpen: true
-        });
-        this.logger.success('Note créée via NoteCreatorService', {
-            fileName: result.file.name,
-            filePath: result.file.path,
-            sectionsCount: result.sectionsCount,
-            layoutUsed: result.layoutName
-        });
-        
-    } catch (error) {
-        // 🎯 CORRECTION : Mieux capturer l'erreur
-        this.logger.error('Erreur lors de la création de note', {
-            message: error.message,
-            stack: error.stack,
-            name: error.name,
-            layoutName
-        }, 'main.ts');
-        
-        // Ne pas re-lancer l'erreur car NoteCreatorService gère déjà la notification
-        console.error('Détail erreur createNoteWithLayout:', error);
-    }
-    }
-
-    /**
-    * Crée une note avec des options avancées
-    */
-    async createAdvancedNote(layoutName: string, options?: {
-        fileName?: string;
-        folder?: string;
-        customContent?: Record<string, string>;
-    }): Promise<void> {
-        if (!this.noteCreator) {
-            new Notice('❌ Service de création non disponible');
-            return;
-        }
-        
         try {
-            await this.noteCreator.createNoteWithLayout({
+            if (!this.noteCreator) {
+                throw new Error('NoteCreatorService non initialisé');
+            }
+            
+            const result = await this.noteCreator.createNoteWithLayout({
                 layoutName,
-                customFileName: options?.fileName,
-                folder: options?.folder,
-                customContent: options?.customContent,
                 autoOpen: true
             });
+            
+            this.logger.success('Note créée via NoteCreatorService', {
+                fileName: result.file.name,
+                filePath: result.file.path,
+                sectionsCount: result.sectionsCount,
+                layoutUsed: result.layoutName
+            });
+            
         } catch (error) {
-            this.logger.error('Erreur création note avancée', error);
+            this.logger.error('Erreur lors de la création de note', {
+                message: error.message,
+                layoutName
+            }, 'main.ts');
+            console.error('Détail erreur createNoteWithLayout:', error);
         }
-    }
-
-    /**
-     * Méthode pour obtenir les layouts disponibles (pour l'interface)
-     */
-    getAvailableLayoutsForUI(): Array<{name: string, displayName: string, description: string}> {
-        return this.noteCreator?.getAvailableLayouts() || [];
     }
 
     /**
      * Bascule vers la vue board pour le fichier actuel
+     * VERSION CORRIGÉE : Avec notification ViewSwitcher
      */
     private async switchToBoardView(): Promise<void> {
         this.logger.navigation('Basculement vers vue board demandé');
@@ -558,12 +424,10 @@ export default class AgileBoardPlugin extends Plugin {
                     layoutName: result.layoutName,
                     message: result.message
                 });
-                setTimeout(() => {
-                    if (this.viewSwitcher && result.file) {
-                        this.logger.debug('Mise à jour ViewSwitcher après basculement board');
-                        this.viewSwitcher.updateSwitchButtonForFile(result.file);
-                    }
-                }, 500); // Délai pour laisser la vue se stabiliser
+                
+                // 🚨 CORRECTION : Force la mise à jour des boutons
+                this.forceViewSwitcherUpdate(result.file);
+                
             } else {
                 this.logger.warn('Basculement échoué', {
                     fileName: result.file.name,
@@ -575,8 +439,10 @@ export default class AgileBoardPlugin extends Plugin {
             this.logger.error('Erreur lors du basculement vers vue board', error, 'main.ts');
         }
     }
+
     /**
      * Bascule vers la vue markdown
+     * VERSION CORRIGÉE : Avec notification ViewSwitcher
      */
     private async switchToMarkdownView(): Promise<void> {
         this.logger.navigation('Basculement vers vue markdown demandé');
@@ -599,13 +465,8 @@ export default class AgileBoardPlugin extends Plugin {
                     fileName: activeFile.name
                 });
                 
-                // 🎯 NOTIFIER LE VIEWSWITCHER DU CHANGEMENT
-                setTimeout(() => {
-                    if (this.viewSwitcher) {
-                        this.logger.debug('Mise à jour ViewSwitcher après basculement markdown');
-                        this.viewSwitcher.updateSwitchButtonForFile(activeFile);
-                    }
-                }, 500);
+                // 🚨 CORRECTION : Force la mise à jour des boutons
+                this.forceViewSwitcherUpdate(activeFile);
                 
             } else {
                 this.logger.warn('Basculement vers markdown échoué');
@@ -615,38 +476,28 @@ export default class AgileBoardPlugin extends Plugin {
             this.logger.error('Erreur basculement vers markdown', error);
         }
     }
+
     /**
-     * Force la mise à jour des boutons
+     * 🚨 NOUVELLE MÉTHODE : Force la mise à jour du ViewSwitcher
      */
-    private forceUpdateButtons(): void {
-        try {
-            const activeFile = this.app.workspace.getActiveFile();
-            if (activeFile && this.viewSwitcher) {
-                this.logger.debug('Mise à jour forcée des boutons', { fileName: activeFile.name });
-                this.viewSwitcher.updateSwitchButtonForFile(activeFile);
-                new Notice('🔄 Boutons mis à jour', 2000);
-            } else {
-                new Notice('❌ Aucun fichier actif ou ViewSwitcher indisponible', 3000);
-            }
-        } catch (error) {
-            this.logger.error('Erreur mise à jour boutons', error);
-            new Notice(`❌ Erreur: ${error.message}`, 3000);
+    private forceViewSwitcherUpdate(file: TFile): void {
+        if (this.viewSwitcher) {
+            // Délai pour être sûr que la vue est complètement chargée
+            setTimeout(() => {
+                console.log('🔄 Force update ViewSwitcher après basculement');
+                this.viewSwitcher.updateSwitchButtonForFile(file);
+            }, 300);
+            
+            // Double vérification après un délai plus long
+            setTimeout(() => {
+                console.log('🔄 Double vérification ViewSwitcher');
+                this.viewSwitcher.updateSwitchButtonForFile(file);
+            }, 800);
         }
     }
-    /**
-     * =============================================================================
-     * AMÉLIORATION DE listAvailableLayouts()
-     * =============================================================================
-     */
 
     /**
      * Affiche la liste détaillée des layouts disponibles
-     * 
-     * Version améliorée qui :
-     * - Affiche les informations dans la console ET dans une notification
-     * - Groupe les layouts par catégorie
-     * - Montre des détails utiles pour l'utilisateur
-     * - Propose des actions supplémentaires
      */
     private listAvailableLayouts(): void {
         this.logger.navigation('Liste des layouts demandée');
@@ -656,7 +507,6 @@ export default class AgileBoardPlugin extends Plugin {
                 throw new Error('LayoutService non initialisé');
             }
 
-            // Récupérer tous les layouts avec leurs métadonnées
             const allLayouts = this.layoutService.getAllModelsInfo();
             
             if (allLayouts.length === 0) {
@@ -669,20 +519,176 @@ export default class AgileBoardPlugin extends Plugin {
             // Grouper par catégorie
             const layoutsByCategory = this.groupLayoutsByCategory(allLayouts);
             
-            // Afficher dans les logs (détaillé)
+            // Afficher dans les logs
             this.logDetailedLayoutInfo(allLayouts, layoutsByCategory);
             
-            // Afficher à l'utilisateur (résumé)
+            // Afficher à l'utilisateur
             this.showLayoutSummaryToUser(allLayouts, layoutsByCategory);
-            
-            // Optionnel : Créer une note avec la liste complète
-            this.offerToCreateLayoutGuide(allLayouts);
             
         } catch (error) {
             this.logger.error('Erreur lors de l\'affichage des layouts', error);
             new Notice(`❌ Erreur: ${error.message}`, 4000);
         }
     }
+
+    /**
+     * Crée les sections manquantes pour le fichier actuel
+     */
+    private async createMissingSections(): Promise<void> {
+        this.logger.fileOperation('Création des sections manquantes demandée');
+        
+        try {
+            const activeFile = this.app.workspace.getActiveFile();
+            if (!activeFile) {
+                this.logger.warn('Aucun fichier actif pour créer les sections');
+                new Notice('❌ Aucun fichier actif');
+                return;
+            }
+
+            if (!this.sectionManager) {
+                throw new Error('SectionManagerService non initialisé');
+            }
+
+            const result = await this.sectionManager.createMissingSections(activeFile, {
+                insertPosition: 'layout-order',
+                addDefaultContent: true,
+                autoSave: true
+            });
+
+            if (result.success) {
+                this.logger.success('Sections créées via SectionManagerService', {
+                    fileName: activeFile.name,
+                    sectionsAdded: result.sectionsAdded,
+                    addedSections: result.addedSectionNames
+                });
+            } else {
+                this.logger.warn('Création de sections échouée', {
+                    fileName: activeFile.name,
+                    messages: result.messages
+                });
+            }
+
+        } catch (error) {
+            this.logger.error('Erreur lors de la création des sections', error);
+            new Notice(`❌ Erreur: ${error.message}`, 4000);
+        }
+    }
+
+    // ====================================================================
+    // COMMANDES DE DEBUG ET DIAGNOSTIC
+    // ====================================================================
+
+    /**
+     * 🚨 NOUVELLE COMMANDE : Diagnostic complet des boutons
+     */
+    private debugButtonState(): void {
+        const activeFile = this.app.workspace.getActiveFile();
+        const activeLeaf = this.app.workspace.activeLeaf;
+        
+        if (activeFile && activeLeaf) {
+            const diagnostics = {
+                fileName: activeFile.name,
+                currentViewType: activeLeaf.view.getViewType(),
+                hasAgileBoardLayout: !!this.app.metadataCache.getFileCache(activeFile)?.frontmatter?.['agile-board'],
+                viewSwitcherState: this.viewSwitcher?.getDiagnostics(),
+                buttonsCount: document.querySelectorAll('.agile-board-switch-button').length,
+                services: {
+                    viewSwitcher: !!this.viewSwitcher,
+                    boardViewService: !!this.boardViewService,
+                    modelDetector: !!this.modelDetector
+                }
+            };
+            
+            console.group('🔍 DIAGNOSTIC BOUTONS AGILE BOARD');
+            console.table(diagnostics);
+            console.log('📊 Diagnostics ViewSwitcher:', diagnostics.viewSwitcherState);
+            console.groupEnd();
+            
+            this.logger.debug('Debug état boutons', diagnostics);
+            
+            // Forcer toutes les mises à jour possibles
+            if (this.viewSwitcher) {
+                console.log('🔄 Force update ViewSwitcher...');
+                this.viewSwitcher.forceUpdate();
+            }
+            
+            if (this.modelDetector) {
+                console.log('🔄 Force update ModelDetector...');
+                this.modelDetector.forceUpdate();
+            }
+            
+            new Notice(`🔍 Diagnostic terminé - Boutons: ${diagnostics.buttonsCount} | Type: ${diagnostics.currentViewType}`, 4000);
+        }
+    }
+
+    /**
+     * Force la mise à jour des boutons
+     */
+    private forceUpdateButtons(): void {
+        try {
+            const activeFile = this.app.workspace.getActiveFile();
+            if (activeFile && this.viewSwitcher) {
+                this.logger.debug('Mise à jour forcée des boutons', { fileName: activeFile.name });
+                
+                // Reset du cache ViewSwitcher
+                this.viewSwitcher.forceUpdate();
+                
+                // Double vérification
+                setTimeout(() => {
+                    this.viewSwitcher.updateSwitchButtonForFile(activeFile);
+                }, 200);
+                
+                new Notice('🔄 Boutons mis à jour', 2000);
+            } else {
+                new Notice('❌ Aucun fichier actif ou ViewSwitcher indisponible', 3000);
+            }
+        } catch (error) {
+            this.logger.error('Erreur mise à jour boutons', error);
+            new Notice(`❌ Erreur: ${error.message}`, 3000);
+        }
+    }
+
+    /**
+     * Active/désactive le debug via commande
+     */
+    private async toggleDebug(): Promise<void> {
+        const wasEnabled = this.settings.debug.enabled;
+        this.settings.debug.enabled = !wasEnabled;
+        await this.saveSettings();
+        
+        const status = this.settings.debug.enabled ? 'activé' : 'désactivé';
+        const icon = this.settings.debug.enabled ? '✅' : '❌';
+        
+        this.logger.config(`Debug ${status} via commande`);
+        new Notice(`${icon} Debug ${status}`, 3000);
+    }
+
+    /**
+     * Lance un test complet du système de debug
+     */
+    private testDebugSystem(): void {
+        this.logger.info('Test du système de debug lancé via commande');
+        this.logger.testSystem();
+        new Notice('🧪 Test de debug exécuté - vérifiez la console (F12)', 4000);
+    }
+
+    /**
+     * Force la sauvegarde immédiate des logs
+     */
+    private async saveLogsNow(): Promise<void> {
+        if (!this.settings.debug.logToFile) {
+            new Notice('⚠️ Sauvegarde fichier désactivée', 3000);
+            return;
+        }
+
+        this.logger.info('Sauvegarde manuelle des logs demandée');
+        await this.logger.saveLogsToFile();
+        new Notice('💾 Logs sauvegardés avec succès', 2000);
+    }
+
+    // ====================================================================
+    // MÉTHODES UTILITAIRES POUR LAYOUTS
+    // ====================================================================
 
     /**
      * Groupe les layouts par catégorie
@@ -705,14 +711,12 @@ export default class AgileBoardPlugin extends Plugin {
      * Affiche les informations détaillées dans les logs
      */
     private logDetailedLayoutInfo(allLayouts: any[], layoutsByCategory: Record<string, any[]>): void {
-        // Log général
         this.logger.info('Layouts disponibles - Résumé', {
             totalLayouts: allLayouts.length,
             categories: Object.keys(layoutsByCategory),
             layoutNames: allLayouts.map(l => l.name)
         });
         
-        // Log détaillé par catégorie
         for (const [category, layouts] of Object.entries(layoutsByCategory)) {
             this.logger.info(`Layouts - Catégorie: ${category}`, {
                 category,
@@ -732,7 +736,6 @@ export default class AgileBoardPlugin extends Plugin {
      * Affiche un résumé à l'utilisateur
      */
     private showLayoutSummaryToUser(allLayouts: any[], layoutsByCategory: Record<string, any[]>): void {
-        // Créer le message résumé
         const categoryTexts = Object.entries(layoutsByCategory).map(([category, layouts]) => {
             const categoryName = this.getCategoryDisplayName(category);
             const layoutNames = layouts.map(l => l.displayName).join(', ');
@@ -747,10 +750,8 @@ export default class AgileBoardPlugin extends Plugin {
             '🔍 Voir console (F12) pour détails complets'
         ].join('\n');
         
-        // Afficher la notification
         new Notice(summaryText, 8000);
         
-        // Log pour la console aussi
         console.group('🎯 LAYOUTS AGILE BOARD DISPONIBLES');
         console.log(`Total: ${allLayouts.length} layouts`);
         
@@ -785,198 +786,54 @@ export default class AgileBoardPlugin extends Plugin {
         return categoryNames[category] || `📁 ${category}`;
     }
 
-    /**
-     * Propose de créer une note guide avec tous les layouts
-     */
-    private offerToCreateLayoutGuide(allLayouts: any[]): void {
-        // Pour l'instant, juste log l'option
-        this.logger.debug('Option guide layouts disponible', {
-            layoutsCount: allLayouts.length,
-            suggestion: 'Possibilité de créer une note guide avec tous les layouts'
-        });
-        
-        // TODO: Implémenter la création d'une note guide
-        // this.createLayoutGuideNote(allLayouts);
-    }
-
-    /**
-     * Crée une note guide avec tous les layouts (fonction bonus)
-     */
-    private async createLayoutGuideNote(allLayouts: any[]): Promise<void> {
-        try {
-            if (!this.noteCreator) {
-                return;
-            }
-            
-            // Générer le contenu du guide
-            const guideContent = this.generateLayoutGuideContent(allLayouts);
-            
-            // Créer le fichier guide
-            const fileName = `Guide Layouts Agile Board ${new Date().toISOString().split('T')[0]}.md`;
-            await this.app.vault.create(fileName, guideContent);
-            
-            this.logger.success('Guide des layouts créé', { fileName });
-            new Notice(`📖 Guide créé: ${fileName}`, 4000);
-            
-        } catch (error) {
-            this.logger.error('Erreur création guide layouts', error);
-        }
-    }
-
-    /**
-     * Génère le contenu du guide des layouts
-     */
-    private generateLayoutGuideContent(allLayouts: any[]): string {
-        const today = new Date().toISOString().split('T')[0];
-        
-        const sections = [
-            '---',
-            'type: guide',
-            `created: ${today}`,
-            'tags: [agile-board, layouts, guide]',
-            '---',
-            '',
-            '# 📋 Guide des Layouts Agile Board',
-            '',
-            `> Guide complet des ${allLayouts.length} layouts disponibles`,
-            `> Généré automatiquement le ${today}`,
-            '',
-            '## 🎯 Résumé',
-            '',
-            `- **Total layouts** : ${allLayouts.length}`,
-            `- **Plugin** : Agile Board v0.7.0`,
-            `- **Utilisation** : Commandes de création de notes`,
-            '',
-            '## 📚 Layouts disponibles',
-            ''
-        ];
-        
-        // Grouper par catégorie pour le guide
-        const layoutsByCategory = this.groupLayoutsByCategory(allLayouts);
-        
-        for (const [category, layouts] of Object.entries(layoutsByCategory)) {
-            sections.push(`### ${this.getCategoryDisplayName(category)}`);
-            sections.push('');
-            
-            for (const layout of layouts) {
-                sections.push(`#### 📋 ${layout.displayName}`);
-                sections.push('');
-                sections.push(`- **Nom technique** : \`${layout.name}\``);
-                sections.push(`- **Description** : ${layout.description}`);
-                sections.push(`- **Sections** (${layout.sections.length}) : ${layout.sections.join(', ')}`);
-                sections.push('');
-                sections.push('**Utilisation :**');
-                sections.push(`\`\`\`markdown`);
-                sections.push(`---`);
-                sections.push(`agile-board: ${layout.name}`);
-                sections.push(`---`);
-                sections.push(`\`\`\``);
-                sections.push('');
-            }
-        }
-        
-        sections.push('---');
-        sections.push('');
-        sections.push('## 📖 Comment utiliser');
-        sections.push('');
-        sections.push('1. **Créer une note** : Utilisez les commandes "Créer une note [Type]"');
-        sections.push('2. **Ajouter un layout** : Ajoutez `agile-board: layout_name` dans le frontmatter');
-        sections.push('3. **Basculer en vue board** : Commande "Basculer vers la vue board"');
-        sections.push('4. **Compléter les sections** : Commande "Créer les sections manquantes"');
-        sections.push('');
-        sections.push('> 💡 **Astuce** : Tous les layouts sont personnalisables selon vos besoins !');
-        
-        return sections.join('\n');
-    }
-
-    /**
-     * Crée les sections manquantes pour le fichier actuel
-     */
-    private async createMissingSections(): Promise<void> {
-        this.logger.fileOperation('Création des sections manquantes demandée');
-        
-        try {
-            const activeFile = this.app.workspace.getActiveFile();
-            if (!activeFile) {
-                this.logger.warn('Aucun fichier actif pour créer les sections');
-                new Notice('❌ Aucun fichier actif');
-                return;
-            }
-
-            if (!this.sectionManager) {
-                throw new Error('SectionManagerService non initialisé');
-            }
-
-            // Déléguer au service spécialisé
-            const result = await this.sectionManager.createMissingSections(activeFile, {
-                insertPosition: 'layout-order',
-                addDefaultContent: true,
-                autoSave: true
-            });
-
-            if (result.success) {
-                this.logger.success('Sections créées via SectionManagerService', {
-                    fileName: activeFile.name,
-                    sectionsAdded: result.sectionsAdded,
-                    addedSections: result.addedSectionNames
-                });
-            } else {
-                this.logger.warn('Création de sections échouée', {
-                    fileName: activeFile.name,
-                    messages: result.messages
-                });
-            }
-
-        } catch (error) {
-            this.logger.error('Erreur lors de la création des sections', error);
-            new Notice(`❌ Erreur: ${error.message}`, 4000);
-        }
-    }
-
     // ====================================================================
-    // COMMANDES DE DEBUG (NOUVELLES v0.7.0)
+    // CONFIGURATION AUTOMATIQUE
     // ====================================================================
 
     /**
-     * Active/désactive le debug via commande
+     * Configure la sauvegarde périodique des logs
      */
-    private async toggleDebug(): Promise<void> {
-        const wasEnabled = this.settings.debug.enabled;
-        this.settings.debug.enabled = !wasEnabled;
-        await this.saveSettings();
-        
-        const status = this.settings.debug.enabled ? 'activé' : 'désactivé';
-        const icon = this.settings.debug.enabled ? '✅' : '❌';
-        
-        this.logger.config(`Debug ${status} via commande`);
-        
-        // Notification à l'utilisateur
-        new Notice(`${icon} Debug ${status}`, 3000);
-    }
-
-    /**
-     * Lance un test complet du système de debug
-     */
-    private testDebugSystem(): void {
-        this.logger.info('Test du système de debug lancé via commande');
-        this.logger.testSystem();
-        
-        new Notice('🧪 Test de debug exécuté - vérifiez la console (F12)', 4000);
-    }
-
-    /**
-     * Force la sauvegarde immédiate des logs
-     */
-    private async saveLogsNow(): Promise<void> {
+    private setupPeriodicLogSaving(): void {
         if (!this.settings.debug.logToFile) {
-            new Notice('⚠️ Sauvegarde fichier désactivée', 3000);
             return;
         }
 
-        this.logger.info('Sauvegarde manuelle des logs demandée');
-        await this.logger.saveLogsToFile();
-        
-        new Notice('💾 Logs sauvegardés avec succès', 2000);
+        this.registerInterval(
+            window.setInterval(async () => {
+                if (this.settings.debug.logToFile) {
+                    this.logger.verbose('Sauvegarde périodique des logs', { 
+                        timestamp: new Date().toISOString() 
+                    });
+                    await this.logger.saveLogsToFile();
+                }
+            }, 5 * 60 * 1000)
+        );
+
+        this.logger.config('Sauvegarde périodique des logs configurée (5 min)');
+    }
+
+    /**
+     * Configure les écouteurs d'événements
+     */
+    private setupEventListeners(): void {
+        this.registerEvent(
+            this.app.workspace.on('file-open', (file) => {
+                if (file) {
+                    this.logger.navigation('Fichier ouvert', { 
+                        fileName: file.name,
+                        path: file.path 
+                    });
+                }
+            })
+        );
+
+        this.registerEvent(
+            this.app.workspace.on('layout-change', () => {
+                this.logger.navigation('Layout workspace modifié');
+            })
+        );
+
+        this.logger.config('Écouteurs d\'événements configurés');
     }
 
     // ====================================================================
@@ -988,15 +845,7 @@ export default class AgileBoardPlugin extends Plugin {
      */
     private cleanupResources(): void {
         this.logger.debug('Nettoyage des ressources en cours');
-        
-        // Nettoyer les services si nécessaire
-        // if (this.viewSwitcher) {
-        //     this.viewSwitcher.cleanup();
-        // }
-        
-        // Vider le buffer de logs
         this.logger.clearBuffer();
-        
         this.logger.debug('Ressources nettoyées');
     }
 
@@ -1006,31 +855,30 @@ export default class AgileBoardPlugin extends Plugin {
     private getLoadedServices(): string[] {
         const services = ['LoggerService'];
         
-        // Ajouter les autres services selon votre structure
         if (this.layoutService) services.push('LayoutService');
         if (this.fileService) services.push('FileService');
         if (this.viewSwitcher) services.push('ViewSwitcher');
         if (this.modelDetector) services.push('ModelDetector');
         if (this.noteCreator) services.push('NoteCreatorService');
+        if (this.boardViewService) services.push('BoardViewService');
+        if (this.sectionManager) services.push('SectionManagerService');
         
         return services;
     }
 
     // ====================================================================
-    // MÉTHODES D'ACCÈS POUR LES AUTRES COMPOSANTS
+    // API PUBLIQUE POUR LES AUTRES COMPOSANTS
     // ====================================================================
 
     /**
-     * Retourne le service de logging pour utilisation dans d'autres composants
-     * @returns Instance du LoggerService
+     * Retourne le service de logging
      */
     getLogger(): LoggerService {
         return this.logger;
     }
 
     /**
-     * Retourne la configuration actuelle du plugin
-     * @returns Configuration complète
+     * Retourne la configuration actuelle
      */
     getSettings(): BoardSettings {
         return this.settings;
@@ -1038,23 +886,48 @@ export default class AgileBoardPlugin extends Plugin {
 
     /**
      * Met à jour une partie de la configuration
-     * @param updates Mises à jour partielles
      */
     async updateSettings(updates: Partial<BoardSettings>): Promise<void> {
         this.settings = { ...this.settings, ...updates };
         await this.saveSettings();
-        
         this.logger.config('Configuration mise à jour via API', updates);
     }
 
-    // ====================================================================
-    // GESTION DES ERREURS GLOBALES
-    // ====================================================================
+    /**
+     * Crée une note avec des options avancées
+     */
+    async createAdvancedNote(layoutName: string, options?: {
+        fileName?: string;
+        folder?: string;
+        customContent?: Record<string, string>;
+    }): Promise<void> {
+        if (!this.noteCreator) {
+            new Notice('❌ Service de création non disponible');
+            return;
+        }
+        
+        try {
+            await this.noteCreator.createNoteWithLayout({
+                layoutName,
+                customFileName: options?.fileName,
+                folder: options?.folder,
+                customContent: options?.customContent,
+                autoOpen: true
+            });
+        } catch (error) {
+            this.logger.error('Erreur création note avancée', error);
+        }
+    }
+
+    /**
+     * Méthode pour obtenir les layouts disponibles (pour l'interface)
+     */
+    getAvailableLayoutsForUI(): Array<{name: string, displayName: string, description: string}> {
+        return this.noteCreator?.getAvailableLayouts() || [];
+    }
 
     /**
      * Gestionnaire d'erreur global pour le plugin
-     * @param error Erreur capturée
-     * @param context Contexte où l'erreur s'est produite
      */
     handleError(error: Error, context: string): void {
         this.logger.error(`Erreur dans ${context}`, {
@@ -1063,40 +936,20 @@ export default class AgileBoardPlugin extends Plugin {
             context
         });
 
-        // Notification utilisateur pour les erreurs critiques
         new Notice(`❌ Erreur Agile Board: ${error.message}`, 5000);
     }
 
-    // ====================================================================
-    // HOOKS POUR INTÉGRATION AVEC LES SERVICES EXISTANTS
-    // ====================================================================
-
     /**
      * Hook appelé après l'initialisation complète
-     * Permet aux services existants de s'initialiser avec le logger
      */
     onInitializationComplete(): void {
         this.logger.success('Hook d\'initialisation complète appelé');
-        
-        // Notifier les autres services que le logger est disponible
-        //if (this.layoutService) {
-        //     this.layoutService.setLogger(this.logger);
-        // }
-        // if (this.fileService) {
-        //     this.fileService.setLogger(this.logger);
-        // }
     }
 
     /**
      * Hook appelé lors du changement de configuration debug
-     * Permet aux services de réagir aux changements
      */
     onDebugSettingsChanged(): void {
         this.logger.config('Configuration debug modifiée - notification aux services');
-        
-        // Notifier les services du changement
-        //if (this.viewSwitcher) {
-        //     this.viewSwitcher.onDebugSettingsChanged(this.settings.debug);
-        // }
     }
 }

@@ -1,385 +1,294 @@
-/**
- * =============================================================================
- * GESTIONNAIRE DE BASCULEMENT ENTRE VUES MARKDOWN ET BOARD
- * =============================================================================
- * 
- * Ce gestionnaire s'occupe de l'interface utilisateur pour basculer entre
- * la vue markdown standard d'Obsidian et notre vue Board personnalisée.
- * 
- * RESPONSABILITÉS PRINCIPALES :
- * - Ajouter des boutons de basculement dans l'interface Obsidian
- * - Détecter quand afficher/masquer ces boutons
- * - Gérer les transitions entre les deux types de vues
- * - Surveiller les changements de contexte (fichier, vue)
- * 
- * CONCEPTS OBSIDIAN IMPORTANTS :
- * - MarkdownView : Vue standard d'Obsidian pour les fichiers .md
- * - BoardView : Notre vue personnalisée pour les boards
- * - workspace : Gestion des onglets et panneaux d'Obsidian
- * - activeLeaf : L'onglet actuellement actif
- * - setViewState : Méthode pour changer le type de vue d'un onglet
- * 
- * INTERFACE UTILISATEUR :
- * - En vue Markdown : bouton "Mode Board" (icône layout-grid)
- * - En vue Board : bouton "Mode Markdown" (icône document)
- * - Boutons contextuels (n'apparaissent que pour les fichiers avec layout)
- * 
- * PATTERN DE CONCEPTION :
- * - Manager Pattern : Orchestre une fonctionnalité complexe
- * - Observer Pattern : Écoute les événements Obsidian
- * - Strategy Pattern : Comportement différent selon le contexte
- */
-
-// =============================================================================
-// IMPORTS
-// =============================================================================
-
-// Import des vues Obsidian pour détection de type
 import { MarkdownView } from 'obsidian';
-
-// Import de notre vue Board personnalisée et sa constante
 import { BoardView, BOARD_VIEW_TYPE } from '../views/BoardView';
-
-// Import du type du plugin principal
-// ATTENTION : Chemin relatif corrigé (pas d'alias @/)
 import type AgileBoardPlugin from '../main';
 
-// =============================================================================
-// CLASSE PRINCIPALE DU GESTIONNAIRE
-// =============================================================================
-
 /**
- * Gestionnaire de basculement entre vues
+ * Gestionnaire de basculement entre vues - VERSION CORRIGÉE
  * 
- * ARCHITECTURE :
- * Cette classe agit comme un contrôleur pour la fonctionnalité de basculement.
- * Elle observe les changements dans Obsidian et adapte l'interface en conséquence.
- * 
- * CYCLE DE VIE :
- * 1. Construction avec référence au plugin
- * 2. Enregistrement des écouteurs d'événements
- * 3. Gestion dynamique des boutons selon le contexte
- * 4. Nettoyage lors de la destruction du plugin
- * 
- * GESTION D'ÉTAT :
- * Pas d'état interne persistant - tout basé sur l'état actuel d'Obsidian.
- * Réactive aux changements plutôt que de maintenir un état parallèle.
+ * CORRECTIONS APPLIQUÉES :
+ * - Détection améliorée des changements de vue
+ * - Debouncing pour éviter les appels multiples
+ * - Gestion robuste des événements Obsidian
+ * - Mise à jour forcée après basculement
  */
 export class ViewSwitcher {
   
-  /**
-   * CONSTRUCTEUR avec injection de dépendance
-   * 
-   * @param plugin - Instance du plugin principal
-   * 
-   * INJECTION DE DÉPENDANCE :
-   * Le plugin donne accès à :
-   * - app : Instance Obsidian pour les opérations
-   * - layoutService : Pour vérifier les layouts disponibles
-   * - registerEvent : Pour s'abonner aux événements
-   */
+  private updateTimer: number | null = null;
+  private readonly DEBOUNCE_DELAY = 150; // Délai pour éviter les appels multiples
+  private lastProcessedFile: string | null = null;
+  private lastViewType: string | null = null;
+
   constructor(private plugin: AgileBoardPlugin) {}
 
   // ===========================================================================
-  // MÉTHODES DE BASCULEMENT ENTRE VUES
+  // MÉTHODES DE BASCULEMENT ENTRE VUES (CORRIGÉES)
   // ===========================================================================
 
   /**
-   * Bascule vers la vue Board pour un fichier donné
-   * 
-   * PROCESSUS :
-   * 1. Obtenir l'onglet actif (activeLeaf)
-   * 2. Changer son type de vue vers BOARD_VIEW_TYPE
-   * 3. Passer le chemin du fichier en paramètre d'état
-   * 
-   * CONCEPT OBSIDIAN - SETVIEWSTATE :
-   * setViewState permet de changer complètement le type de vue d'un onglet.
-   * C'est comme transformer un onglet "texte" en onglet "image" par exemple.
-   * 
-   * @param file - Fichier à afficher en mode Board
-   * 
-   * @example
-   * // L'utilisateur clique sur le bouton "Mode Board"
-   * viewSwitcher.switchToBoardView(currentFile);
-   * // L'onglet passe de MarkdownView à BoardView
+   * Bascule vers la vue Board avec mise à jour forcée des boutons
    */
   async switchToBoardView(file: any): Promise<void> {
-    // ÉTAPE 1 : Obtenir l'onglet actuellement actif
     const activeLeaf = this.plugin.app.workspace.activeLeaf;
     
     if (activeLeaf) {
-      // ÉTAPE 2 : Changer le type de vue de l'onglet
+      console.log('🎯 Basculement vers Board View pour:', file.basename);
+      
       await activeLeaf.setViewState({
-        type: BOARD_VIEW_TYPE,           // Notre type de vue personnalisé
-        state: { file: file.path }       // État initial : quel fichier afficher
+        type: BOARD_VIEW_TYPE,
+        state: { file: file.path }
       });
       
-      console.log('🎯 Basculement vers Board View');
+      // CORRECTION: Forcer la mise à jour des boutons après basculement
+      this.scheduleButtonUpdate(file, 'board-switch');
     }
   }
 
   /**
-   * Bascule vers la vue Markdown standard pour un fichier donné
-   * 
-   * PROCESSUS INVERSE :
-   * Même principe que switchToBoardView mais vers la vue standard d'Obsidian.
-   * 
-   * @param file - Fichier à afficher en mode Markdown
-   * 
-   * @example
-   * // L'utilisateur clique sur le bouton "Mode Markdown"
-   * viewSwitcher.switchToMarkdownView(currentFile);
-   * // L'onglet passe de BoardView à MarkdownView
+   * Bascule vers la vue Markdown avec mise à jour forcée des boutons
    */
   async switchToMarkdownView(file: any): Promise<void> {
     const activeLeaf = this.plugin.app.workspace.activeLeaf;
     
     if (activeLeaf) {
+      console.log('📝 Basculement vers Markdown View pour:', file.basename);
+      
       await activeLeaf.setViewState({
-        type: 'markdown',               // Type de vue standard d'Obsidian
-        state: { file: file.path }      // Même fichier, vue différente
+        type: 'markdown',
+        state: { file: file.path }
       });
       
-      console.log('📝 Basculement vers Markdown View');
+      // CORRECTION: Forcer la mise à jour des boutons après basculement
+      this.scheduleButtonUpdate(file, 'markdown-switch');
     }
   }
 
   // ===========================================================================
-  // MÉTHODES DE DÉTECTION DE CONTEXTE
+  // DÉTECTION DE CONTEXTE (AMÉLIORÉE)
   // ===========================================================================
 
   /**
    * Vérifie si la vue actuelle est notre BoardView
-   * 
-   * UTILITÉ :
-   * Permet de savoir quel bouton afficher (Board → Markdown ou Markdown → Board).
-   * 
-   * MÉTHODE OBSIDIAN :
-   * getActiveViewOfType() cherche une vue d'un type spécifique dans l'espace de travail.
-   * Retourne l'instance ou null si aucune vue de ce type n'est active.
-   * 
-   * @returns boolean - true si on est en mode Board
-   * 
-   * @example
-   * if (viewSwitcher.isCurrentViewBoardView()) {
-   *   showMarkdownButton();
-   * } else {
-   *   showBoardButton();
-   * }
    */
   isCurrentViewBoardView(): boolean {
-    return this.plugin.app.workspace.getActiveViewOfType(BoardView) !== null;
+    const boardView = this.plugin.app.workspace.getActiveViewOfType(BoardView);
+    return boardView !== null;
   }
 
   /**
    * Vérifie si la vue actuelle est la MarkdownView standard
-   * 
-   * COMPLÉMENT DE isCurrentViewBoardView :
-   * Ces deux méthodes permettent de couvrir tous les cas de figure.
-   * 
-   * @returns boolean - true si on est en mode Markdown
    */
   isCurrentViewMarkdownView(): boolean {
-    return this.plugin.app.workspace.getActiveViewOfType(MarkdownView) !== null;
+    const markdownView = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
+    return markdownView !== null;
   }
 
   /**
-   * Vérifie si un fichier a un layout agile-board configuré
-   * 
-   * LOGIQUE MÉTIER :
-   * - Seuls les fichiers avec layout agile-board peuvent utiliser la vue Board
-   * - Cette vérification détermine si les boutons doivent être affichés
-   * 
-   * ACCÈS AUX MÉTADONNÉES :
-   * - metadataCache : Cache des métadonnées des fichiers
-   * - getFileCache : Obtient les métadonnées d'un fichier
-   * - frontmatter : Bloc YAML en début de fichier
-   * 
-   * @param file - Fichier à vérifier
-   * @returns boolean - true si le fichier a un layout agile-board
-   * 
-   * @example
-   * // Fichier avec frontmatter :
-   * // ---
-   * // agile-board: layout_eisenhower
-   * // ---
-   * hasAgileBoardLayout(file); // true
-   * 
-   * // Fichier normal sans frontmatter
-   * hasAgileBoardLayout(file); // false
+   * Obtient le type de vue actuel de manière sécurisée
+   */
+  getCurrentViewType(): string | null {
+    try {
+      const activeLeaf = this.plugin.app.workspace.activeLeaf;
+      return activeLeaf?.view.getViewType() || null;
+    } catch (error) {
+      console.warn('⚠️ Erreur lors de la détection du type de vue:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Vérifie si un fichier a un layout agile-board (avec cache)
    */
   hasAgileBoardLayout(file: any): boolean {
-    // ÉTAPE 1 : Obtenir les métadonnées du fichier
-    const fileCache = this.plugin.app.metadataCache.getFileCache(file);
+    if (!file) return false;
     
-    // ÉTAPE 2 : Vérifier la présence du champ agile-board
-    return fileCache?.frontmatter?.['agile-board'] !== undefined;
+    try {
+      const fileCache = this.plugin.app.metadataCache.getFileCache(file);
+      const layoutName = fileCache?.frontmatter?.['agile-board'];
+      
+      if (!layoutName) return false;
+      
+      // Vérifier que le layout existe dans le service
+      const layout = this.plugin.layoutService?.getModel(layoutName);
+      return !!layout;
+    } catch (error) {
+      console.warn('⚠️ Erreur lors de la vérification du layout:', error);
+      return false;
+    }
   }
 
   // ===========================================================================
-  // MÉTHODES DE GESTION DES BOUTONS D'INTERFACE
+  // GESTION DES ÉVÉNEMENTS (CORRIGÉE)
   // ===========================================================================
 
   /**
-   * Configure les écouteurs d'événements pour la gestion automatique des boutons
-   * 
-   * ÉVÉNEMENTS OBSIDIAN SURVEILLÉS :
-   * 1. active-leaf-change : Changement d'onglet actif
-   * 2. file-open : Ouverture d'un nouveau fichier
-   * 3. metadataCache.on('changed') : Modification des métadonnées
-   * 
-   * PATTERN OBSERVER :
-   * S'abonne aux événements système plutôt que de sonder constamment.
-   * Plus efficace et réactif.
-   * 
-   * DÉLAIS (setTimeout) :
-   * Petits délais pour laisser le temps à Obsidian de finaliser les changements
-   * avant de mettre à jour l'interface.
-   * 
-   * @example
-   * viewSwitcher.addSwitchButton();
-   * // À partir de maintenant, les boutons apparaissent/disparaissent automatiquement
+   * Configure les écouteurs d'événements avec debouncing amélioré
    */
   addSwitchButton(): void {
     // ÉVÉNEMENT 1 : Changement d'onglet actif
-    // Déclenché quand l'utilisateur clique sur un autre onglet
     this.plugin.registerEvent(
-      this.plugin.app.workspace.on('active-leaf-change', () => {
-        setTimeout(() => this.updateSwitchButton(), 50);
+      this.plugin.app.workspace.on('active-leaf-change', (leaf) => {
+        this.scheduleButtonUpdate(null, 'active-leaf-change');
       })
     );
 
     // ÉVÉNEMENT 2 : Ouverture de fichier
-    // Déclenché quand un fichier est ouvert (nouveau ou existant)
     this.plugin.registerEvent(
-      this.plugin.app.workspace.on('file-open', () => {
-        setTimeout(() => this.updateSwitchButton(), 50);
+      this.plugin.app.workspace.on('file-open', (file) => {
+        if (file) {
+          this.scheduleButtonUpdate(file, 'file-open');
+        }
       })
     );
 
     // ÉVÉNEMENT 3 : Changement de métadonnées
-    // Déclenché quand le frontmatter d'un fichier change
     this.plugin.registerEvent(
       this.plugin.app.metadataCache.on('changed', (file) => {
-        // Vérifier si c'est le fichier actuellement actif
         const activeFile = this.plugin.app.workspace.getActiveFile();
         if (activeFile && activeFile.path === file.path) {
-          setTimeout(() => this.updateSwitchButtonForFile(file), 100);
+          this.scheduleButtonUpdate(file, 'metadata-changed');
         }
       })
     );
 
-    // INITIALISATION : Mettre à jour les boutons au démarrage
-    setTimeout(() => this.updateSwitchButton(), 100);
+    // ÉVÉNEMENT 4 : Changement de layout workspace (NOUVEAU)
+    this.plugin.registerEvent(
+      this.plugin.app.workspace.on('layout-change', () => {
+        this.scheduleButtonUpdate(null, 'layout-change');
+      })
+    );
+
+    // INITIALISATION : Mise à jour immédiate
+    this.scheduleButtonUpdate(null, 'initialization');
   }
 
   /**
-   * Met à jour les boutons pour un fichier spécifique
-   * 
-   * UTILISATION :
-   * Appelée depuis l'extérieur (ModelDetector) quand un changement est détecté.
-   * Version optimisée qui évite de re-analyser le contexte.
-   * 
-   * @param file - Fichier pour lequel mettre à jour les boutons
+   * Programme une mise à jour avec debouncing intelligent
+   */
+  private scheduleButtonUpdate(file: any = null, trigger: string): void {
+    // Annuler la mise à jour précédente
+    if (this.updateTimer) {
+      clearTimeout(this.updateTimer);
+    }
+
+    this.updateTimer = window.setTimeout(() => {
+      const targetFile = file || this.plugin.app.workspace.getActiveFile();
+      if (targetFile) {
+        console.log(`🔄 Mise à jour boutons déclenchée par: ${trigger}`);
+        this.updateSwitchButtonForFile(targetFile);
+      }
+      this.updateTimer = null;
+    }, this.DEBOUNCE_DELAY);
+  }
+
+  /**
+   * Met à jour les boutons pour un fichier spécifique (logique corrigée)
    */
   updateSwitchButtonForFile(file: any): void {
-    // ÉTAPE 1 : Vérifier si le fichier a un layout
-    const hasLayout = this.hasAgileBoardLayout(file);
-    
-    if (hasLayout) {
-      // FICHIER AVEC LAYOUT : Afficher le bon bouton selon la vue
-      if (this.isCurrentViewMarkdownView()) {
-        this.ensureBoardModeButton();
-      } else if (this.isCurrentViewBoardView()) {
-        this.ensureNormalModeButton();
+    try {
+      if (!file) {
+        console.log('⚠️ Pas de fichier pour mise à jour boutons');
+        this.removeSwitchButtons();
+        return;
       }
-    } else {
-      // FICHIER SANS LAYOUT : Masquer tous les boutons
-      this.removeSwitchButtons();
+
+      // Détecter l'état actuel
+      const hasLayout = this.hasAgileBoardLayout(file);
+      const currentViewType = this.getCurrentViewType();
+      const isMarkdownView = this.isCurrentViewMarkdownView();
+      const isBoardView = this.isCurrentViewBoardView();
+
+      console.log(`🔍 État actuel:`, {
+        fileName: file.basename,
+        hasLayout,
+        currentViewType,
+        isMarkdownView,
+        isBoardView
+      });
+
+      // Mettre en cache pour éviter les updates redondants
+      const fileKey = `${file.path}-${currentViewType}`;
+      if (this.lastProcessedFile === fileKey) {
+        console.log('⏭️ Même état, pas de mise à jour nécessaire');
+        return;
+      }
+      this.lastProcessedFile = fileKey;
+
+      if (!hasLayout) {
+        console.log('❌ Pas de layout agile-board, suppression des boutons');
+        this.removeSwitchButtons();
+        return;
+      }
+
+      // LOGIQUE PRINCIPALE : Afficher le bon bouton selon la vue
+      if (isMarkdownView && currentViewType === 'markdown') {
+        console.log('📝 Vue Markdown détectée → Afficher bouton Board');
+        this.removeSwitchButtons(); // Nettoyer d'abord
+        setTimeout(() => this.ensureBoardModeButton(), 50);
+      } else if (isBoardView && currentViewType === BOARD_VIEW_TYPE) {
+        console.log('📊 Vue Board détectée → Afficher bouton Markdown');
+        this.removeSwitchButtons(); // Nettoyer d'abord
+        setTimeout(() => this.ensureNormalModeButton(), 50);
+      } else {
+        console.log(`❓ Vue non reconnue (${currentViewType}) → Supprimer boutons`);
+        this.removeSwitchButtons();
+      }
+
+    } catch (error) {
+      console.error('❌ Erreur lors de la mise à jour des boutons:', error);
+      this.removeSwitchButtons(); // Sécurité : nettoyer en cas d'erreur
     }
   }
 
   /**
-   * Met à jour les boutons selon le contexte actuel
-   * 
-   * LOGIQUE GLOBALE :
-   * 1. Identifier le fichier actif
-   * 2. Vérifier s'il a un layout agile-board
-   * 3. Déterminer la vue actuelle
-   * 4. Afficher le bouton approprié
-   * 
-   * MÉTHODE PRINCIPALE :
-   * Point d'entrée pour toutes les mises à jour automatiques.
+   * Met à jour les boutons selon le contexte actuel (méthode principale)
    */
   private updateSwitchButton(): void {
-    // ÉTAPE 1 : Obtenir le fichier actuellement actif
     const activeFile = this.plugin.app.workspace.getActiveFile();
-    if (!activeFile) return;
-
-    // ÉTAPE 2 : Vérifier si le fichier a un layout
-    const hasLayout = this.hasAgileBoardLayout(activeFile);
-    if (!hasLayout) {
-      this.removeSwitchButtons();
-      return;
-    }
-
-    // ÉTAPE 3 : Afficher le bouton approprié selon la vue
-    if (this.isCurrentViewMarkdownView()) {
-      this.ensureBoardModeButton();
-    } else if (this.isCurrentViewBoardView()) {
-      this.ensureNormalModeButton();
-    } else {
-      // Vue non reconnue (ni Markdown ni Board)
-      this.removeSwitchButtons();
-    }
+    this.updateSwitchButtonForFile(activeFile);
   }
+
+  // ===========================================================================
+  // CRÉATION ET GESTION DES BOUTONS (CORRIGÉES)
+  // ===========================================================================
 
   /**
    * S'assure qu'un bouton "Mode Board" est présent en vue Markdown
-   * 
-   * PROCESSUS :
-   * 1. Trouver la vue Markdown active
-   * 2. Localiser la zone des actions de vue (.view-actions)
-   * 3. Supprimer le bouton existant s'il y en a un
-   * 4. Créer et configurer le nouveau bouton
-   * 5. Ajouter les styles et l'événement click
-   * 
-   * GESTION D'ERREURS :
-   * Try-catch pour éviter que les erreurs d'interface cassent le plugin.
-   * 
-   * CONCEPT OBSIDIAN - addAction :
-   * addAction() est la méthode officielle pour ajouter des boutons aux vues.
-   * Paramètres : (icône, tooltip, callback)
    */
   private ensureBoardModeButton(): void {
-    // ÉTAPE 1 : Obtenir la vue Markdown active
-    const markdownView = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
-    if (!markdownView) return;
-
-    // ÉTAPE 2 : Localiser la zone des actions de vue
-    const viewActions = markdownView.containerEl.querySelector('.view-actions');
-    if (!viewActions) return;
-
-    // ÉTAPE 3 : Supprimer le bouton existant pour éviter les doublons
-    const existingButton = viewActions.querySelector('.agile-board-switch-button');
-    if (existingButton) {
-      existingButton.remove();
-    }
-
     try {
-      // ÉTAPE 4 : Créer le bouton avec l'API Obsidian
-      const button = markdownView.addAction('layout-grid', 'Mode Board', () => {
+      const markdownView = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
+      if (!markdownView) {
+        console.log('⚠️ Pas de vue Markdown active pour ajouter le bouton Board');
+        return;
+      }
+
+      const viewActions = markdownView.containerEl.querySelector('.view-actions');
+      if (!viewActions) {
+        console.log('⚠️ Zone view-actions non trouvée');
+        return;
+      }
+
+      // Nettoyer les boutons existants
+      const existingButton = viewActions.querySelector('.agile-board-switch-button');
+      if (existingButton) {
+        console.log('🧹 Suppression bouton existant');
+        existingButton.remove();
+      }
+
+      // Créer le nouveau bouton
+      const button = markdownView.addAction('layout-grid', 'Basculer vers la vue Board', () => {
         const activeFile = this.plugin.app.workspace.getActiveFile();
         if (activeFile) {
+          console.log('🎯 Clic bouton Board → Basculement');
           this.switchToBoardView(activeFile);
         }
       });
       
-      // ÉTAPE 5 : Configuration et style du bouton
-      button.addClass('agile-board-switch-button');              // Classe pour identification
-      button.setAttribute('data-agile-board-button', 'board-mode'); // Attribut pour débogage
+      // Configuration du bouton
+      button.addClass('agile-board-switch-button');
+      button.setAttribute('data-agile-board-button', 'board-mode');
+      button.setAttribute('data-tooltip', 'Vue Board (Agile Board)');
       
-      // STYLES CSS INLINE pour mise en évidence
       button.style.cssText = `
         background-color: var(--interactive-accent);
         color: var(--text-on-accent);
@@ -387,51 +296,50 @@ export class ViewSwitcher {
         opacity: 1;
       `;
       
-      console.log('🔘 Bouton Mode Board ajouté');
+      console.log('✅ Bouton Mode Board ajouté');
       
     } catch (error) {
-      // GESTION D'ERREUR : Logger sans faire planter le plugin
-      console.error('Erreur lors de l\'ajout du bouton Mode Board:', error);
+      console.error('❌ Erreur lors de l\'ajout du bouton Mode Board:', error);
     }
   }
 
   /**
    * S'assure qu'un bouton "Mode Markdown" est présent en vue Board
-   * 
-   * PROCESSUS SIMILAIRE à ensureBoardModeButton mais pour BoardView.
-   * 
-   * DIFFÉRENCES :
-   * - Utilise getActiveViewOfType(BoardView)
-   * - Icône 'document' au lieu de 'layout-grid'
-   * - Callback vers switchToMarkdownView
    */
   private ensureNormalModeButton(): void {
-    // ÉTAPE 1 : Obtenir la vue Board active
-    const boardView = this.plugin.app.workspace.getActiveViewOfType(BoardView);
-    if (!boardView) return;
-
-    // ÉTAPE 2 : Localiser la zone des actions de vue
-    const viewActions = boardView.containerEl.querySelector('.view-actions');
-    if (!viewActions) return;
-
-    // ÉTAPE 3 : Supprimer le bouton existant
-    const existingButton = viewActions.querySelector('.agile-board-switch-button');
-    if (existingButton) {
-      existingButton.remove();
-    }
-
     try {
-      // ÉTAPE 4 : Créer le bouton "Mode Markdown"
-      const button = boardView.addAction('document', 'Mode Markdown', () => {
+      const boardView = this.plugin.app.workspace.getActiveViewOfType(BoardView);
+      if (!boardView) {
+        console.log('⚠️ Pas de vue Board active pour ajouter le bouton Markdown');
+        return;
+      }
+
+      const viewActions = boardView.containerEl.querySelector('.view-actions');
+      if (!viewActions) {
+        console.log('⚠️ Zone view-actions non trouvée dans BoardView');
+        return;
+      }
+
+      // Nettoyer les boutons existants
+      const existingButton = viewActions.querySelector('.agile-board-switch-button');
+      if (existingButton) {
+        console.log('🧹 Suppression bouton existant');
+        existingButton.remove();
+      }
+
+      // Créer le nouveau bouton
+      const button = boardView.addAction('document', 'Basculer vers la vue Markdown', () => {
         const activeFile = this.plugin.app.workspace.getActiveFile();
         if (activeFile) {
+          console.log('📝 Clic bouton Markdown → Basculement');
           this.switchToMarkdownView(activeFile);
         }
       });
       
-      // ÉTAPE 5 : Configuration du bouton
+      // Configuration du bouton
       button.addClass('agile-board-switch-button');
       button.setAttribute('data-agile-board-button', 'normal-mode');
+      button.setAttribute('data-tooltip', 'Vue Markdown (Standard)');
       
       button.style.cssText = `
         background-color: var(--interactive-accent);
@@ -440,174 +348,97 @@ export class ViewSwitcher {
         opacity: 1;
       `;
       
-      console.log('🔘 Bouton Mode Markdown ajouté');
+      console.log('✅ Bouton Mode Markdown ajouté');
       
     } catch (error) {
-      console.error('Erreur lors de l\'ajout du bouton Mode Markdown:', error);
+      console.error('❌ Erreur lors de l\'ajout du bouton Mode Markdown:', error);
     }
   }
 
   /**
-   * Supprime tous les boutons de basculement de l'interface
-   * 
-   * UTILISATION :
-   * - Quand on ouvre un fichier sans layout agile-board
-   * - Quand on bascule vers une vue non supportée
-   * - Lors du nettoyage du plugin
-   * 
-   * SÉLECTEUR GLOBAL :
-   * Utilise document.querySelectorAll pour trouver tous les boutons,
-   * même s'ils sont dans des onglets différents.
-   * 
-   * CLASSE IDENTIFICATRICE :
-   * Tous nos boutons ont la classe 'agile-board-switch-button'
-   * pour un nettoyage facile et sûr.
+   * Supprime tous les boutons de basculement (méthode améliorée)
    */
   private removeSwitchButtons(): void {
-    // Trouver tous les boutons de basculement dans le document
-    const buttons = document.querySelectorAll('.agile-board-switch-button');
-    
-    // Supprimer chaque bouton trouvé
-    buttons.forEach(button => button.remove());
+    try {
+      // Méthode 1 : Recherche globale dans le document
+      const buttons = document.querySelectorAll('.agile-board-switch-button');
+      buttons.forEach(button => {
+        console.log('🗑️ Suppression bouton trouvé');
+        button.remove();
+      });
+      
+      // Méthode 2 : Recherche spécifique dans les vues actives
+      const views = [
+        this.plugin.app.workspace.getActiveViewOfType(MarkdownView),
+        this.plugin.app.workspace.getActiveViewOfType(BoardView)
+      ].filter(view => view !== null);
+      
+      views.forEach(view => {
+        const viewActions = view.containerEl.querySelector('.view-actions');
+        if (viewActions) {
+          const buttons = viewActions.querySelectorAll('.agile-board-switch-button');
+          buttons.forEach(button => button.remove());
+        }
+      });
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression des boutons:', error);
+    }
   }
 
   // ===========================================================================
-  // MÉTHODES DE CYCLE DE VIE
+  // MÉTHODES DE DEBUGGING ET MAINTENANCE
   // ===========================================================================
 
   /**
+   * Force une mise à jour complète (pour le debugging)
+   */
+  forceUpdate(): void {
+    console.log('🔄 Force update des boutons ViewSwitcher');
+    this.lastProcessedFile = null; // Reset du cache
+    
+    if (this.updateTimer) {
+      clearTimeout(this.updateTimer);
+      this.updateTimer = null;
+    }
+    
+    const activeFile = this.plugin.app.workspace.getActiveFile();
+    if (activeFile) {
+      this.updateSwitchButtonForFile(activeFile);
+    }
+  }
+
+  /**
+   * Diagnostique l'état actuel du ViewSwitcher
+   */
+  getDiagnostics(): any {
+    const activeFile = this.plugin.app.workspace.getActiveFile();
+    const currentViewType = this.getCurrentViewType();
+    
+    return {
+      activeFile: activeFile?.basename || 'none',
+      currentViewType,
+      isMarkdownView: this.isCurrentViewMarkdownView(),
+      isBoardView: this.isCurrentViewBoardView(),
+      hasLayout: activeFile ? this.hasAgileBoardLayout(activeFile) : false,
+      lastProcessedFile: this.lastProcessedFile,
+      updateTimerActive: this.updateTimer !== null,
+      buttonsPresent: document.querySelectorAll('.agile-board-switch-button').length
+    };
+  }
+
+  /**
    * Nettoie les ressources utilisées par le ViewSwitcher
-   * 
-   * APPELÉE PAR :
-   * Le plugin principal lors de son déchargement (onunload).
-   * 
-   * NETTOYAGE :
-   * - Supprime tous les boutons de l'interface
-   * - Les écouteurs d'événements sont automatiquement nettoyés par Obsidian
-   *   grâce à registerEvent() utilisé dans addSwitchButton()
-   * 
-   * IMPORTANCE :
-   * Évite les fuites mémoire et les boutons orphelins dans l'interface.
    */
   stop(): void {
+    console.log('🛑 Arrêt du ViewSwitcher');
+    
+    if (this.updateTimer) {
+      clearTimeout(this.updateTimer);
+      this.updateTimer = null;
+    }
+    
     this.removeSwitchButtons();
+    this.lastProcessedFile = null;
   }
 }
-
-// =============================================================================
-// NOTES POUR LES DÉBUTANTS
-// =============================================================================
-
-/*
-CONCEPTS CLÉS À RETENIR :
-
-1. **Manager Pattern** :
-   - Orchestre une fonctionnalité complexe
-   - Coordonne plusieurs composants
-   - Interface simple pour l'extérieur
-   - Gestion centralisée de l'état
-
-2. **Observer Pattern avec Obsidian** :
-   - Écoute des événements système
-   - Réaction automatique aux changements
-   - Performance optimisée vs polling
-   - Nettoyage automatique des écouteurs
-
-3. **Interface Utilisateur Dynamique** :
-   - Boutons contextuels (apparaissent/disparaissent)
-   - Adaptation au contexte utilisateur
-   - Intégration native avec l'interface Obsidian
-   - Styles cohérents avec le thème
-
-4. **Gestion d'État Sans État** :
-   - Pas de cache interne d'état
-   - Lecture de l'état depuis Obsidian
-   - Réactivité aux changements externes
-   - Simplification du code
-
-CONCEPTS OBSIDIAN SPÉCIFIQUES :
-
-1. **Workspace et Views** :
-   - workspace : Gestionnaire global des onglets
-   - activeLeaf : Onglet actuellement actif
-   - setViewState : Changer le type de vue
-   - getActiveViewOfType : Trouver une vue spécifique
-
-2. **Événements Système** :
-   - active-leaf-change : Changement d'onglet
-   - file-open : Ouverture de fichier
-   - metadata changed : Modification de frontmatter
-   - registerEvent : Abonnement sécurisé
-
-3. **Manipulation d'Interface** :
-   - addAction : Ajouter des boutons aux vues
-   - containerEl : Élément DOM de la vue
-   - view-actions : Zone des boutons d'action
-   - Variables CSS d'Obsidian pour le style
-
-BONNES PRATIQUES APPLIQUÉES :
-
-1. **Gestion d'Erreurs** :
-   - Try-catch pour les opérations d'interface
-   - Logs informatifs pour le débogage
-   - Continuation malgré les erreurs
-   - Pas de plantage du plugin
-
-2. **Performance** :
-   - Petits délais pour optimiser la réactivité
-   - Suppression des boutons existants avant création
-   - Écoute ciblée des événements
-   - Nettoyage des ressources
-
-3. **Expérience Utilisateur** :
-   - Boutons contextuels intelligents
-   - Feedback visuel (couleurs, icônes)
-   - Tooltips informatifs
-   - Intégration native
-
-4. **Maintenabilité** :
-   - Séparation claire des responsabilités
-   - Méthodes courtes et focalisées
-   - Nommage explicite
-   - Documentation complète
-
-PATTERNS D'EXTENSION :
-
-1. **Nouveaux Types de Vue** :
-   - Ajouter des détections de vue
-   - Créer des boutons spécialisés
-   - Gérer les transitions complexes
-   - Support de vues tierces
-
-2. **Interface Avancée** :
-   - Menus contextuels
-   - Raccourcis clavier
-   - Animations de transition
-   - Préférences utilisateur
-
-3. **Intégration Système** :
-   - Synchronisation avec d'autres plugins
-   - Événements personnalisés
-   - État partagé
-   - Hooks d'extension
-
-DÉBOGAGE COURANT :
-
-1. **Boutons qui n'apparaissent pas** :
-   - Vérifier hasAgileBoardLayout()
-   - Contrôler les délais setTimeout
-   - Examiner les erreurs dans la console
-   - Tester manuellement updateSwitchButton()
-
-2. **Boutons dupliqués** :
-   - S'assurer que removeSwitchButtons() fonctionne
-   - Vérifier les conditions d'affichage
-   - Contrôler les abonnements d'événements
-   - Tester le cycle complet
-
-3. **Performance** :
-   - Monitorer la fréquence des événements
-   - Optimiser les délais
-   - Réduire les accès DOM
-   - Cache intelligent des résultats
-*/
