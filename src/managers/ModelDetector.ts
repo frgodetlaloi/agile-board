@@ -301,20 +301,6 @@ export class ModelDetector {
     // DÉTECTION DU LAYOUT
     const hasLayout = this.hasAgileBoardLayout(file);
     console.log(`🎯 Fichier "${file.basename}" - Layout agile-board: ${hasLayout ? 'OUI' : 'NON'}`);
-
-    // MISE À JOUR DE L'INTERFACE (avec délai pour stabilité)
-    setTimeout(() => {
-        if (this.plugin.viewSwitcher) {
-            this.plugin.viewSwitcher.updateSwitchButtonForFile(file);
-        }
-    }, 100); // Augmenté de 50ms à 100ms
-
-    // NOUVEAU : Double vérification pour les changements critiques
-    setTimeout(() => {
-        if (this.plugin.viewSwitcher) {
-            this.plugin.viewSwitcher.updateSwitchButtonForFile(file);
-        }
-    }, 500); // Vérification supplémentaire après 500ms
   }
 
   /**

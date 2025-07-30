@@ -27,7 +27,7 @@ __export(main_exports, {
   default: () => AgileBoardPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian7 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 
 // src/types.ts
 var LogLevel = /* @__PURE__ */ ((LogLevel2) => {
@@ -280,223 +280,6 @@ var LoggerService = class {
   setLogLevel(level) {
     this.settings.logLevel = level;
     this.config(`Niveau de log chang\xE9 vers: ${LogLevel[level]}`);
-  }
-};
-
-// src/components/SettingsTab.ts
-var import_obsidian = require("obsidian");
-var AgileBoardSettingsTab = class extends import_obsidian.PluginSettingTab {
-  constructor(app, plugin) {
-    super(app, plugin);
-    this.plugin = plugin;
-  }
-  display() {
-    const { containerEl } = this;
-    containerEl.empty();
-    containerEl.createEl("h1", { text: "Agile Board - Configuration" });
-    this.createDebugSection(containerEl);
-    this.createGeneralSection(containerEl);
-  }
-  /**
-   * Crée la section de configuration du debug
-   */
-  createDebugSection(containerEl) {
-    containerEl.createEl("h2", { text: "\u{1F527} Configuration du Debug" });
-    const debugDesc = containerEl.createEl("div", { cls: "setting-item-description" });
-    debugDesc.innerHTML = `
-            <p>Configurez le niveau de verbosit\xE9 et les options de debug du plugin.</p>
-            <p><strong>Conseil :</strong> Gardez le debug <em>d\xE9sactiv\xE9</em> en usage normal pour optimiser les performances.</p>
-        `;
-    new import_obsidian.Setting(containerEl).setName("Activer le debug").setDesc("Active ou d\xE9sactive compl\xE8tement le syst\xE8me de debug").addToggle((toggle) => toggle.setValue(this.plugin.settings.debug.enabled).onChange(async (value) => {
-      this.plugin.settings.debug.enabled = value;
-      await this.plugin.saveSettings();
-      new import_obsidian.Notice(`Debug ${value ? "activ\xE9" : "d\xE9sactiv\xE9"}`);
-      this.display();
-    }));
-    if (this.plugin.settings.debug.enabled) {
-      this.createDebugAdvancedOptions(containerEl);
-    }
-  }
-  /**
-   * Crée les options avancées de debug (quand activé)
-   */
-  createDebugAdvancedOptions(containerEl) {
-    new import_obsidian.Setting(containerEl).setName("Niveau de verbosit\xE9").setDesc("Contr\xF4le la quantit\xE9 d'informations affich\xE9es dans les logs").addDropdown((dropdown) => dropdown.addOption(1 /* ERROR */.toString(), "\u274C Erreurs uniquement").addOption(2 /* WARN */.toString(), "\u26A0\uFE0F Erreurs + Avertissements").addOption(3 /* INFO */.toString(), "\u2139\uFE0F Informations importantes (recommand\xE9)").addOption(4 /* DEBUG */.toString(), "\u{1F527} Debug d\xE9taill\xE9").addOption(5 /* VERBOSE */.toString(), "\u{1F50D} Tout afficher (tr\xE8s verbeux)").setValue(this.plugin.settings.debug.logLevel.toString()).onChange(async (value) => {
-      this.plugin.settings.debug.logLevel = parseInt(value);
-      await this.plugin.saveSettings();
-      new import_obsidian.Notice(`Niveau de debug: ${LogLevel[parseInt(value)]}`);
-    }));
-    new import_obsidian.Setting(containerEl).setName("Afficher les timestamps").setDesc("Ajoute l'heure pr\xE9cise \xE0 chaque message de log").addToggle((toggle) => toggle.setValue(this.plugin.settings.debug.showTimestamps).onChange(async (value) => {
-      this.plugin.settings.debug.showTimestamps = value;
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian.Setting(containerEl).setName("Afficher la source").setDesc("Indique le fichier source de chaque message de log").addToggle((toggle) => toggle.setValue(this.plugin.settings.debug.showSourceLocation).onChange(async (value) => {
-      this.plugin.settings.debug.showSourceLocation = value;
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian.Setting(containerEl).setName("Sauvegarder dans un fichier").setDesc("Enregistre automatiquement les logs dans un fichier de votre vault").addToggle((toggle) => toggle.setValue(this.plugin.settings.debug.logToFile).onChange(async (value) => {
-      this.plugin.settings.debug.logToFile = value;
-      await this.plugin.saveSettings();
-      this.display();
-    }));
-    if (this.plugin.settings.debug.logToFile) {
-      this.createFileLoggingOptions(containerEl);
-    }
-    this.createDebugActions(containerEl);
-  }
-  /**
-   * Crée les options de sauvegarde fichier
-   */
-  createFileLoggingOptions(containerEl) {
-    new import_obsidian.Setting(containerEl).setName("Nom du fichier de log").setDesc("Nom du fichier o\xF9 sauvegarder les logs (dans la racine du vault)").addText((text) => text.setPlaceholder("agile-board-debug.log").setValue(this.plugin.settings.debug.logFileName).onChange(async (value) => {
-      this.plugin.settings.debug.logFileName = value || "agile-board-debug.log";
-      await this.plugin.saveSettings();
-    }));
-    new import_obsidian.Setting(containerEl).setName("Taille maximale du fichier").setDesc("Taille maximale en KB avant rotation automatique").addSlider((slider) => slider.setLimits(100, 1e4, 100).setValue(this.plugin.settings.debug.maxLogFileSize).setDynamicTooltip().onChange(async (value) => {
-      this.plugin.settings.debug.maxLogFileSize = value;
-      await this.plugin.saveSettings();
-    }));
-  }
-  /**
-   * Crée les boutons d'action pour le debug
-   */
-  createDebugActions(containerEl) {
-    const actionsContainer = containerEl.createDiv("debug-actions");
-    actionsContainer.style.cssText = `
-            margin-top: 20px;
-            padding: 15px;
-            background-color: var(--background-secondary);
-            border-radius: 6px;
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        `;
-    const testButton = actionsContainer.createEl("button", {
-      text: "\u{1F9EA} Tester le syst\xE8me",
-      cls: "mod-cta"
-    });
-    testButton.onclick = () => {
-      this.plugin.logger.testSystem();
-      new import_obsidian.Notice("Test de debug ex\xE9cut\xE9 - v\xE9rifiez la console (F12)", 3e3);
-    };
-    if (this.plugin.settings.debug.logToFile) {
-      const saveButton = actionsContainer.createEl("button", {
-        text: "\u{1F4BE} Sauvegarder maintenant"
-      });
-      saveButton.onclick = async () => {
-        await this.plugin.logger.saveLogsToFile();
-        new import_obsidian.Notice("Logs sauvegard\xE9s", 2e3);
-      };
-    }
-    const statsButton = actionsContainer.createEl("button", {
-      text: "\u{1F4CA} Statistiques"
-    });
-    statsButton.onclick = () => this.showDebugStats();
-    const clearButton = actionsContainer.createEl("button", {
-      text: "\u{1F5D1}\uFE0F Vider le buffer"
-    });
-    clearButton.onclick = () => {
-      this.plugin.logger.clearBuffer();
-      new import_obsidian.Notice("Buffer de logs vid\xE9", 2e3);
-    };
-  }
-  /**
-   * Affiche les statistiques de debug dans une notification
-   */
-  showDebugStats() {
-    const stats = this.plugin.logger.getStats();
-    const message = `\u{1F4CA} Statistiques de Debug:
-
-\u2022 Statut: ${stats.isEnabled ? "\u2705 Activ\xE9" : "\u274C D\xE9sactiv\xE9"}
-\u2022 Niveau: ${stats.currentLevel}
-\u2022 Buffer: ${stats.bufferSize} entr\xE9es
-\u2022 Fichier: ${stats.fileLoggingEnabled ? "\u2705 Activ\xE9" : "\u274C D\xE9sactiv\xE9"}`;
-    new import_obsidian.Notice(message, 6e3);
-  }
-  /**
-   * Crée la section de configuration générale
-   */
-  createGeneralSection(containerEl) {
-    containerEl.createEl("h2", { text: "\u2699\uFE0F Param\xE8tres G\xE9n\xE9raux" });
-    new import_obsidian.Setting(containerEl).setName("Cr\xE9ation automatique des sections").setDesc("Cr\xE9e automatiquement les sections manquantes lors de l'ouverture d'un board").addToggle((toggle) => toggle.setValue(this.plugin.settings.autoCreateSections).onChange(async (value) => {
-      this.plugin.settings.autoCreateSections = value;
-      await this.plugin.saveSettings();
-      this.plugin.logger.config("Auto-cr\xE9ation sections modifi\xE9e", { enabled: value });
-    }));
-    const layoutDesc = containerEl.createEl("div", { cls: "setting-item-description" });
-    layoutDesc.innerHTML = `
-            <p><strong>Layouts disponibles:</strong> Eisenhower, Kanban, GTD, Weekly Planner, Daily Planner, Project Board, Cornell Notes, Tasks Dashboard</p>
-        `;
-  }
-};
-
-// src/utils/settings.ts
-var DEFAULT_SETTINGS = {
-  autoCreateSections: true,
-  defaultLayouts: ["layout_kanban", "layout_eisenhower", "layout_gtd"],
-  debug: {
-    enabled: false,
-    // Debug désactivé par défaut (production)
-    logLevel: 3 /* INFO */,
-    // Niveau INFO par défaut
-    showTimestamps: true,
-    // Affichage des timestamps
-    showSourceLocation: true,
-    // Affichage de la source des logs
-    logToFile: false,
-    // Pas de sauvegarde fichier par défaut
-    logToConsole: true,
-    // Console activée par défaut
-    logFileName: "agile-board-debug.log",
-    // Nom du fichier de log
-    maxLogFileSize: 5 * 1024 * 1024
-    // 5MB maximum avant rotation
-  }
-};
-var DEVELOPMENT_SETTINGS = {
-  debug: {
-    enabled: true,
-    logLevel: 5 /* VERBOSE */,
-    showTimestamps: true,
-    showSourceLocation: true,
-    logToFile: false,
-    // Console uniquement pour dev
-    logToConsole: true,
-    logFileName: "agile-board-dev.log",
-    maxLogFileSize: 2 * 1024 * 1024
-    // 2MB pour le dev
-  }
-};
-var DIAGNOSTIC_SETTINGS = {
-  debug: {
-    enabled: true,
-    logLevel: 4 /* DEBUG */,
-    showTimestamps: true,
-    showSourceLocation: true,
-    logToFile: true,
-    // Fichier pour partager les logs
-    logToConsole: false,
-    // Pas de pollution console en diagnostic
-    logFileName: "agile-board-diagnostic.log",
-    maxLogFileSize: 1024 * 1024
-    // 1MB pour diagnostic
-  }
-};
-var PRODUCTION_SETTINGS = {
-  debug: {
-    enabled: true,
-    // Logs d'erreurs seulement
-    logLevel: 1 /* ERROR */,
-    showTimestamps: false,
-    // Moins verbeux
-    showSourceLocation: false,
-    logToFile: true,
-    // Garder les erreurs en fichier
-    logToConsole: false,
-    // Pas de pollution console
-    logFileName: "agile-board-errors.log",
-    maxLogFileSize: 512 * 1024
-    // 512KB pour erreurs seulement
   }
 };
 
@@ -1656,320 +1439,334 @@ var LayoutService = class {
 };
 
 // src/services/FileService.ts
-var FileService = class {
-  /**
-   * CONSTRUCTEUR avec injection de dépendance
-   * 
-   * @param app - Instance principale d'Obsidian
-   * 
-   * CONCEPT OBSIDIAN - APP :
-   * L'objet App donne accès à toutes les fonctionnalités d'Obsidian :
-   * - app.vault : Système de fichiers
-   * - app.metadataCache : Cache des métadonnées
-   * - app.workspace : Gestion des vues et onglets
-   * 
-   * MODIFICATEUR private :
-   * Rend la propriété accessible uniquement dans cette classe
-   */
-  constructor(app) {
-    this.app = app;
+var import_obsidian = require("obsidian");
+
+// src/cache/FileCache.ts
+var _FileCache = class {
+  constructor() {
+    // 5 minutes
+    this.cache = /* @__PURE__ */ new Map();
+    this.startCleanupTimer();
   }
-  // ===========================================================================
-  // MÉTHODES PRINCIPALES DE PARSING
-  // ===========================================================================
   /**
-   * Parse toutes les sections H1 d'un fichier markdown
-   * 
-   * ALGORITHME :
-   * 1. Lire le contenu du fichier
-   * 2. Découper en lignes
-   * 3. Identifier les titres H1 (lignes commençant par "# ")
-   * 4. Extraire le contenu entre chaque titre
-   * 5. Créer des objets FileSection avec métadonnées
-   * 
-   * GESTION DES CAS LIMITES :
-   * - Fichier vide : retourne objet vide
-   * - Pas de sections H1 : retourne objet vide
-   * - Sections vides : incluses avec tableau de lignes vide
-   * - Dernière section : va jusqu'à la fin du fichier
-   * 
-   * @param file - Fichier Obsidian à parser
-   * @returns Promise<FileSections> - Dictionnaire des sections trouvées
-   * 
-   * @example
-   * // Pour un fichier contenant :
-   * // # Section 1
-   * // Contenu 1
-   * // # Section 2  
-   * // Contenu 2
-   * 
-   * const sections = await fileService.parseSections(file);
-   * // Retourne :
-   * // {
-   * //   "Section 1": { start: 0, end: 2, lines: ["Contenu 1"] },
-   * //   "Section 2": { start: 2, end: 4, lines: ["Contenu 2"] }
-   * // }
+   * Récupère une valeur du cache ou la génère
    */
-  async parseSections(file) {
-    const content = await this.app.vault.read(file);
-    const lines = content.split("\n");
-    const sections = {};
-    let currentSection = null;
-    let sectionStart = 0;
-    console.log("\u{1F4D6} Parsing sections du fichier:", file.basename);
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const headerMatch = line.match(/^# ([^\n#].*?)\s*$/);
-      if (headerMatch) {
-        if (currentSection !== null) {
-          const sectionLines = lines.slice(sectionStart + 1, i);
-          sections[currentSection] = {
-            start: sectionStart,
-            // Index de la ligne du titre
-            end: i,
-            // Index de la ligne suivante (exclus)
-            lines: sectionLines
-            // Contenu de la section
-          };
-          console.log(`\u{1F4C4} Section "${currentSection}": ${sectionLines.length} lignes`);
-        }
-        currentSection = headerMatch[1].trim();
-        sectionStart = i;
+  async get(key, fileModified, loader) {
+    const cached = this.cache.get(key);
+    if (cached && !this.isExpired(cached) && cached.fileModified >= fileModified) {
+      return cached.data;
+    }
+    const data = await loader();
+    this.set(key, data, fileModified);
+    return data;
+  }
+  /**
+   * Stocke une valeur dans le cache
+   */
+  set(key, data, fileModified) {
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now(),
+      fileModified
+    });
+  }
+  /**
+   * Vérifie si une entrée du cache est expirée
+   */
+  isExpired(cached) {
+    return Date.now() - cached.timestamp > _FileCache.CACHE_TTL;
+  }
+  /**
+   * Démarre le timer de nettoyage automatique
+   */
+  startCleanupTimer() {
+    this.cleanupTimer = window.setInterval(() => {
+      this.cleanup();
+    }, 6e4);
+  }
+  /**
+   * Nettoie les entrées expirées
+   */
+  cleanup() {
+    const now = Date.now();
+    for (const [key, cached] of this.cache) {
+      if (this.isExpired(cached)) {
+        this.cache.delete(key);
       }
     }
-    if (currentSection !== null) {
-      const sectionLines = lines.slice(sectionStart + 1);
-      sections[currentSection] = {
-        start: sectionStart,
-        end: lines.length,
-        // Fin du fichier
-        lines: sectionLines
-      };
-      console.log(`\u{1F4C4} Section "${currentSection}": ${sectionLines.length} lignes`);
-    }
-    console.log("\u2705 Sections trouv\xE9es:", Object.keys(sections));
-    return sections;
   }
-  // ===========================================================================
-  // MÉTHODES DE MODIFICATION DES FICHIERS
-  // ===========================================================================
   /**
-   * Crée automatiquement les sections manquantes dans un fichier
-   * 
-   * PROCESSUS :
-   * 1. Parser les sections existantes
-   * 2. Comparer avec les sections requises par le layout
-   * 3. Identifier les sections manquantes
-   * 4. Trouver le point d'insertion optimal
-   * 5. Générer le contenu des nouvelles sections
-   * 6. Insérer et sauvegarder
-   * 
-   * STRATÉGIE D'INSERTION :
-   * - Après le frontmatter YAML (s'il existe)
-   * - Sinon au début du fichier
-   * - Chaque section avec titre H1 et ligne vide
-   * 
-   * @param file - Fichier à modifier
-   * @param layout - Layout définissant les sections requises
-   * @returns Promise<boolean> - true si des sections ont été créées
-   * 
-   * @example
-   * // Layout requiert : ["Section A", "Section B", "Section C"]
-   * // Fichier contient : ["Section A", "Section C"]
-   * // Résultat : Ajoute "Section B" au fichier
+   * Invalide le cache pour une clé spécifique
    */
-  async createMissingSections(file, layout) {
-    console.log("\u{1F527} V\xE9rification des sections manquantes...");
-    const sections = await this.parseSections(file);
-    const existingSections = Object.keys(sections);
-    const requiredSections = layout.map((block) => block.title);
-    const missingSections = requiredSections.filter(
-      (section) => !existingSections.includes(section)
+  invalidate(key) {
+    this.cache.delete(key);
+  }
+  /**
+   * Vide complètement le cache
+   */
+  clear() {
+    this.cache.clear();
+  }
+  /**
+   * Dispose le cache et nettoie les ressources
+   */
+  dispose() {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = void 0;
+    }
+    this.clear();
+  }
+  /**
+   * Statistiques du cache pour debugging
+   */
+  getStats() {
+    return {
+      size: this.cache.size,
+      hitRate: 0
+      // À implémenter si nécessaire
+    };
+  }
+};
+var FileCache = _FileCache;
+FileCache.CACHE_TTL = 3e5;
+
+// src/errors/AgileBoardError.ts
+var AgileBoardError = class extends Error {
+  constructor(message, code, context) {
+    super(message);
+    this.code = code;
+    this.context = context;
+    this.name = "AgileBoardError";
+  }
+  static layoutNotFound(layoutName) {
+    return new AgileBoardError(
+      `Layout "${layoutName}" non trouv\xE9`,
+      "LAYOUT_NOT_FOUND",
+      { layoutName }
     );
-    if (missingSections.length === 0) {
-      console.log("\u2705 Toutes les sections sont pr\xE9sentes");
-      return false;
-    }
-    console.log("\u{1F4DD} Sections manquantes d\xE9tect\xE9es:", missingSections);
-    const content = await this.app.vault.read(file);
-    const lines = content.split("\n");
-    const insertionPoint = this.findInsertionPoint(lines);
-    const newSectionLines = [];
-    for (const sectionTitle of missingSections) {
-      newSectionLines.push("");
-      newSectionLines.push(`# ${sectionTitle}`);
-      newSectionLines.push("");
-    }
-    const updatedLines = [
-      ...lines.slice(0, insertionPoint),
-      // Contenu avant insertion
-      ...newSectionLines,
-      // Nouvelles sections
-      ...lines.slice(insertionPoint)
-      // Contenu après insertion
-    ];
-    await this.app.vault.modify(file, updatedLines.join("\n"));
-    console.log(`\u2705 ${missingSections.length} sections ajout\xE9es:`, missingSections);
-    return true;
   }
-  /**
-   * Trouve le point d'insertion optimal pour les nouvelles sections
-   * 
-   * LOGIQUE :
-   * 1. Chercher un frontmatter YAML (entre --- ... ---)
-   * 2. Si frontmatter trouvé : insérer après
-   * 3. Sinon : insérer au début du fichier
-   * 
-   * FRONTMATTER YAML :
-   * Bloc de métadonnées au début des fichiers markdown :
-   * ---
-   * title: Mon titre
-   * tags: [tag1, tag2]
-   * ---
-   * 
-   * @param lines - Lignes du fichier
-   * @returns number - Index de ligne où insérer
-   * 
-   * @example
-   * // Fichier avec frontmatter :
-   * // ---
-   * // title: Test
-   * // ---
-   * // # Existing Section
-   * 
-   * findInsertionPoint(lines); // Retourne 3 (après le frontmatter)
-   */
-  findInsertionPoint(lines) {
-    let frontmatterEnd = 0;
-    let inFrontmatter = false;
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (i === 0 && line === "---") {
-        inFrontmatter = true;
-        continue;
-      }
-      if (inFrontmatter && line === "---") {
-        frontmatterEnd = i + 1;
-        break;
-      }
-    }
-    if (frontmatterEnd === 0) {
-      return 0;
-    } else {
-      return frontmatterEnd;
-    }
+  static fileReadError(filePath, originalError) {
+    return new AgileBoardError(
+      `Impossible de lire le fichier "${filePath}"`,
+      "FILE_READ_ERROR",
+      { filePath, originalError: originalError.message }
+    );
   }
-  /**
-   * Met à jour le contenu d'une section spécifique
-   * 
-   * PROCESSUS :
-   * 1. Parser les sections pour trouver la section cible
-   * 2. Remplacer son contenu par le nouveau
-   * 3. Conserver le titre et la structure
-   * 4. Sauvegarder le fichier
-   * 
-   * UTILISATION :
-   * Appelée par MarkdownFrame quand l'utilisateur modifie une section
-   * dans l'interface Board.
-   * 
-   * @param file - Fichier à modifier
-   * @param sectionName - Nom de la section à mettre à jour
-   * @param newContent - Nouveau contenu (sans le titre #)
-   * 
-   * @example
-   * await fileService.updateSection(file, "Urgent et Important", "- Nouvelle tâche\n- Autre tâche");
-   */
-  async updateSection(file, sectionName, newContent) {
-    const content = await this.app.vault.read(file);
-    const lines = content.split("\n");
-    const sections = await this.parseSections(file);
-    const section = sections[sectionName];
-    if (!section) {
-      console.warn(`\u26A0\uFE0F Section "${sectionName}" non trouv\xE9e pour mise \xE0 jour`);
-      return;
-    }
-    const newLines = [
-      ...lines.slice(0, section.start + 1),
-      // Avant la section (inclus le titre)
-      ...newContent.split("\n"),
-      // Nouveau contenu
-      ...lines.slice(section.end)
-      // Après la section
-    ];
-    await this.app.vault.modify(file, newLines.join("\n"));
-    console.log(`\u2705 Section "${sectionName}" mise \xE0 jour`);
-  }
-  // ===========================================================================
-  // MÉTHODES UTILITAIRES
-  // ===========================================================================
-  /**
-   * Identifie les sections manquantes par rapport à un layout
-   * 
-   * ALGORITHME SIMPLE :
-   * Filtre les sections requises qui ne sont pas dans les sections existantes.
-   * 
-   * FONCTION PURE :
-   * - Pas d'effets de bord
-   * - Même entrée = même sortie
-   * - Facilement testable
-   * 
-   * @param existingSections - Sections actuellement présentes
-   * @param requiredSections - Sections requises par le layout
-   * @returns string[] - Liste des sections manquantes
-   * 
-   * @example
-   * const missing = fileService.getMissingSections(
-   *   ["Section A", "Section C"],           // Existantes
-   *   ["Section A", "Section B", "Section C"]  // Requises
-   * );
-   * // Retourne : ["Section B"]
-   */
-  getMissingSections(existingSections, requiredSections) {
-    return requiredSections.filter(
-      (section) => !existingSections.includes(section)
+  static validationError(field, value) {
+    return new AgileBoardError(
+      `Validation \xE9chou\xE9e pour le champ "${field}"`,
+      "VALIDATION_ERROR",
+      { field, value }
     );
   }
 };
 
-// src/services/NoteCreatorService.ts
-var import_obsidian2 = require("obsidian");
-var NoteCreatorService = class {
-  /**
-   * Constructeur avec injection de dépendances
-   * 
-   * @param app - Instance de l'application Obsidian
-   * @param layoutService - Service de gestion des layouts
-   * @param logger - Service de logging (optionnel)
-   */
+// src/services/FileService.ts
+var FileService = class {
   constructor(app, layoutService, logger) {
     this.app = app;
     this.layoutService = layoutService;
     this.logger = logger;
+    this.cache = new FileCache();
   }
-  // =========================================================================
-  // MÉTHODE PRINCIPALE
-  // =========================================================================
+  // ===================================================================
+  // MÉTHODES DE L'ANCIEN FILESERVICE (MAINTIEN COMPATIBILITÉ)
+  // ===================================================================
+  /**
+  * Met à jour le contenu d'une section spécifique (méthode temporaire)
+  */
+  async updateSectionContent(file, sectionName, content) {
+    try {
+      const fileContent = await this.app.vault.read(file);
+      const lines = fileContent.split("\n");
+      const newLines = [];
+      let inTargetSection = false;
+      let sectionFound = false;
+      for (const line of lines) {
+        if (line.startsWith("# ")) {
+          if (inTargetSection) {
+            newLines.push(...content.split("\n"));
+            inTargetSection = false;
+          }
+          const currentSection = line.substring(2).trim();
+          if (currentSection === sectionName) {
+            inTargetSection = true;
+            sectionFound = true;
+            newLines.push(line);
+            continue;
+          }
+        }
+        if (!inTargetSection) {
+          newLines.push(line);
+        }
+      }
+      if (inTargetSection) {
+        newLines.push(...content.split("\n"));
+      }
+      if (sectionFound) {
+        await this.app.vault.modify(file, newLines.join("\n"));
+        console.log(`\u2705 Section "${sectionName}" mise \xE0 jour`);
+      } else {
+        console.warn(`\u26A0\uFE0F Section "${sectionName}" non trouv\xE9e`);
+      }
+    } catch (error) {
+      console.error("\u274C Erreur mise \xE0 jour section:", error);
+      throw error;
+    }
+  }
+  /**
+   * Parse les sections d'un fichier (méthode originale maintenue)
+   */
+  async parseSections(file) {
+    const cacheKey = `sections-${file.path}`;
+    return this.cache.get(
+      cacheKey,
+      file.stat.mtime,
+      async () => {
+        var _a;
+        (_a = this.logger) == null ? void 0 : _a.debug("Parsing sections (cache miss)", { fileName: file.name });
+        return this.parseFileContentOriginal(file);
+      }
+    );
+  }
+  /**
+   * Parse original maintenu pour compatibilité
+   */
+  async parseFileContentOriginal(file) {
+    var _a, _b;
+    try {
+      const content = await this.app.vault.read(file);
+      const lines = content.split("\n");
+      const sections = {};
+      let currentSection = "";
+      let currentContent = [];
+      for (const line of lines) {
+        if (line.startsWith("# ")) {
+          if (currentSection) {
+            sections[currentSection] = currentContent.join("\n").trim();
+          }
+          currentSection = line.substring(2).trim();
+          currentContent = [];
+        } else if (currentSection) {
+          currentContent.push(line);
+        }
+      }
+      if (currentSection) {
+        sections[currentSection] = currentContent.join("\n").trim();
+      }
+      (_a = this.logger) == null ? void 0 : _a.debug("Sections pars\xE9es", {
+        fileName: file.name,
+        sectionCount: Object.keys(sections).length
+      });
+      return sections;
+    } catch (error) {
+      (_b = this.logger) == null ? void 0 : _b.error("Erreur parsing sections", error);
+      throw AgileBoardError.fileReadError(file.path, error);
+    }
+  }
+  /**
+   * Retourne les sections manquantes (méthode originale)
+   */
+  getMissingSections(existingSections, requiredSections) {
+    return requiredSections.filter((section) => !existingSections.includes(section));
+  }
+  // ===================================================================
+  // NOUVELLES MÉTHODES CONSOLIDÉES
+  // ===================================================================
+  /**
+   * Analyse complète d'un fichier avec layout
+   */
+  async analyzeFile(file) {
+    const layoutName = this.getLayoutName(file);
+    if (!layoutName) {
+      throw AgileBoardError.validationError("layoutName", "Layout agile-board manquant");
+    }
+    const layout = this.layoutService.getModel(layoutName);
+    if (!layout) {
+      throw AgileBoardError.layoutNotFound(layoutName);
+    }
+    const sections = await this.parseSections(file);
+    const existingNames = Object.keys(sections);
+    const requiredSections = layout.map((block) => block.title);
+    return {
+      file,
+      layoutName,
+      existingSections: this.convertToDetailedSections(sections, requiredSections),
+      missingSections: this.getMissingSections(existingNames, requiredSections),
+      extraSections: existingNames.filter((name) => !requiredSections.includes(name)),
+      correctOrder: requiredSections
+    };
+  }
+  /**
+   * Convertit les sections simples en sections détaillées
+   */
+  convertToDetailedSections(sections, requiredSections) {
+    return Object.entries(sections).map(([name, content]) => ({
+      name,
+      startLine: 0,
+      // À implémenter si nécessaire
+      endLine: 0,
+      // À implémenter si nécessaire
+      content,
+      lines: content.split("\n"),
+      isFromLayout: requiredSections.includes(name)
+    }));
+  }
+  /**
+   * Crée les sections manquantes dans un fichier
+   */
+  async createMissingSections(file) {
+    var _a, _b;
+    try {
+      const analysis = await this.analyzeFile(file);
+      if (analysis.missingSections.length === 0) {
+        new import_obsidian.Notice("\u2705 Toutes les sections sont d\xE9j\xE0 pr\xE9sentes", 2e3);
+        return false;
+      }
+      const content = await this.app.vault.read(file);
+      const newContent = this.addMissingSectionsToContent(
+        content,
+        analysis.missingSections
+      );
+      await this.app.vault.modify(file, newContent);
+      this.cache.invalidate(`sections-${file.path}`);
+      new import_obsidian.Notice(
+        `\u2705 ${analysis.missingSections.length} section(s) ajout\xE9e(s)`,
+        3e3
+      );
+      (_a = this.logger) == null ? void 0 : _a.success("Sections manquantes cr\xE9\xE9es", {
+        fileName: file.name,
+        addedSections: analysis.missingSections
+      });
+      return true;
+    } catch (error) {
+      (_b = this.logger) == null ? void 0 : _b.error("Erreur cr\xE9ation sections manquantes", error);
+      new import_obsidian.Notice("\u274C Erreur lors de la cr\xE9ation des sections");
+      throw error;
+    }
+  }
   /**
    * Crée une nouvelle note avec un layout spécifique
-   * 
-   * @param options - Options de création
-   * @returns Promise<NoteCreationResult> - Résultat de la création
    */
   async createNoteWithLayout(options) {
     var _a, _b, _c;
     (_a = this.logger) == null ? void 0 : _a.fileOperation("D\xE9but cr\xE9ation de note", { options });
     try {
-      this.validateOptions(options);
-      const layout = this.getLayout(options.layoutName);
+      this.validateNoteCreationOptions(options);
+      const layout = this.layoutService.getModel(options.layoutName);
+      if (!layout) {
+        throw AgileBoardError.layoutNotFound(options.layoutName);
+      }
       const layoutInfo = this.layoutService.getModelInfo(options.layoutName);
       const displayName = (layoutInfo == null ? void 0 : layoutInfo.displayName) || options.layoutName;
       const fileName = this.generateFileName(displayName, options);
-      const content = this.generateNoteContent(options.layoutName, displayName, layout, layoutInfo, options);
+      const content = this.generateNoteContent(options, layout, layoutInfo);
       const file = await this.createFile(fileName, content, options.folder);
       if (options.autoOpen !== false) {
         await this.openFile(file);
       }
-      new import_obsidian2.Notice(`\u2705 Note "${displayName}" cr\xE9\xE9e avec succ\xE8s !`, 3e3);
+      new import_obsidian.Notice(`\u2705 Note "${displayName}" cr\xE9\xE9e avec succ\xE8s !`, 3e3);
       const result = {
         file,
         layoutName: options.layoutName,
@@ -1980,1013 +1777,212 @@ var NoteCreatorService = class {
         fileName: result.file.name,
         filePath: result.file.path,
         layoutName: result.layoutName,
-        displayName: result.displayName,
         sectionsCount: result.sectionsCount
       });
       return result;
     } catch (error) {
-      (_c = this.logger) == null ? void 0 : _c.error("Erreur lors de la cr\xE9ation de note", error);
-      new import_obsidian2.Notice(`\u274C Erreur lors de la cr\xE9ation : ${error.message}`, 5e3);
+      (_c = this.logger) == null ? void 0 : _c.error("Erreur cr\xE9ation de note", error);
+      new import_obsidian.Notice("\u274C Erreur lors de la cr\xE9ation de la note");
       throw error;
     }
   }
-  // =========================================================================
-  // MÉTHODES DE VALIDATION
-  // =========================================================================
-  /**
-   * Valide les options de création
-   */
-  validateOptions(options) {
-    if (!options.layoutName) {
-      throw new Error("Le nom du layout est requis");
-    }
-    if (!this.layoutService) {
-      throw new Error("LayoutService non disponible");
+  // ===================================================================
+  // MÉTHODES UTILITAIRES PRIVÉES
+  // ===================================================================
+  getLayoutName(file) {
+    var _a;
+    const fileCache = this.app.metadataCache.getFileCache(file);
+    return ((_a = fileCache == null ? void 0 : fileCache.frontmatter) == null ? void 0 : _a["agile-board"]) || null;
+  }
+  addMissingSectionsToContent(content, missingSections) {
+    const lines = content.split("\n");
+    const newSections = missingSections.map((sectionName) => [
+      "",
+      `# ${sectionName}`,
+      "",
+      "<!-- Ajoutez votre contenu ici -->",
+      ""
+    ]).flat();
+    return [...lines, ...newSections].join("\n");
+  }
+  validateNoteCreationOptions(options) {
+    if (!options.layoutName || typeof options.layoutName !== "string") {
+      throw AgileBoardError.validationError("layoutName", options.layoutName);
     }
   }
-  /**
-   * Récupère et valide un layout
-   */
-  getLayout(layoutName) {
-    const layout = this.layoutService.getModel(layoutName);
-    if (!layout) {
-      throw new Error(`Layout "${layoutName}" non trouv\xE9`);
-    }
-    if (layout.length === 0) {
-      throw new Error(`Layout "${layoutName}" est vide`);
-    }
-    return layout;
-  }
-  // =========================================================================
-  // GÉNÉRATION DE NOMS DE FICHIERS
-  // =========================================================================
-  /**
-   * Génère un nom de fichier unique
-   */
   generateFileName(displayName, options) {
     if (options.customFileName) {
-      return this.sanitizeFileName(options.customFileName);
+      return options.customFileName.endsWith(".md") ? options.customFileName : `${options.customFileName}.md`;
     }
-    const timestamp = new Date().toISOString().split("T")[0];
-    const baseName = this.sanitizeFileName(displayName);
-    const fileName = `${baseName} ${timestamp}.md`;
-    return this.ensureUniqueFileName(fileName, options.folder);
+    const timestamp = new Date().toISOString().slice(0, 16).replace("T", "_");
+    return `${displayName}_${timestamp}.md`;
   }
-  /**
-   * Nettoie un nom de fichier des caractères interdits
-   */
-  sanitizeFileName(name) {
-    return name.replace(/[<>:"/\\|?*]/g, "").replace(/\s+/g, " ").trim();
-  }
-  /**
-   * Assure l'unicité d'un nom de fichier
-   */
-  ensureUniqueFileName(fileName, folder) {
-    const fullPath = folder ? `${folder}/${fileName}` : fileName;
-    if (!this.app.vault.getAbstractFileByPath(fullPath)) {
-      return fileName;
-    }
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-").substring(0, 19);
-    const baseName = fileName.replace(".md", "");
-    return `${baseName} ${timestamp}.md`;
-  }
-  // =========================================================================
-  // GÉNÉRATION DE CONTENU
-  // =========================================================================
-  /**
-   * Génère le contenu complet de la note
-   */
-  generateNoteContent(layoutName, displayName, layout, layoutInfo, options) {
-    const parts = [
-      this.generateFrontmatter(layoutName, layoutInfo),
-      this.generateTitle(displayName),
-      this.generateDescription(layoutInfo),
-      this.generateSections(layout, layoutName, options.customContent),
-      this.generateFooter(displayName, layout.length)
-    ];
-    return parts.filter((part) => part).join("\n");
-  }
-  /**
-   * Génère le frontmatter YAML
-   */
-  generateFrontmatter(layoutName, layoutInfo) {
-    const today = new Date().toISOString().split("T")[0];
+  generateNoteContent(options, layout, layoutInfo) {
+    const sections = layout.map((block) => {
+      var _a;
+      const customContent = ((_a = options.customContent) == null ? void 0 : _a[block.title]) || "";
+      return [
+        `# ${block.title}`,
+        "",
+        customContent || "<!-- Ajoutez votre contenu ici -->",
+        ""
+      ].join("\n");
+    });
     return [
       "---",
-      `agile-board: ${layoutName}`,
-      `created: ${today}`,
-      `type: agile-board`,
-      `layout-type: ${(layoutInfo == null ? void 0 : layoutInfo.category) || "custom"}`,
-      (layoutInfo == null ? void 0 : layoutInfo.tags) ? `tags: [${layoutInfo.tags.join(", ")}]` : "",
+      `agile-board: ${options.layoutName}`,
       "---",
-      ""
-    ].filter((line) => line !== "").join("\n");
-  }
-  /**
-   * Génère le titre principal
-   */
-  generateTitle(displayName) {
-    return `# ${displayName}
-`;
-  }
-  /**
-   * Génère la description (si disponible)
-   */
-  generateDescription(layoutInfo) {
-    if (!(layoutInfo == null ? void 0 : layoutInfo.description)) {
-      return "";
-    }
-    return `> ${layoutInfo.description}
-
-`;
-  }
-  /**
-   * Génère toutes les sections
-   */
-  generateSections(layout, layoutName, customContent) {
-    return layout.map((block) => {
-      const sectionTitle = `## ${block.title}`;
-      const content = (customContent == null ? void 0 : customContent[block.title]) || this.generateSectionContent(block.title, layoutName);
-      return `${sectionTitle}
-
-${content}
-`;
-    }).join("\n");
-  }
-  /**
-   * Génère le contenu d'une section selon son type
-   */
-  generateSectionContent(sectionTitle, layoutName) {
-    const title = sectionTitle.toLowerCase();
-    const contentMap = {
-      // Sections de tâches
-      "todo_tasks": () => [
-        "- [ ] Premi\xE8re t\xE2che \xE0 faire",
-        "- [ ] Deuxi\xE8me t\xE2che importante",
-        "- [ ] Autre t\xE2che \xE0 planifier"
-      ],
-      "in_progress": () => [
-        "- [ ] T\xE2che en cours de r\xE9alisation",
-        "",
-        "*D\xE9placez ici les t\xE2ches en cours d'ex\xE9cution*"
-      ],
-      "done": () => [
-        "- [x] Exemple de t\xE2che termin\xE9e",
-        "",
-        "*Les t\xE2ches compl\xE9t\xE9es appara\xEEtront ici*"
-      ],
-      // Matrice d'Eisenhower
-      "urgent_important": () => [
-        "- [ ] Crise \xE0 r\xE9soudre imm\xE9diatement",
-        "- [ ] Urgence critique",
-        "",
-        "\u{1F6A8} **\xC0 traiter en priorit\xE9 absolue**"
-      ],
-      "important_not_urgent": () => [
-        "- [ ] Planification long terme",
-        "- [ ] D\xE9veloppement personnel",
-        "",
-        "\u{1F4CB} **\xC0 planifier et organiser**"
-      ],
-      "urgent_not_important": () => [
-        "- [ ] Interruption \xE0 g\xE9rer",
-        "- [ ] Email urgent",
-        "",
-        "\u23F0 **\xC0 d\xE9l\xE9guer si possible**"
-      ],
-      "not_urgent_not_important": () => [
-        "- [ ] Activit\xE9 de loisir",
-        "- [ ] Distraction",
-        "",
-        "\u{1F5D1}\uFE0F **\xC0 \xE9liminer ou minimiser**"
-      ]
-    };
-    const sectionType = this.detectSectionType(title, layoutName);
-    const generator = contentMap[sectionType];
-    if (generator) {
-      return generator().join("\n");
-    }
-    return [
-      "- [ ] Premier \xE9l\xE9ment",
-      "- [ ] Deuxi\xE8me \xE9l\xE9ment",
       "",
-      "*Ajoutez vos \xE9l\xE9ments ici*"
+      ...sections
     ].join("\n");
   }
-  /**
-   * Détecte le type d'une section
-   */
-  detectSectionType(title, layoutName) {
-    if (title.includes("faire") || title.includes("todo") || title.includes("backlog")) {
-      return "todo_tasks";
-    }
-    if (title.includes("cours") || title.includes("progress") || title.includes("doing")) {
-      return "in_progress";
-    }
-    if (title.includes("termin\xE9") || title.includes("done") || title.includes("fini")) {
-      return "done";
-    }
-    if (layoutName.includes("eisenhower")) {
-      if (title.includes("urgent") && title.includes("important")) {
-        return "urgent_important";
-      }
-      if (title.includes("important") && !title.includes("urgent")) {
-        return "important_not_urgent";
-      }
-      if (title.includes("urgent") && !title.includes("important")) {
-        return "urgent_not_important";
-      }
-      if (title.includes("ni urgent") || title.includes("pas") && (title.includes("urgent") || title.includes("important"))) {
-        return "not_urgent_not_important";
-      }
-    }
-    return "generic";
-  }
-  /**
-   * Génère le footer informatif
-   */
-  generateFooter(displayName, sectionsCount) {
-    const today = new Date().toISOString().split("T")[0];
-    return [
-      "---",
-      "",
-      "### \u{1F4CA} Informations",
-      `- **Layout** : ${displayName}`,
-      `- **Sections** : ${sectionsCount}`,
-      `- **Cr\xE9\xE9** : ${today}`,
-      `- **Plugin** : Agile Board v0.7.0`,
-      "",
-      "> Cette note utilise le plugin Agile Board. Modifiez les sections selon vos besoins !"
-    ].join("\n");
-  }
-  // =========================================================================
-  // OPÉRATIONS FICHIERS
-  // =========================================================================
-  /**
-   * Crée le fichier dans le vault
-   */
   async createFile(fileName, content, folder) {
-    var _a, _b;
     const fullPath = folder ? `${folder}/${fileName}` : fileName;
     if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
       await this.app.vault.createFolder(folder);
-      (_a = this.logger) == null ? void 0 : _a.debug("Dossier cr\xE9\xE9", { folder });
     }
-    const file = await this.app.vault.create(fullPath, content);
-    (_b = this.logger) == null ? void 0 : _b.success("Fichier cr\xE9\xE9", {
-      path: file.path,
-      size: content.length
-    });
-    return file;
+    return await this.app.vault.create(fullPath, content);
   }
-  /**
-   * Ouvre un fichier dans Obsidian
-   */
   async openFile(file) {
-    var _a;
-    const leaf = this.app.workspace.getLeaf(true);
+    const leaf = this.app.workspace.getUnpinnedLeaf();
     await leaf.openFile(file);
-    (_a = this.logger) == null ? void 0 : _a.debug("Fichier ouvert", { path: file.path });
-  }
-  // =========================================================================
-  // MÉTHODES UTILITAIRES PUBLIQUES
-  // =========================================================================
-  /**
-   * Crée une note avec des paramètres simplifiés
-   */
-  async createQuickNote(layoutName, customFileName) {
-    return this.createNoteWithLayout({
-      layoutName,
-      customFileName,
-      autoOpen: true
-    });
   }
   /**
-   * Vérifie si un layout est disponible
+   * Dispose le service et nettoie les ressources
    */
-  isLayoutAvailable(layoutName) {
-    return !!this.layoutService.getModel(layoutName);
-  }
-  /**
-   * Retourne la liste des layouts disponibles pour création
-   */
-  getAvailableLayouts() {
-    return this.layoutService.getAllModelsInfo().map((info) => ({
-      name: info.name,
-      displayName: info.displayName,
-      description: info.description
-    }));
+  dispose() {
+    this.cache.dispose();
   }
 };
 
-// src/services/BoardViewService.ts
-var import_obsidian3 = require("obsidian");
-var _BoardViewService = class {
-  /**
-   * Constructeur avec injection de dépendances
-   */
-  constructor(app, layoutService, logger) {
+// src/services/ServiceContainer.ts
+var ServiceContainer = class {
+  constructor(app, plugin, settings) {
     this.app = app;
-    this.layoutService = layoutService;
-    this.logger = logger;
+    this.plugin = plugin;
+    this.settings = settings;
+    this.logger = new LoggerService(plugin, settings.debug);
+    this.cache = new FileCache();
+    this.layout = new LayoutService(plugin);
+    this.file = new FileService(this.app, this.layout, this.logger);
   }
-  // =========================================================================
-  // MÉTHODE PRINCIPALE
-  // =========================================================================
   /**
-   * Bascule vers la vue board pour un fichier
-   * VERSION CORRIGÉE : Avec notification ViewSwitcher
+   * Initialise tous les services
    */
-  async switchToBoardView(options = {}) {
-    var _a, _b, _c, _d, _e;
-    (_a = this.logger) == null ? void 0 : _a.navigation("D\xE9but basculement vers vue board", { options });
+  async initialize() {
+    this.logger.info("Initialisation du container de services");
     try {
-      const targetFile = options.targetFile || this.app.workspace.getActiveFile();
-      if (!targetFile) {
-        throw new Error("Aucun fichier actif ou sp\xE9cifi\xE9");
-      }
-      const fileInfo = await this.analyzeFile(targetFile);
-      if (!fileInfo.isValid) {
-        throw new Error(`Fichier incompatible: ${fileInfo.layoutName ? `layout "${fileInfo.layoutName}" invalide` : "aucun layout agile-board"}`);
-      }
-      if (!options.forceSwitch && this.isCurrentlyInBoardView(targetFile)) {
-        const message = "Fichier d\xE9j\xE0 affich\xE9 en vue board";
-        (_b = this.logger) == null ? void 0 : _b.info(message, { fileName: targetFile.name });
-        const result2 = {
-          success: true,
-          file: targetFile,
-          layoutName: fileInfo.layoutName,
-          boardLeaf: this.getCurrentBoardLeaf(targetFile),
-          message
-        };
-        this.notifyViewSwitcher(targetFile, "board");
-        return result2;
-      }
-      const boardLeaf = await this.createBoardView(targetFile, fileInfo, options);
-      const result = {
-        success: true,
-        file: targetFile,
-        layoutName: fileInfo.layoutName,
-        boardLeaf,
-        message: `Vue board "${fileInfo.displayName}" activ\xE9e`
-      };
-      (_c = this.logger) == null ? void 0 : _c.success("Basculement r\xE9ussi", {
-        fileName: targetFile.name,
-        layoutName: fileInfo.layoutName,
-        displayName: fileInfo.displayName
+      this.layout.load();
+      this.logger.success("Container de services initialis\xE9", {
+        layoutsCount: this.layout.getAllModelNames().length,
+        cacheStats: this.cache.getStats()
       });
-      new import_obsidian3.Notice(`\u{1F4CA} Vue board "${fileInfo.displayName}" activ\xE9e`, 2e3);
-      this.notifyViewSwitcher(targetFile, "board");
-      return result;
     } catch (error) {
-      (_e = this.logger) == null ? void 0 : _e.error("Erreur lors du basculement", {
-        message: error.message,
-        fileName: ((_d = options.targetFile) == null ? void 0 : _d.name) || "non sp\xE9cifi\xE9"
-      });
-      new import_obsidian3.Notice(`\u274C Impossible de basculer: ${error.message}`, 4e3);
-      return {
-        success: false,
-        file: options.targetFile || this.app.workspace.getActiveFile(),
-        layoutName: "",
-        boardLeaf: null,
-        message: error.message
-      };
-    }
-  }
-  // =========================================================================
-  // ANALYSE DE FICHIERS
-  // =========================================================================
-  /**
-   * Analyse un fichier pour déterminer sa compatibilité board
-   */
-  async analyzeFile(file) {
-    var _a, _b, _c;
-    (_a = this.logger) == null ? void 0 : _a.debug("Analyse du fichier", { fileName: file.name });
-    try {
-      const fileCache = this.app.metadataCache.getFileCache(file);
-      const layoutName = (_b = fileCache == null ? void 0 : fileCache.frontmatter) == null ? void 0 : _b["agile-board"];
-      if (!layoutName) {
-        return {
-          file,
-          layoutName: "",
-          displayName: "",
-          isValid: false,
-          sections: []
-        };
-      }
-      const layout = this.layoutService.getModel(layoutName);
-      const layoutInfo = this.layoutService.getModelInfo(layoutName);
-      if (!layout || !layoutInfo) {
-        return {
-          file,
-          layoutName,
-          displayName: layoutName,
-          isValid: false,
-          sections: []
-        };
-      }
-      return {
-        file,
-        layoutName,
-        displayName: layoutInfo.displayName,
-        isValid: true,
-        sections: layout.map((block) => block.title)
-      };
-    } catch (error) {
-      (_c = this.logger) == null ? void 0 : _c.error("Erreur analyse fichier", error);
-      return {
-        file,
-        layoutName: "",
-        displayName: "",
-        isValid: false,
-        sections: []
-      };
-    }
-  }
-  /**
-   * Vérifie si un fichier est actuellement affiché en vue board
-   */
-  isCurrentlyInBoardView(file) {
-    return this.getCurrentBoardLeaf(file) !== null;
-  }
-  /**
-   * Trouve l'onglet board actuel pour un fichier
-   */
-  getCurrentBoardLeaf(file) {
-    const leaves = this.app.workspace.getLeavesOfType(_BoardViewService.BOARD_VIEW_TYPE);
-    return leaves.find((leaf) => {
-      var _a;
-      const view = leaf.view;
-      return ((_a = view.file) == null ? void 0 : _a.path) === file.path;
-    }) || null;
-  }
-  // =========================================================================
-  // CRÉATION DE VUES
-  // =========================================================================
-  /**
-   * Crée une nouvelle vue board
-   */
-  async createBoardView(file, fileInfo, options) {
-    var _a, _b, _c;
-    (_a = this.logger) == null ? void 0 : _a.debug("Cr\xE9ation vue board", {
-      fileName: file.name,
-      layoutName: fileInfo.layoutName
-    });
-    let targetLeaf;
-    if (options.newTab) {
-      targetLeaf = this.app.workspace.getLeaf(true);
-    } else {
-      const activeLeaf = this.app.workspace.activeLeaf;
-      if (activeLeaf && activeLeaf.view.getViewType() === "markdown" && ((_b = activeLeaf.view.file) == null ? void 0 : _b.path) === file.path) {
-        targetLeaf = activeLeaf;
-      } else {
-        targetLeaf = this.app.workspace.getLeaf(true);
-      }
-    }
-    await targetLeaf.setViewState({
-      type: _BoardViewService.BOARD_VIEW_TYPE,
-      state: {
-        file: file.path,
-        layoutName: fileInfo.layoutName
-      }
-    });
-    this.app.workspace.setActiveLeaf(targetLeaf, { focus: true });
-    (_c = this.logger) == null ? void 0 : _c.debug("Vue board cr\xE9\xE9e", {
-      leafId: targetLeaf.id,
-      viewType: targetLeaf.view.getViewType()
-    });
-    return targetLeaf;
-  }
-  // =========================================================================
-  // MÉTHODES UTILITAIRES
-  // =========================================================================
-  /**
-   * Bascule vers la vue markdown pour un fichier en vue board
-   * VERSION CORRIGÉE : Avec notification ViewSwitcher
-   */
-  async switchToMarkdownView(file) {
-    var _a, _b;
-    const targetFile = file || this.app.workspace.getActiveFile();
-    if (!targetFile) {
-      new import_obsidian3.Notice("\u274C Aucun fichier sp\xE9cifi\xE9");
-      return false;
-    }
-    try {
-      const boardLeaf = this.getCurrentBoardLeaf(targetFile);
-      if (!boardLeaf) {
-        new import_obsidian3.Notice("\u{1F4DD} Fichier d\xE9j\xE0 en vue markdown");
-        return true;
-      }
-      await boardLeaf.setViewState({
-        type: "markdown",
-        state: { file: targetFile.path }
-      });
-      (_a = this.logger) == null ? void 0 : _a.success("Basculement vers vue markdown", {
-        fileName: targetFile.name
-      });
-      new import_obsidian3.Notice("\u{1F4DD} Vue markdown activ\xE9e", 2e3);
-      this.notifyViewSwitcher(targetFile, "markdown");
-      return true;
-    } catch (error) {
-      (_b = this.logger) == null ? void 0 : _b.error("Erreur basculement markdown", error);
-      new import_obsidian3.Notice(`\u274C Erreur: ${error.message}`);
-      return false;
-    }
-  }
-  /**
-   * 🚨 NOUVELLE MÉTHODE : Notifier ViewSwitcher des changements de vue
-   */
-  notifyViewSwitcher(file, newViewType) {
-    var _a, _b;
-    try {
-      const plugin = (_b = (_a = this.app.plugins) == null ? void 0 : _a.plugins) == null ? void 0 : _b["agile-board"];
-      if (plugin == null ? void 0 : plugin.viewSwitcher) {
-        setTimeout(() => {
-          console.log(`\u{1F504} Notification ViewSwitcher: ${file.basename} \u2192 ${newViewType}`);
-          plugin.viewSwitcher.updateSwitchButtonForFile(file);
-        }, 250);
-        setTimeout(() => {
-          console.log(`\u{1F504} Double v\xE9rification ViewSwitcher: ${file.basename}`);
-          plugin.viewSwitcher.updateSwitchButtonForFile(file);
-        }, 600);
-      } else {
-        console.warn("\u26A0\uFE0F ViewSwitcher non trouv\xE9 pour notification");
-      }
-    } catch (error) {
-      console.error("\u274C Erreur notification ViewSwitcher:", error);
-    }
-  }
-  /**
-   * Vérifie si un fichier a un layout agile-board (sans l'analyser complètement)
-   */
-  hasAgileBoardLayout(file) {
-    var _a;
-    const fileCache = this.app.metadataCache.getFileCache(file);
-    return !!((_a = fileCache == null ? void 0 : fileCache.frontmatter) == null ? void 0 : _a["agile-board"]);
-  }
-  /**
-   * Retourne la liste des fichiers avec layout agile-board dans le vault
-   */
-  async getAllBoardFiles() {
-    const boardFiles = [];
-    const markdownFiles = this.app.vault.getMarkdownFiles();
-    for (const file of markdownFiles) {
-      if (this.hasAgileBoardLayout(file)) {
-        const fileInfo = await this.analyzeFile(file);
-        if (fileInfo.isValid) {
-          boardFiles.push(fileInfo);
-        }
-      }
-    }
-    return boardFiles;
-  }
-  /**
-   * Ferme toutes les vues board ouvertes
-   */
-  async closeAllBoardViews() {
-    var _a;
-    const boardLeaves = this.app.workspace.getLeavesOfType(_BoardViewService.BOARD_VIEW_TYPE);
-    let closedCount = 0;
-    for (const leaf of boardLeaves) {
-      await leaf.detach();
-      closedCount++;
-    }
-    if (closedCount > 0) {
-      (_a = this.logger) == null ? void 0 : _a.info("Vues board ferm\xE9es", { count: closedCount });
-      new import_obsidian3.Notice(`\u{1F4CA} ${closedCount} vue(s) board ferm\xE9e(s)`);
-    }
-    return closedCount;
-  }
-  // =========================================================================
-  // MÉTHODES DE DIAGNOSTIC
-  // =========================================================================
-  /**
-   * Retourne des informations de diagnostic sur les vues
-   */
-  getDiagnosticInfo() {
-    const boardLeaves = this.app.workspace.getLeavesOfType(_BoardViewService.BOARD_VIEW_TYPE);
-    const activeLeaf = this.app.workspace.activeLeaf;
-    const activeFile = this.app.workspace.getActiveFile();
-    return {
-      boardViewsCount: boardLeaves.length,
-      boardFiles: boardLeaves.map((leaf) => {
-        var _a;
-        return ((_a = leaf.view.file) == null ? void 0 : _a.name) || "unknown";
-      }),
-      activeView: (activeLeaf == null ? void 0 : activeLeaf.view.getViewType()) || "none",
-      activeFile: (activeFile == null ? void 0 : activeFile.name) || "none"
-    };
-  }
-};
-var BoardViewService = _BoardViewService;
-/** ID de la vue board (doit correspondre à celui enregistré dans main.ts) */
-BoardViewService.BOARD_VIEW_TYPE = "agile-board-view";
-
-// src/services/SectionManagerService.ts
-var import_obsidian4 = require("obsidian");
-var SectionManagerService = class {
-  /**
-   * Constructeur avec injection de dépendances
-   */
-  constructor(app, layoutService, logger) {
-    this.app = app;
-    this.layoutService = layoutService;
-    this.logger = logger;
-  }
-  // =========================================================================
-  // MÉTHODE PRINCIPALE
-  // =========================================================================
-  /**
-   * Crée les sections manquantes dans un fichier
-   * 
-   * @param file - Fichier à modifier
-   * @param options - Options d'ajout
-   * @returns Promise<AddSectionsResult>
-   */
-  async createMissingSections(file, options = {}) {
-    var _a, _b, _c, _d, _e;
-    (_a = this.logger) == null ? void 0 : _a.fileOperation("D\xE9but cr\xE9ation sections manquantes", {
-      fileName: file.name,
-      options
-    });
-    try {
-      const analysis = await this.analyzeFile(file);
-      if (!analysis.layoutName) {
-        throw new Error("Aucun layout agile-board d\xE9tect\xE9 dans le fichier");
-      }
-      if (analysis.missingSections.length === 0) {
-        const message = "Toutes les sections sont d\xE9j\xE0 pr\xE9sentes";
-        (_b = this.logger) == null ? void 0 : _b.info(message, {
-          fileName: file.name,
-          sectionsCount: analysis.existingSections.length
-        });
-        new import_obsidian4.Notice(`\u2705 ${message}`, 2e3);
-        return {
-          success: true,
-          sectionsAdded: 0,
-          addedSectionNames: [],
-          newContent: await this.app.vault.read(file),
-          messages: [message]
-        };
-      }
-      const newContent = await this.generateContentWithMissingSections(
-        file,
-        analysis,
-        options
-      );
-      if (options.autoSave !== false) {
-        await this.app.vault.modify(file, newContent);
-        (_c = this.logger) == null ? void 0 : _c.success("Fichier modifi\xE9", {
-          fileName: file.name,
-          sectionsAdded: analysis.missingSections.length
-        });
-      }
-      const result = {
-        success: true,
-        sectionsAdded: analysis.missingSections.length,
-        addedSectionNames: analysis.missingSections,
-        newContent,
-        messages: [`${analysis.missingSections.length} section(s) ajout\xE9e(s)`]
-      };
-      new import_obsidian4.Notice(`\u2705 ${analysis.missingSections.length} section(s) ajout\xE9e(s)`, 3e3);
-      (_d = this.logger) == null ? void 0 : _d.success("Sections manquantes cr\xE9\xE9es", {
-        fileName: file.name,
-        sectionsAdded: result.sectionsAdded,
-        addedSections: result.addedSectionNames
-      });
-      return result;
-    } catch (error) {
-      (_e = this.logger) == null ? void 0 : _e.error("Erreur cr\xE9ation sections manquantes", {
-        message: error.message,
-        fileName: file.name
-      });
-      new import_obsidian4.Notice(`\u274C Erreur: ${error.message}`, 4e3);
-      return {
-        success: false,
-        sectionsAdded: 0,
-        addedSectionNames: [],
-        newContent: "",
-        messages: [error.message]
-      };
-    }
-  }
-  // =========================================================================
-  // ANALYSE DE FICHIERS
-  // =========================================================================
-  /**
-   * Analyse un fichier pour détecter ses sections et le layout
-   */
-  async analyzeFile(file) {
-    var _a, _b, _c;
-    (_a = this.logger) == null ? void 0 : _a.debug("D\xE9but analyse fichier", { fileName: file.name });
-    try {
-      const content = await this.app.vault.read(file);
-      const layoutName = this.detectLayout(file);
-      const existingSections = this.parseSections(content);
-      const layoutSections = layoutName ? this.getLayoutSections(layoutName) : [];
-      const existingSectionNames = existingSections.map((s) => s.name);
-      const missingSections = layoutSections.filter(
-        (layoutSection) => !existingSectionNames.includes(layoutSection)
-      );
-      const extraSections = existingSectionNames.filter(
-        (existing) => !layoutSections.includes(existing)
-      );
-      const analysis = {
-        file,
-        layoutName,
-        existingSections,
-        missingSections,
-        extraSections,
-        correctOrder: layoutSections
-      };
-      (_b = this.logger) == null ? void 0 : _b.debug("Analyse termin\xE9e", {
-        fileName: file.name,
-        layoutName,
-        existingSectionsCount: existingSections.length,
-        missingSectionsCount: missingSections.length,
-        extraSectionsCount: extraSections.length
-      });
-      return analysis;
-    } catch (error) {
-      (_c = this.logger) == null ? void 0 : _c.error("Erreur analyse fichier", error);
+      this.logger.error("Erreur initialisation container", error);
       throw error;
     }
   }
   /**
-   * Détecte le layout d'un fichier
+   * Met à jour les paramètres
    */
-  detectLayout(file) {
-    var _a;
-    const fileCache = this.app.metadataCache.getFileCache(file);
-    return ((_a = fileCache == null ? void 0 : fileCache.frontmatter) == null ? void 0 : _a["agile-board"]) || "";
+  updateSettings(settings) {
+    this.logger.updateSettings(settings.debug);
   }
   /**
-   * Récupère les sections d'un layout
+   * Dispose tous les services
    */
-  getLayoutSections(layoutName) {
-    const layout = this.layoutService.getModel(layoutName);
-    if (!layout) {
-      throw new Error(`Layout "${layoutName}" non trouv\xE9`);
-    }
-    return layout.map((block) => block.title);
+  dispose() {
+    this.logger.info("Nettoyage du container de services");
+    this.file.dispose();
+    this.cache.dispose();
   }
   /**
-   * Parse les sections d'un contenu markdown
+   * Statistiques pour debugging
    */
-  parseSections(content) {
-    const lines = content.split("\n");
-    const sections = [];
-    let currentSection = null;
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (line.startsWith("## ")) {
-        if (currentSection) {
-          this.finalizeSection(currentSection, i - 1, lines);
-          sections.push(currentSection);
-        }
-        currentSection = {
-          name: line.substring(3).trim(),
-          // Enlever "## "
-          startLine: i,
-          lines: [],
-          isFromLayout: false
-          // Sera déterminé plus tard
-        };
-      } else if (currentSection) {
-        currentSection.lines.push(line);
+  getStats() {
+    return {
+      layouts: this.layout.getAllModelNames().length,
+      cache: this.cache.getStats(),
+      logger: {
+        level: this.settings.debug.logLevel,
+        enabled: this.settings.debug.enabled
       }
-    }
-    if (currentSection) {
-      this.finalizeSection(currentSection, lines.length - 1, lines);
-      sections.push(currentSection);
-    }
-    return sections;
+    };
   }
-  /**
-   * Finalise une section parsée
-   */
-  finalizeSection(section, endLine, allLines) {
-    section.endLine = endLine;
-    section.content = section.lines.join("\n").trim();
-    while (section.lines.length > 0 && section.lines[section.lines.length - 1].trim() === "") {
-      section.lines.pop();
-    }
+};
+
+// src/utils/settings.ts
+var DEFAULT_SETTINGS = {
+  autoCreateSections: true,
+  defaultLayouts: ["layout_kanban", "layout_eisenhower", "layout_gtd"],
+  debug: {
+    enabled: false,
+    // Debug désactivé par défaut (production)
+    logLevel: 3 /* INFO */,
+    // Niveau INFO par défaut
+    showTimestamps: true,
+    // Affichage des timestamps
+    showSourceLocation: true,
+    // Affichage de la source des logs
+    logToFile: false,
+    // Pas de sauvegarde fichier par défaut
+    logToConsole: true,
+    // Console activée par défaut
+    logFileName: "agile-board-debug.log",
+    // Nom du fichier de log
+    maxLogFileSize: 5 * 1024 * 1024
+    // 5MB maximum avant rotation
   }
-  // =========================================================================
-  // GÉNÉRATION DE CONTENU
-  // =========================================================================
-  /**
-   * Génère le nouveau contenu avec les sections manquantes
-   */
-  async generateContentWithMissingSections(file, analysis, options) {
-    const originalContent = await this.app.vault.read(file);
-    const lines = originalContent.split("\n");
-    const frontmatterEnd = this.findFrontmatterEnd(lines);
-    const newLines = [];
-    newLines.push(...lines.slice(0, frontmatterEnd + 1));
-    const insertPosition = options.insertPosition || "layout-order";
-    if (insertPosition === "layout-order") {
-      await this.addSectionsInLayoutOrder(newLines, analysis, options);
-    } else if (insertPosition === "end") {
-      this.addExistingContent(newLines, analysis, lines, frontmatterEnd);
-      this.addMissingSectionsAtEnd(newLines, analysis, options);
-    } else {
-      this.addMissingSectionsAfterFrontmatter(newLines, analysis, options);
-      this.addExistingContent(newLines, analysis, lines, frontmatterEnd);
-    }
-    return newLines.join("\n");
+};
+var DEVELOPMENT_SETTINGS = {
+  debug: {
+    enabled: true,
+    logLevel: 5 /* VERBOSE */,
+    showTimestamps: true,
+    showSourceLocation: true,
+    logToFile: false,
+    // Console uniquement pour dev
+    logToConsole: true,
+    logFileName: "agile-board-dev.log",
+    maxLogFileSize: 2 * 1024 * 1024
+    // 2MB pour le dev
   }
-  /**
-   * Trouve la fin du frontmatter
-   */
-  findFrontmatterEnd(lines) {
-    let frontmatterCount = 0;
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].trim() === "---") {
-        frontmatterCount++;
-        if (frontmatterCount === 2) {
-          return i;
-        }
-      }
-      if (lines[i].startsWith("# ")) {
-        return i;
-      }
-    }
-    return 0;
+};
+var DIAGNOSTIC_SETTINGS = {
+  debug: {
+    enabled: true,
+    logLevel: 4 /* DEBUG */,
+    showTimestamps: true,
+    showSourceLocation: true,
+    logToFile: true,
+    // Fichier pour partager les logs
+    logToConsole: false,
+    // Pas de pollution console en diagnostic
+    logFileName: "agile-board-diagnostic.log",
+    maxLogFileSize: 1024 * 1024
+    // 1MB pour diagnostic
   }
-  /**
-   * Ajoute les sections dans l'ordre du layout
-   */
-  async addSectionsInLayoutOrder(newLines, analysis, options) {
-    const existingSectionsMap = new Map(
-      analysis.existingSections.map((s) => [s.name, s])
-    );
-    for (const sectionName of analysis.correctOrder) {
-      newLines.push("");
-      newLines.push(`## ${sectionName}`);
-      newLines.push("");
-      const existingSection = existingSectionsMap.get(sectionName);
-      if (existingSection) {
-        newLines.push(...existingSection.lines);
-      } else {
-        if (options.addDefaultContent !== false) {
-          const defaultContent = this.generateDefaultSectionContent(
-            sectionName,
-            analysis.layoutName
-          );
-          newLines.push(...defaultContent);
-        }
-      }
-      newLines.push("");
-    }
-  }
-  /**
-   * Ajoute le contenu existant (sections non-layout)
-   */
-  addExistingContent(newLines, analysis, originalLines, frontmatterEnd) {
-    for (const section of analysis.existingSections) {
-      if (!analysis.correctOrder.includes(section.name)) {
-        newLines.push("");
-        newLines.push(`## ${section.name}`);
-        newLines.push("");
-        newLines.push(...section.lines);
-        newLines.push("");
-      }
-    }
-  }
-  /**
-   * Ajoute les sections manquantes à la fin
-   */
-  addMissingSectionsAtEnd(newLines, analysis, options) {
-    for (const sectionName of analysis.missingSections) {
-      newLines.push("");
-      newLines.push(`## ${sectionName}`);
-      newLines.push("");
-      if (options.addDefaultContent !== false) {
-        const defaultContent = this.generateDefaultSectionContent(
-          sectionName,
-          analysis.layoutName
-        );
-        newLines.push(...defaultContent);
-      }
-      newLines.push("");
-    }
-  }
-  /**
-   * Ajoute les sections manquantes après le frontmatter
-   */
-  addMissingSectionsAfterFrontmatter(newLines, analysis, options) {
-    this.addMissingSectionsAtEnd(newLines, analysis, options);
-  }
-  /**
-   * Génère le contenu par défaut pour une section
-   */
-  generateDefaultSectionContent(sectionName, layoutName) {
-    const title = sectionName.toLowerCase();
-    if (title.includes("faire") || title.includes("todo") || title.includes("backlog")) {
-      return [
-        "- [ ] Nouvelle t\xE2che \xE0 faire",
-        "- [ ] Autre t\xE2che importante"
-      ];
-    }
-    if (title.includes("cours") || title.includes("progress") || title.includes("doing")) {
-      return [
-        "- [ ] T\xE2che en cours",
-        "",
-        "*T\xE2ches actuellement en cours de r\xE9alisation*"
-      ];
-    }
-    if (title.includes("termin\xE9") || title.includes("done") || title.includes("fini")) {
-      return [
-        "- [x] T\xE2che exemple termin\xE9e",
-        "",
-        "*T\xE2ches compl\xE9t\xE9es*"
-      ];
-    }
-    if (layoutName.includes("eisenhower")) {
-      if (title.includes("urgent") && title.includes("important")) {
-        return [
-          "- [ ] T\xE2che critique",
-          "",
-          "\u{1F6A8} **Priorit\xE9 maximale**"
-        ];
-      }
-      if (title.includes("important") && !title.includes("urgent")) {
-        return [
-          "- [ ] T\xE2che importante \xE0 planifier",
-          "",
-          "\u{1F4CB} **\xC0 organiser**"
-        ];
-      }
-      if (title.includes("urgent") && !title.includes("important")) {
-        return [
-          "- [ ] Interruption \xE0 g\xE9rer",
-          "",
-          "\u23F0 **\xC0 d\xE9l\xE9guer**"
-        ];
-      }
-      if (title.includes("ni urgent") || title.includes("pas") && title.includes("urgent")) {
-        return [
-          "- [ ] Activit\xE9 optionnelle",
-          "",
-          "\u{1F5D1}\uFE0F **\xC0 \xE9liminer**"
-        ];
-      }
-    }
-    return [
-      "- [ ] Nouvel \xE9l\xE9ment",
-      "- [ ] Autre \xE9l\xE9ment",
-      "",
-      "*Section ajout\xE9e automatiquement*"
-    ];
-  }
-  // =========================================================================
-  // MÉTHODES UTILITAIRES
-  // =========================================================================
-  /**
-   * Vérifie si un fichier a toutes ses sections
-   */
-  async hasAllSections(file) {
-    const analysis = await this.analyzeFile(file);
-    return analysis.missingSections.length === 0;
-  }
-  /**
-   * Compte les sections manquantes d'un fichier
-   */
-  async countMissingSections(file) {
-    const analysis = await this.analyzeFile(file);
-    return analysis.missingSections.length;
-  }
-  /**
-   * Liste tous les fichiers avec sections manquantes
-   */
-  async findFilesWithMissingSections() {
-    var _a;
-    const results = [];
-    const markdownFiles = this.app.vault.getMarkdownFiles();
-    for (const file of markdownFiles) {
-      try {
-        const analysis = await this.analyzeFile(file);
-        if (analysis.layoutName && analysis.missingSections.length > 0) {
-          results.push({
-            file,
-            missingSectionsCount: analysis.missingSections.length,
-            missingSections: analysis.missingSections
-          });
-        }
-      } catch (error) {
-        (_a = this.logger) == null ? void 0 : _a.debug("Erreur analyse fichier pour recherche", {
-          fileName: file.name,
-          error: error.message
-        });
-      }
-    }
-    return results;
+};
+var PRODUCTION_SETTINGS = {
+  debug: {
+    enabled: true,
+    // Logs d'erreurs seulement
+    logLevel: 1 /* ERROR */,
+    showTimestamps: false,
+    // Moins verbeux
+    showSourceLocation: false,
+    logToFile: true,
+    // Garder les erreurs en fichier
+    logToConsole: false,
+    // Pas de pollution console
+    logFileName: "agile-board-errors.log",
+    maxLogFileSize: 512 * 1024
+    // 512KB pour erreurs seulement
   }
 };
 
 // src/views/BoardView.ts
-var import_obsidian5 = require("obsidian");
+var import_obsidian2 = require("obsidian");
 
 // src/components/MarkdownFrame.ts
 var MarkdownFrame = class {
@@ -3529,7 +2525,7 @@ var MarkdownFrame = class {
 
 // src/views/BoardView.ts
 var BOARD_VIEW_TYPE = "agile-board-view";
-var BoardView = class extends import_obsidian5.FileView {
+var BoardView = class extends import_obsidian2.FileView {
   constructor(leaf, plugin) {
     super(leaf);
     this.gridContainer = null;
@@ -3556,7 +2552,6 @@ var BoardView = class extends import_obsidian5.FileView {
   }
   // Méthode publique pour recharger le board
   async renderBoardLayout() {
-    var _a;
     console.log("\u{1F3A8} renderBoardLayout d\xE9but");
     if (!this.file) {
       console.log("\u274C Pas de fichier dans renderBoardLayout");
@@ -3564,292 +2559,251 @@ var BoardView = class extends import_obsidian5.FileView {
     }
     console.log("\u{1F4C4} Fichier actuel:", this.file.basename);
     this.cleanup();
+    try {
+      const services = this.plugin.getServices ? this.plugin.getServices() : null;
+      if (services) {
+        await this.renderWithServices(services);
+      } else {
+        await this.renderWithLegacyServices();
+      }
+    } catch (error) {
+      console.error("\u274C Erreur dans renderBoardLayout:", error);
+      this.showError("Erreur lors du rendu du tableau");
+    }
+  }
+  /**
+   * NOUVEAU : Rendu avec ServiceContainer
+   */
+  async renderWithServices(services) {
+    var _a;
     const fileCache = this.app.metadataCache.getFileCache(this.file);
     const layoutName = (_a = fileCache == null ? void 0 : fileCache.frontmatter) == null ? void 0 : _a["agile-board"];
-    console.log("\u{1F3AF} Layout name d\xE9tect\xE9:", layoutName);
     if (!layoutName) {
-      console.log("\u274C Pas de layout agile-board trouv\xE9");
-      this.showNoLayoutMessage();
+      this.showError("Ce fichier n'a pas de layout agile-board");
       return;
     }
-    const layout = this.plugin.layoutService.getModel(layoutName);
+    const layout = services.layout.getModel(layoutName);
     if (!layout) {
-      console.log("\u274C Layout non trouv\xE9 dans le service");
-      this.showLayoutNotFoundMessage(layoutName);
+      this.showError(`Layout "${layoutName}" non trouv\xE9`);
       return;
     }
-    let sections = await this.plugin.fileService.parseSections(this.file);
-    console.log("\u{1F4DA} Sections pars\xE9es:", Object.keys(sections));
-    const existingSections = Object.keys(sections);
+    const analysis = await services.file.analyzeFile(this.file);
+    if (analysis.missingSections.length > 0) {
+      this.showMissingSectionsError(analysis.missingSections);
+      return;
+    }
+    await this.createBoard(layout, analysis.existingSections);
+  }
+  /**
+   * ANCIEN : Rendu avec services individuels (pour compatibilité)
+   */
+  async renderWithLegacyServices() {
+    var _a, _b, _c;
+    const fileCache = this.app.metadataCache.getFileCache(this.file);
+    const layoutName = (_a = fileCache == null ? void 0 : fileCache.frontmatter) == null ? void 0 : _a["agile-board"];
+    if (!layoutName) {
+      this.showError("Ce fichier n'a pas de layout agile-board");
+      return;
+    }
+    const layout = (_b = this.plugin.layoutService) == null ? void 0 : _b.getModel(layoutName);
+    if (!layout) {
+      this.showError(`Layout "${layoutName}" non trouv\xE9`);
+      return;
+    }
+    const sections = await ((_c = this.plugin.fileService) == null ? void 0 : _c.parseSections(this.file));
+    if (!sections) {
+      this.showError("Impossible de parser les sections");
+      return;
+    }
     const requiredSections = layout.map((block) => block.title);
-    const missingSections = this.plugin.fileService.getMissingSections(existingSections, requiredSections);
+    const existingSections = Object.keys(sections);
+    const missingSections = requiredSections.filter(
+      (section) => !existingSections.includes(section)
+    );
     if (missingSections.length > 0) {
-      console.log("\u{1F527} Sections manquantes d\xE9tect\xE9es:", missingSections);
-      this.showMissingSectionsMessage(missingSections, layout);
+      this.showMissingSectionsError(missingSections);
       return;
     }
-    console.log("\u2705 Rendu Board pour:", this.file.basename, "avec layout:", layoutName);
-    this.createGrid();
-    this.createFrames(layout, sections);
+    const convertedSections = Object.entries(sections).map(([name, content]) => ({
+      name,
+      content,
+      lines: content.split("\n"),
+      startLine: 0,
+      endLine: 0,
+      isFromLayout: true
+    }));
+    await this.createBoard(layout, convertedSections);
   }
-  cleanup() {
-    for (const frame of this.frames.values()) {
-      frame.destroy();
-    }
-    this.frames.clear();
-    if (this.gridContainer) {
-      this.gridContainer.remove();
-      this.gridContainer = null;
-    }
+  /**
+   * Crée le tableau avec les sections
+   */
+  async createBoard(layout, sections) {
     this.contentEl.empty();
-  }
-  createGrid() {
-    console.log("\u{1F532} Cr\xE9ation de la grille");
     this.gridContainer = this.contentEl.createDiv("agile-board-grid");
-    this.gridContainer.style.cssText = `
-      display: grid;
-      grid-template-columns: repeat(24, 1fr);
-      gap: 0.5rem;
-      padding: 1rem;
-      height: 100%;
-      overflow: auto;
-      background: var(--background-primary);
-    `;
-  }
-  createFrames(layout, sections) {
-    if (!this.gridContainer) {
-      console.log("\u274C Pas de gridContainer pour cr\xE9er les frames");
-      return;
-    }
-    console.log("\u{1F5BC}\uFE0F Cr\xE9ation de", layout.length, "frames");
+    this.gridContainer.style.display = "grid";
+    this.gridContainer.style.gridTemplateColumns = "repeat(24, 1fr)";
+    this.gridContainer.style.gap = "1rem";
+    this.gridContainer.style.padding = "1rem";
     for (const block of layout) {
-      console.log("\u{1F5BC}\uFE0F Cr\xE9ation frame pour:", block.title);
-      const frameElement = this.gridContainer.createDiv("agile-board-frame");
-      frameElement.style.cssText = `
-        grid-column: ${block.x + 1} / span ${block.w};
-        grid-row: ${block.y + 1} / span ${block.h};
-        min-height: 100px;
-        display: flex;
-        flex-direction: column;
-        border: 2px solid var(--background-modifier-border);
-        border-radius: 6px;
-        background: var(--background-primary);
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-      `;
-      const titleElement = frameElement.createDiv("frame-title");
-      titleElement.style.cssText = `
-        padding: 0.5rem 0.75rem;
-        font-weight: 500;
-        color: var(--text-normal);
-        border-bottom: 1px solid var(--background-modifier-border);
-        background: var(--background-secondary);
-        font-size: 1.1rem;
-      `;
-      titleElement.textContent = block.title;
-      const contentElement = frameElement.createDiv("frame-content");
-      contentElement.style.cssText = `
-        flex: 1;
-        overflow: auto;
-        background: var(--background-primary);
-      `;
-      const section = sections[block.title];
+      const section = sections.find((s) => s.name === block.title);
       if (section) {
-        const frame = new MarkdownFrame(
-          this.app,
-          contentElement,
-          this.file,
-          section,
-          (content) => this.onFrameContentChanged(block.title, content)
-        );
-        this.frames.set(block.title, frame);
-        console.log(`\u2705 Frame \xE9ditable cr\xE9\xE9e pour "${block.title}"`);
-      } else {
-        contentElement.style.padding = "0.75rem";
-        contentElement.innerHTML = `
-          <p><strong>\u274C Section manquante:</strong> ${block.title}</p>
-          <p><em>Sections disponibles:</em> ${Object.keys(sections).join(", ")}</p>
-        `;
-        console.log(`\u274C Section "${block.title}" non trouv\xE9e`);
+        await this.createFrame(block, section);
       }
     }
-    console.log("\u2705 Toutes les frames cr\xE9\xE9es");
+    console.log("\u2705 Board cr\xE9\xE9 avec succ\xE8s");
   }
+  /**
+  * Crée une frame pour une section
+  */
+  async createFrame(layout, section) {
+    const frameContainer = this.gridContainer.createDiv("frame-container");
+    frameContainer.style.gridColumn = `${layout.x + 1} / span ${layout.w}`;
+    frameContainer.style.gridRow = `${layout.y + 1} / span ${layout.h}`;
+    frameContainer.style.border = "1px solid var(--background-modifier-border)";
+    frameContainer.style.borderRadius = "8px";
+    frameContainer.style.backgroundColor = "var(--background-secondary)";
+    frameContainer.style.padding = "0.5rem";
+    const titleEl = frameContainer.createDiv("frame-title");
+    titleEl.textContent = layout.title;
+    titleEl.style.fontWeight = "bold";
+    titleEl.style.marginBottom = "0.5rem";
+    titleEl.style.color = "var(--text-accent)";
+    const frame = new MarkdownFrame(
+      this.app,
+      // 1. App instance
+      frameContainer,
+      // 2. Container
+      this.file,
+      // 3. File
+      section,
+      // 4. Section
+      (content) => this.onFrameContentChanged(section.name, content)
+      // 5. onChange callback
+    );
+    this.frames.set(layout.title, frame);
+  }
+  /**
+   * Gestionnaire de changement de contenu
+   */
   async onFrameContentChanged(sectionName, content) {
-    if (!this.file)
-      return;
-    console.log(`\u{1F4BE} Changement d\xE9tect\xE9 dans la section "${sectionName}"`);
+    try {
+      const services = this.plugin.getServices ? this.plugin.getServices() : null;
+      if (services && services.file.updateSectionContent) {
+        await services.file.updateSectionContent(this.file, sectionName, content);
+      } else if (this.plugin.fileService) {
+        console.log("Mise \xE0 jour de section (ancien syst\xE8me):", sectionName);
+        await this.updateSectionLegacy(sectionName, content);
+      }
+      console.log(`\u2705 Section "${sectionName}" mise \xE0 jour`);
+    } catch (error) {
+      console.error("\u274C Erreur mise \xE0 jour section:", error);
+    }
+  }
+  /**
+   * Mise à jour de section (méthode legacy)
+   */
+  async updateSectionLegacy(sectionName, content) {
     try {
       const fileContent = await this.app.vault.read(this.file);
       const lines = fileContent.split("\n");
-      const sections = await this.plugin.fileService.parseSections(this.file);
-      const section = sections[sectionName];
-      if (!section) {
-        console.log(`\u274C Section "${sectionName}" non trouv\xE9e pour la sauvegarde`);
-        return;
+      const newLines = [];
+      let inTargetSection = false;
+      let sectionFound = false;
+      for (const line of lines) {
+        if (line.startsWith("# ")) {
+          if (inTargetSection) {
+            newLines.push(...content.split("\n"));
+            inTargetSection = false;
+          }
+          const currentSection = line.substring(2).trim();
+          if (currentSection === sectionName) {
+            inTargetSection = true;
+            sectionFound = true;
+            newLines.push(line);
+            continue;
+          }
+        }
+        if (!inTargetSection) {
+          newLines.push(line);
+        }
       }
-      const newLines = [
-        ...lines.slice(0, section.start + 1),
-        // Avant la section (inclus le titre)
-        ...content.split("\n"),
-        // Nouveau contenu
-        ...lines.slice(section.end)
-        // Après la section
-      ];
-      await this.app.vault.modify(this.file, newLines.join("\n"));
-      console.log(`\u2705 Section "${sectionName}" sauvegard\xE9e`);
+      if (inTargetSection) {
+        newLines.push(...content.split("\n"));
+      }
+      if (sectionFound) {
+        await this.app.vault.modify(this.file, newLines.join("\n"));
+      }
     } catch (error) {
-      console.error(`\u274C Erreur sauvegarde section "${sectionName}":`, error);
+      console.error("Erreur mise \xE0 jour legacy:", error);
     }
   }
-  showNoLayoutMessage() {
+  /**
+   * Affiche une erreur
+   */
+  showError(message) {
     this.contentEl.empty();
-    const message = this.contentEl.createDiv("no-layout-message");
-    message.style.cssText = `
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      font-size: 1.2em;
-      color: var(--text-muted);
-      text-align: center;
-      padding: 2rem;
-    `;
-    message.innerHTML = `
-      <div>
-        <h3>\u274C Pas de layout agile-board</h3>
-        <p>Cette note n'a pas de layout agile-board configur\xE9</p>
-        <p>Ajoutez dans le frontmatter:<br><code>agile-board: layout_eisenhower</code></p>
-      </div>
-    `;
+    const errorEl = this.contentEl.createDiv("agile-board-error");
+    errorEl.style.padding = "2rem";
+    errorEl.style.textAlign = "center";
+    errorEl.style.color = "var(--text-error)";
+    errorEl.textContent = message;
   }
-  showLayoutNotFoundMessage(layoutName) {
+  /**
+   * Affiche l'erreur de sections manquantes avec bouton d'action
+   */
+  showMissingSectionsError(missingSections) {
     this.contentEl.empty();
-    const message = this.contentEl.createDiv("layout-not-found-message");
-    message.style.cssText = `
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      font-size: 1.2em;
-      color: var(--text-error);
-      text-align: center;
-      padding: 2rem;
-    `;
-    message.innerHTML = `
-      <div>
-        <h3>\u274C Layout "${layoutName}" introuvable</h3>
-        <p>Layouts disponibles: ${this.plugin.layoutService.getAllModelNames().join(", ")}</p>
-      </div>
-    `;
-  }
-  showMissingSectionsMessage(missingBlocks, layout) {
-    this.contentEl.empty();
-    const errorContainer = this.contentEl.createDiv("missing-sections-overlay");
-    errorContainer.style.cssText = `
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      height: 100%;
-      padding: 2rem;
-      text-align: center;
-      background: var(--background-primary);
-    `;
-    const title = errorContainer.createEl("h2");
-    title.textContent = "\u{1F527} Sections manquantes d\xE9tect\xE9es";
-    title.style.cssText = `
-      color: var(--text-normal);
-      margin-bottom: 1rem;
-    `;
-    const description = errorContainer.createEl("p");
-    description.textContent = "Les sections suivantes sont requises pour ce layout :";
-    description.style.cssText = `
-      color: var(--text-muted);
-      margin-bottom: 1rem;
-    `;
-    const sectionsList = errorContainer.createEl("ul");
-    sectionsList.style.cssText = `
-      list-style: none;
-      padding: 0;
-      margin: 1rem 0;
-      color: var(--text-normal);
-    `;
-    missingBlocks.forEach((section) => {
-      const listItem = sectionsList.createEl("li");
-      listItem.textContent = `# ${section}`;
-      listItem.style.cssText = `
-        font-family: var(--font-monospace);
-        background: var(--background-secondary);
-        padding: 0.5rem;
-        margin: 0.25rem 0;
-        border-radius: 4px;
-      `;
-    });
-    const buttonContainer = errorContainer.createDiv();
-    buttonContainer.style.cssText = `
-      display: flex;
-      gap: 1rem;
-      margin-top: 2rem;
-    `;
-    const autoCreateButton = buttonContainer.createEl("button", { cls: "mod-cta" });
-    autoCreateButton.textContent = "\u2728 Cr\xE9er automatiquement";
-    autoCreateButton.style.cssText = `
-      padding: 0.75rem 1.5rem;
-      background: var(--interactive-accent);
-      color: var(--text-on-accent);
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 500;
-    `;
-    autoCreateButton.addEventListener("click", async () => {
-      if (!this.file)
-        return;
-      console.log("\u{1F527} Cr\xE9ation automatique des sections manquantes...");
-      autoCreateButton.textContent = "\u23F3 Cr\xE9ation...";
-      autoCreateButton.disabled = true;
+    const container = this.contentEl.createDiv("missing-sections-container");
+    container.style.padding = "2rem";
+    container.style.textAlign = "center";
+    const title = container.createEl("h3");
+    title.textContent = "Sections manquantes d\xE9tect\xE9es";
+    title.style.color = "var(--text-error)";
+    title.style.marginBottom = "1rem";
+    const list = container.createEl("ul");
+    list.style.listStyle = "disc";
+    list.style.textAlign = "left";
+    list.style.display = "inline-block";
+    list.style.marginBottom = "1.5rem";
+    for (const section of missingSections) {
+      const item = list.createEl("li");
+      item.textContent = section;
+      item.style.marginBottom = "0.5rem";
+    }
+    const button = container.createEl("button");
+    button.textContent = "Cr\xE9er les sections manquantes";
+    button.style.padding = "0.5rem 1rem";
+    button.style.backgroundColor = "var(--interactive-accent)";
+    button.style.color = "var(--text-on-accent)";
+    button.style.border = "none";
+    button.style.borderRadius = "4px";
+    button.style.cursor = "pointer";
+    button.addEventListener("click", async () => {
       try {
-        await this.plugin.fileService.createMissingSections(this.file, layout);
-        console.log("\u2705 Sections cr\xE9\xE9es, rechargement du board...");
-        setTimeout(() => {
-          this.renderBoardLayout();
-        }, 500);
+        const services = this.plugin.getServices ? this.plugin.getServices() : null;
+        if (services) {
+          await services.file.createMissingSections(this.file);
+        } else if (this.plugin.sectionManager) {
+          await this.plugin.sectionManager.createMissingSections(this.file);
+        }
+        await this.renderBoardLayout();
       } catch (error) {
-        console.error("\u274C Erreur cr\xE9ation sections:", error);
-        autoCreateButton.textContent = "\u274C Erreur";
-        setTimeout(() => {
-          autoCreateButton.textContent = "\u2728 Cr\xE9er automatiquement";
-          autoCreateButton.disabled = false;
-        }, 2e3);
+        console.error("Erreur cr\xE9ation sections:", error);
       }
     });
-    const markdownButton = buttonContainer.createEl("button");
-    markdownButton.textContent = "\u{1F4DD} Mode Markdown";
-    markdownButton.style.cssText = `
-      padding: 0.75rem 1.5rem;
-      background: var(--background-secondary);
-      color: var(--text-normal);
-      border: 1px solid var(--background-modifier-border);
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 500;
-    `;
-    markdownButton.addEventListener("click", async () => {
-      if (!this.file)
-        return;
-      const leaf = this.app.workspace.activeLeaf;
-      if (leaf) {
-        await leaf.setViewState({
-          type: "markdown",
-          state: { file: this.file.path }
-        });
-      }
-    });
+  }
+  /**
+   * Nettoie les ressources
+   */
+  cleanup() {
+    this.frames.forEach((frame) => frame.destroy());
+    this.frames.clear();
+    this.gridContainer = null;
   }
 };
 
 // src/managers/ViewSwitcher.ts
-var import_obsidian6 = require("obsidian");
+var import_obsidian3 = require("obsidian");
 var ViewSwitcher = class {
   constructor(plugin) {
     this.plugin = plugin;
@@ -3904,7 +2858,7 @@ var ViewSwitcher = class {
    * Vérifie si la vue actuelle est la MarkdownView standard
    */
   isCurrentViewMarkdownView() {
-    const markdownView = this.plugin.app.workspace.getActiveViewOfType(import_obsidian6.MarkdownView);
+    const markdownView = this.plugin.app.workspace.getActiveViewOfType(import_obsidian3.MarkdownView);
     return markdownView !== null;
   }
   /**
@@ -4052,7 +3006,7 @@ var ViewSwitcher = class {
    */
   ensureBoardModeButton() {
     try {
-      const markdownView = this.plugin.app.workspace.getActiveViewOfType(import_obsidian6.MarkdownView);
+      const markdownView = this.plugin.app.workspace.getActiveViewOfType(import_obsidian3.MarkdownView);
       if (!markdownView) {
         console.log("\u26A0\uFE0F Pas de vue Markdown active pour ajouter le bouton Board");
         return;
@@ -4140,7 +3094,7 @@ var ViewSwitcher = class {
         button.remove();
       });
       const views = [
-        this.plugin.app.workspace.getActiveViewOfType(import_obsidian6.MarkdownView),
+        this.plugin.app.workspace.getActiveViewOfType(import_obsidian3.MarkdownView),
         this.plugin.app.workspace.getActiveViewOfType(BoardView)
       ].filter((view) => view !== null);
       views.forEach((view) => {
@@ -4408,16 +3362,6 @@ var ModelDetector = class {
     this.cleanupProcessedFiles();
     const hasLayout = this.hasAgileBoardLayout(file);
     console.log(`\u{1F3AF} Fichier "${file.basename}" - Layout agile-board: ${hasLayout ? "OUI" : "NON"}`);
-    setTimeout(() => {
-      if (this.plugin.viewSwitcher) {
-        this.plugin.viewSwitcher.updateSwitchButtonForFile(file);
-      }
-    }, 100);
-    setTimeout(() => {
-      if (this.plugin.viewSwitcher) {
-        this.plugin.viewSwitcher.updateSwitchButtonForFile(file);
-      }
-    }, 500);
   }
   /**
    * Vérifie si un fichier a un layout agile-board valide
@@ -4524,703 +3468,313 @@ var ModelDetector = class {
   }
 };
 
-// src/main.ts
-var AgileBoardPlugin = class extends import_obsidian7.Plugin {
+// src/components/SettingsTab.ts
+var import_obsidian4 = require("obsidian");
+var AgileBoardSettingsTab = class extends import_obsidian4.PluginSettingTab {
+  constructor(app, plugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
+  display() {
+    const { containerEl } = this;
+    containerEl.empty();
+    containerEl.createEl("h1", { text: "Agile Board - Configuration" });
+    this.createDebugSection(containerEl);
+    this.createGeneralSection(containerEl);
+  }
   /**
-   * Initialisation du plugin - appelée au chargement d'Obsidian
+   * Crée la section de configuration du debug
    */
+  createDebugSection(containerEl) {
+    containerEl.createEl("h2", { text: "\u{1F527} Configuration du Debug" });
+    const debugDesc = containerEl.createEl("div", { cls: "setting-item-description" });
+    debugDesc.innerHTML = `
+            <p>Configurez le niveau de verbosit\xE9 et les options de debug du plugin.</p>
+            <p><strong>Conseil :</strong> Gardez le debug <em>d\xE9sactiv\xE9</em> en usage normal pour optimiser les performances.</p>
+        `;
+    new import_obsidian4.Setting(containerEl).setName("Activer le debug").setDesc("Active ou d\xE9sactive compl\xE8tement le syst\xE8me de debug").addToggle((toggle) => toggle.setValue(this.plugin.settings.debug.enabled).onChange(async (value) => {
+      this.plugin.settings.debug.enabled = value;
+      await this.plugin.saveSettings();
+      new import_obsidian4.Notice(`Debug ${value ? "activ\xE9" : "d\xE9sactiv\xE9"}`);
+      this.display();
+    }));
+    if (this.plugin.settings.debug.enabled) {
+      this.createDebugAdvancedOptions(containerEl);
+    }
+  }
+  /**
+   * Crée les options avancées de debug (quand activé)
+   */
+  createDebugAdvancedOptions(containerEl) {
+    new import_obsidian4.Setting(containerEl).setName("Niveau de verbosit\xE9").setDesc("Contr\xF4le la quantit\xE9 d'informations affich\xE9es dans les logs").addDropdown((dropdown) => dropdown.addOption(1 /* ERROR */.toString(), "\u274C Erreurs uniquement").addOption(2 /* WARN */.toString(), "\u26A0\uFE0F Erreurs + Avertissements").addOption(3 /* INFO */.toString(), "\u2139\uFE0F Informations importantes (recommand\xE9)").addOption(4 /* DEBUG */.toString(), "\u{1F527} Debug d\xE9taill\xE9").addOption(5 /* VERBOSE */.toString(), "\u{1F50D} Tout afficher (tr\xE8s verbeux)").setValue(this.plugin.settings.debug.logLevel.toString()).onChange(async (value) => {
+      this.plugin.settings.debug.logLevel = parseInt(value);
+      await this.plugin.saveSettings();
+      new import_obsidian4.Notice(`Niveau de debug: ${LogLevel[parseInt(value)]}`);
+    }));
+    new import_obsidian4.Setting(containerEl).setName("Afficher les timestamps").setDesc("Ajoute l'heure pr\xE9cise \xE0 chaque message de log").addToggle((toggle) => toggle.setValue(this.plugin.settings.debug.showTimestamps).onChange(async (value) => {
+      this.plugin.settings.debug.showTimestamps = value;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian4.Setting(containerEl).setName("Afficher la source").setDesc("Indique le fichier source de chaque message de log").addToggle((toggle) => toggle.setValue(this.plugin.settings.debug.showSourceLocation).onChange(async (value) => {
+      this.plugin.settings.debug.showSourceLocation = value;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian4.Setting(containerEl).setName("Sauvegarder dans un fichier").setDesc("Enregistre automatiquement les logs dans un fichier de votre vault").addToggle((toggle) => toggle.setValue(this.plugin.settings.debug.logToFile).onChange(async (value) => {
+      this.plugin.settings.debug.logToFile = value;
+      await this.plugin.saveSettings();
+      this.display();
+    }));
+    if (this.plugin.settings.debug.logToFile) {
+      this.createFileLoggingOptions(containerEl);
+    }
+    this.createDebugActions(containerEl);
+  }
+  /**
+   * Crée les options de sauvegarde fichier
+   */
+  createFileLoggingOptions(containerEl) {
+    new import_obsidian4.Setting(containerEl).setName("Nom du fichier de log").setDesc("Nom du fichier o\xF9 sauvegarder les logs (dans la racine du vault)").addText((text) => text.setPlaceholder("agile-board-debug.log").setValue(this.plugin.settings.debug.logFileName).onChange(async (value) => {
+      this.plugin.settings.debug.logFileName = value || "agile-board-debug.log";
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian4.Setting(containerEl).setName("Taille maximale du fichier").setDesc("Taille maximale en KB avant rotation automatique").addSlider((slider) => slider.setLimits(100, 1e4, 100).setValue(this.plugin.settings.debug.maxLogFileSize).setDynamicTooltip().onChange(async (value) => {
+      this.plugin.settings.debug.maxLogFileSize = value;
+      await this.plugin.saveSettings();
+    }));
+  }
+  /**
+   * Crée les boutons d'action pour le debug
+   */
+  createDebugActions(containerEl) {
+    const actionsContainer = containerEl.createDiv("debug-actions");
+    actionsContainer.style.cssText = `
+            margin-top: 20px;
+            padding: 15px;
+            background-color: var(--background-secondary);
+            border-radius: 6px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        `;
+    const testButton = actionsContainer.createEl("button", {
+      text: "\u{1F9EA} Tester le syst\xE8me",
+      cls: "mod-cta"
+    });
+    testButton.onclick = () => {
+      this.plugin.logger.testSystem();
+      new import_obsidian4.Notice("Test de debug ex\xE9cut\xE9 - v\xE9rifiez la console (F12)", 3e3);
+    };
+    if (this.plugin.settings.debug.logToFile) {
+      const saveButton = actionsContainer.createEl("button", {
+        text: "\u{1F4BE} Sauvegarder maintenant"
+      });
+      saveButton.onclick = async () => {
+        await this.plugin.logger.saveLogsToFile();
+        new import_obsidian4.Notice("Logs sauvegard\xE9s", 2e3);
+      };
+    }
+    const statsButton = actionsContainer.createEl("button", {
+      text: "\u{1F4CA} Statistiques"
+    });
+    statsButton.onclick = () => this.showDebugStats();
+    const clearButton = actionsContainer.createEl("button", {
+      text: "\u{1F5D1}\uFE0F Vider le buffer"
+    });
+    clearButton.onclick = () => {
+      this.plugin.logger.clearBuffer();
+      new import_obsidian4.Notice("Buffer de logs vid\xE9", 2e3);
+    };
+  }
+  /**
+   * Affiche les statistiques de debug dans une notification
+   */
+  showDebugStats() {
+    const stats = this.plugin.logger.getStats();
+    const message = `\u{1F4CA} Statistiques de Debug:
+
+\u2022 Statut: ${stats.isEnabled ? "\u2705 Activ\xE9" : "\u274C D\xE9sactiv\xE9"}
+\u2022 Niveau: ${stats.currentLevel}
+\u2022 Buffer: ${stats.bufferSize} entr\xE9es
+\u2022 Fichier: ${stats.fileLoggingEnabled ? "\u2705 Activ\xE9" : "\u274C D\xE9sactiv\xE9"}`;
+    new import_obsidian4.Notice(message, 6e3);
+  }
+  /**
+   * Crée la section de configuration générale
+   */
+  createGeneralSection(containerEl) {
+    containerEl.createEl("h2", { text: "\u2699\uFE0F Param\xE8tres G\xE9n\xE9raux" });
+    new import_obsidian4.Setting(containerEl).setName("Cr\xE9ation automatique des sections").setDesc("Cr\xE9e automatiquement les sections manquantes lors de l'ouverture d'un board").addToggle((toggle) => toggle.setValue(this.plugin.settings.autoCreateSections).onChange(async (value) => {
+      this.plugin.settings.autoCreateSections = value;
+      await this.plugin.saveSettings();
+      this.plugin.logger.config("Auto-cr\xE9ation sections modifi\xE9e", { enabled: value });
+    }));
+    const layoutDesc = containerEl.createEl("div", { cls: "setting-item-description" });
+    layoutDesc.innerHTML = `
+            <p><strong>Layouts disponibles:</strong> Eisenhower, Kanban, GTD, Weekly Planner, Daily Planner, Project Board, Cornell Notes, Tasks Dashboard</p>
+        `;
+  }
+};
+
+// src/main.ts
+var AgileBoardPlugin = class extends import_obsidian5.Plugin {
   async onload() {
+    console.log("\u{1F680} Chargement Agile Board Plugin v0.8.0");
+    try {
+      await this.initializeCore();
+      await this.initializeServices();
+      await this.initializeUI();
+      console.log("\u2705 Agile Board Plugin charg\xE9 avec succ\xE8s");
+    } catch (error) {
+      console.error("\u274C Erreur chargement plugin:", error);
+      new import_obsidian5.Notice("\u274C Erreur lors du chargement du plugin Agile Board");
+    }
+  }
+  async onunload() {
+    var _a, _b, _c, _d;
+    (_a = this.logger) == null ? void 0 : _a.info("Arr\xEAt du plugin Agile Board");
+    (_b = this.modelDetector) == null ? void 0 : _b.onUnload();
+    (_c = this.viewSwitcher) == null ? void 0 : _c.stop();
+    (_d = this.services) == null ? void 0 : _d.dispose();
+    console.log("\u{1F6D1} Agile Board Plugin arr\xEAt\xE9");
+  }
+  /**
+   * Initialise les composants de base
+   */
+  async initializeCore() {
     await this.loadSettings();
     this.logger = new LoggerService(this, this.settings.debug);
-    this.logger.startup("Plugin Agile-Board v0.7.0 en cours d'initialisation", {
-      debugEnabled: this.settings.debug.enabled,
-      logLevel: this.settings.debug.logLevel,
-      autoCreateSections: this.settings.autoCreateSections
-    });
-    await this.initializeServices();
-    this.registerViews();
-    this.registerCommands();
-    this.addSettingTab(new AgileBoardSettingsTab(this.app, this));
-    this.logger.config("Onglet de configuration enregistr\xE9");
-    this.setupPeriodicLogSaving();
-    this.setupEventListeners();
-    this.logger.success("Plugin Agile-Board initialis\xE9 avec succ\xE8s", {
-      version: "0.7.0",
-      loadTime: performance.now(),
-      services: this.getLoadedServices()
-    });
+    this.services = new ServiceContainer(this.app, this, this.settings);
   }
   /**
-   * Arrêt du plugin - appelée à la fermeture d'Obsidian
-   */
-  async onunload() {
-    this.logger.info("Arr\xEAt du plugin Agile-Board en cours");
-    if (this.modelDetector) {
-      this.modelDetector.onUnload();
-    }
-    if (this.viewSwitcher) {
-      this.viewSwitcher.stop();
-    }
-    if (this.settings.debug.logToFile) {
-      this.logger.info("Sauvegarde finale des logs avant arr\xEAt");
-      await this.logger.saveLogsToFile();
-    }
-    this.cleanupResources();
-    this.logger.success("Plugin Agile-Board arr\xEAt\xE9 proprement");
-  }
-  // ====================================================================
-  // GESTION DE LA CONFIGURATION
-  // ====================================================================
-  /**
-   * Charge la configuration depuis le stockage d'Obsidian
-   */
-  async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-    this.settings = this.validateSettings(this.settings);
-  }
-  /**
-   * Sauvegarde la configuration dans le stockage d'Obsidian
-   */
-  async saveSettings() {
-    await this.saveData(this.settings);
-    if (this.logger) {
-      this.logger.updateSettings(this.settings.debug);
-      this.logger.config("Configuration sauvegard\xE9e et logger mis \xE0 jour");
-    }
-  }
-  /**
-   * Valide et corrige la configuration si nécessaire
-   */
-  validateSettings(settings) {
-    if (!settings.debug) {
-      settings.debug = DEFAULT_SETTINGS.debug;
-    }
-    if (!Array.isArray(settings.defaultLayouts) || settings.defaultLayouts.length === 0) {
-      settings.defaultLayouts = DEFAULT_SETTINGS.defaultLayouts;
-    }
-    return settings;
-  }
-  // ====================================================================
-  // INITIALISATION DES SERVICES
-  // ====================================================================
-  /**
-   * Initialise tous les services du plugin
+   * Initialise tous les services
    */
   async initializeServices() {
-    this.logger.debug("Initialisation des services en cours");
-    try {
-      this.layoutService = new LayoutService(this);
-      this.fileService = new FileService(this.app);
-      this.layoutService.load();
-      this.noteCreator = new NoteCreatorService(
-        this.app,
-        this.layoutService,
-        this.logger
-      );
-      this.boardViewService = new BoardViewService(
-        this.app,
-        this.layoutService,
-        this.logger
-      );
-      this.sectionManager = new SectionManagerService(
-        this.app,
-        this.layoutService,
-        this.logger
-      );
-      this.viewSwitcher = new ViewSwitcher(this);
-      this.modelDetector = new ModelDetector(this);
-      this.modelDetector.onLoad();
-      this.viewSwitcher.addSwitchButton();
-      this.logger.success("Tous les services initialis\xE9s", {
-        layoutsCount: this.layoutService.getAllModelNames().length,
-        services: this.getLoadedServices()
-      });
-    } catch (error) {
-      this.logger.error("Erreur lors de l'initialisation des services", error);
-      throw error;
-    }
+    await this.services.initialize();
+    this.viewSwitcher = new ViewSwitcher(this);
+    this.modelDetector = new ModelDetector(this);
+    this.modelDetector.onLoad();
+    this.viewSwitcher.addSwitchButton();
   }
   /**
-   * Enregistre les vues personnalisées
+   * Initialise l'interface utilisateur
    */
-  registerViews() {
-    this.logger.debug("Enregistrement des vues personnalis\xE9es");
-    try {
-      this.registerView(BOARD_VIEW_TYPE, (leaf) => new BoardView(leaf, this));
-      this.logger.success("Vue BoardView enregistr\xE9e");
-    } catch (error) {
-      this.logger.error("Erreur lors de l'enregistrement des vues", error);
-    }
+  async initializeUI() {
+    this.registerView(
+      BOARD_VIEW_TYPE,
+      (leaf) => new BoardView(leaf, this)
+    );
+    this.registerCommands();
+    this.addSettingTab(new AgileBoardSettingsTab(this.app, this));
   }
   /**
-   * Enregistre toutes les commandes du plugin
+   * Enregistre toutes les commandes
    */
   registerCommands() {
-    this.logger.debug("Enregistrement des commandes");
-    this.addCommand({
-      id: "create-eisenhower-note",
-      name: "Cr\xE9er une note Matrice d'Eisenhower",
-      callback: () => this.createNoteWithLayout("layout_eisenhower")
-    });
-    this.addCommand({
-      id: "create-kanban-note",
-      name: "Cr\xE9er une note Kanban",
-      callback: () => this.createNoteWithLayout("layout_kanban")
-    });
-    this.addCommand({
-      id: "create-gtd-note",
-      name: "Cr\xE9er une note GTD",
-      callback: () => this.createNoteWithLayout("layout_gtd")
-    });
-    this.addCommand({
-      id: "create-weekly-note",
-      name: "Cr\xE9er un planificateur hebdomadaire",
-      callback: () => this.createNoteWithLayout("layout_weekly")
-    });
-    this.addCommand({
-      id: "create-daily-note",
-      name: "Cr\xE9er un planificateur quotidien",
-      callback: () => this.createNoteWithLayout("layout_daily")
-    });
-    this.addCommand({
-      id: "create-project-note",
-      name: "Cr\xE9er un tableau de projet",
-      callback: () => this.createNoteWithLayout("layout_project")
+    const layouts = this.services.layout.getAllModelsInfo();
+    layouts.forEach((layout) => {
+      this.addCommand({
+        id: `create-${layout.name.replace("layout_", "")}-note`,
+        name: `Cr\xE9er ${layout.displayName}`,
+        callback: () => this.createNote(layout.name)
+      });
     });
     this.addCommand({
       id: "switch-to-board-view",
-      name: "Basculer vers la vue board",
-      callback: () => this.switchToBoardView()
-    });
-    this.addCommand({
-      id: "switch-to-markdown-view",
-      name: "Basculer vers la vue markdown",
-      callback: () => this.switchToMarkdownView()
-    });
-    this.addCommand({
-      id: "list-layouts",
-      name: "Afficher les layouts disponibles",
-      callback: () => this.listAvailableLayouts()
+      name: "Basculer vers la vue Board",
+      callback: () => {
+        const activeFile = this.app.workspace.getActiveFile();
+        if (activeFile) {
+          this.viewSwitcher.switchToBoardView(activeFile);
+        } else {
+          new import_obsidian5.Notice("\u274C Aucun fichier actif");
+        }
+      }
     });
     this.addCommand({
       id: "create-missing-sections",
       name: "Cr\xE9er les sections manquantes",
       callback: () => this.createMissingSections()
     });
-    this.addCommand({
-      id: "debug-button-state",
-      name: "\u{1F50D} Diagnostic \xC9tat des Boutons",
-      callback: () => this.debugButtonState()
-    });
-    this.addCommand({
-      id: "force-update-buttons",
-      name: "\u{1F504} Forcer mise \xE0 jour des boutons",
-      callback: () => this.forceUpdateButtons()
-    });
-    this.addCommand({
-      id: "toggle-debug",
-      name: "Activer/D\xE9sactiver le debug",
-      callback: () => this.toggleDebug()
-    });
-    this.addCommand({
-      id: "test-debug-system",
-      name: "Tester le syst\xE8me de debug",
-      callback: () => this.testDebugSystem()
-    });
-    this.addCommand({
-      id: "save-logs-now",
-      name: "Sauvegarder les logs maintenant",
-      callback: () => this.saveLogsNow()
-    });
-    this.logger.success("Toutes les commandes ont \xE9t\xE9 enregistr\xE9es");
   }
-  // ====================================================================
-  // IMPLÉMENTATION DES COMMANDES PRINCIPALES
-  // ====================================================================
   /**
-   * Crée une note avec un layout spécifique
+   * Crée une nouvelle note avec layout (utilise ServiceContainer)
    */
-  async createNoteWithLayout(layoutName) {
-    this.logger.fileOperation("Cr\xE9ation de note demand\xE9e", { layoutName });
+  async createNote(layoutName) {
     try {
-      if (!this.noteCreator) {
-        throw new Error("NoteCreatorService non initialis\xE9");
-      }
-      const result = await this.noteCreator.createNoteWithLayout({
+      await this.services.file.createNoteWithLayout({
         layoutName,
         autoOpen: true
       });
-      this.logger.success("Note cr\xE9\xE9e via NoteCreatorService", {
-        fileName: result.file.name,
-        filePath: result.file.path,
-        sectionsCount: result.sectionsCount,
-        layoutUsed: result.layoutName
-      });
     } catch (error) {
-      this.logger.error("Erreur lors de la cr\xE9ation de note", {
-        message: error.message,
-        layoutName
-      }, "main.ts");
-      console.error("D\xE9tail erreur createNoteWithLayout:", error);
+      this.logger.error("Erreur cr\xE9ation note", error);
     }
   }
   /**
-   * Bascule vers la vue board pour le fichier actuel
-   * VERSION CORRIGÉE : Avec notification ViewSwitcher
-   */
-  async switchToBoardView() {
-    this.logger.navigation("Basculement vers vue board demand\xE9");
-    try {
-      if (!this.boardViewService) {
-        throw new Error("BoardViewService non initialis\xE9");
-      }
-      const result = await this.boardViewService.switchToBoardView({
-        forceSwitch: false,
-        newTab: false
-      });
-      if (result.success) {
-        this.logger.success("Basculement r\xE9ussi via BoardViewService", {
-          fileName: result.file.name,
-          layoutName: result.layoutName,
-          message: result.message
-        });
-        this.forceViewSwitcherUpdate(result.file);
-      } else {
-        this.logger.warn("Basculement \xE9chou\xE9", {
-          fileName: result.file.name,
-          message: result.message
-        });
-      }
-    } catch (error) {
-      this.logger.error("Erreur lors du basculement vers vue board", error, "main.ts");
-    }
-  }
-  /**
-   * Bascule vers la vue markdown
-   * VERSION CORRIGÉE : Avec notification ViewSwitcher
-   */
-  async switchToMarkdownView() {
-    this.logger.navigation("Basculement vers vue markdown demand\xE9");
-    try {
-      if (!this.boardViewService) {
-        throw new Error("BoardViewService non initialis\xE9");
-      }
-      const activeFile = this.app.workspace.getActiveFile();
-      if (!activeFile) {
-        new import_obsidian7.Notice("\u274C Aucun fichier actif");
-        return;
-      }
-      const success = await this.boardViewService.switchToMarkdownView(activeFile);
-      if (success) {
-        this.logger.success("Basculement vers markdown r\xE9ussi", {
-          fileName: activeFile.name
-        });
-        this.forceViewSwitcherUpdate(activeFile);
-      } else {
-        this.logger.warn("Basculement vers markdown \xE9chou\xE9");
-      }
-    } catch (error) {
-      this.logger.error("Erreur basculement vers markdown", error);
-    }
-  }
-  /**
-   * 🚨 NOUVELLE MÉTHODE : Force la mise à jour du ViewSwitcher
-   */
-  forceViewSwitcherUpdate(file) {
-    if (this.viewSwitcher) {
-      setTimeout(() => {
-        console.log("\u{1F504} Force update ViewSwitcher apr\xE8s basculement");
-        this.viewSwitcher.updateSwitchButtonForFile(file);
-      }, 300);
-      setTimeout(() => {
-        console.log("\u{1F504} Double v\xE9rification ViewSwitcher");
-        this.viewSwitcher.updateSwitchButtonForFile(file);
-      }, 800);
-    }
-  }
-  /**
-   * Affiche la liste détaillée des layouts disponibles
-   */
-  listAvailableLayouts() {
-    this.logger.navigation("Liste des layouts demand\xE9e");
-    try {
-      if (!this.layoutService) {
-        throw new Error("LayoutService non initialis\xE9");
-      }
-      const allLayouts = this.layoutService.getAllModelsInfo();
-      if (allLayouts.length === 0) {
-        const message = "Aucun layout disponible";
-        this.logger.warn(message);
-        new import_obsidian7.Notice(`\u26A0\uFE0F ${message}`, 3e3);
-        return;
-      }
-      const layoutsByCategory = this.groupLayoutsByCategory(allLayouts);
-      this.logDetailedLayoutInfo(allLayouts, layoutsByCategory);
-      this.showLayoutSummaryToUser(allLayouts, layoutsByCategory);
-    } catch (error) {
-      this.logger.error("Erreur lors de l'affichage des layouts", error);
-      new import_obsidian7.Notice(`\u274C Erreur: ${error.message}`, 4e3);
-    }
-  }
-  /**
-   * Crée les sections manquantes pour le fichier actuel
+   * Crée les sections manquantes (utilise ServiceContainer)
    */
   async createMissingSections() {
-    this.logger.fileOperation("Cr\xE9ation des sections manquantes demand\xE9e");
-    try {
-      const activeFile = this.app.workspace.getActiveFile();
-      if (!activeFile) {
-        this.logger.warn("Aucun fichier actif pour cr\xE9er les sections");
-        new import_obsidian7.Notice("\u274C Aucun fichier actif");
-        return;
-      }
-      if (!this.sectionManager) {
-        throw new Error("SectionManagerService non initialis\xE9");
-      }
-      const result = await this.sectionManager.createMissingSections(activeFile, {
-        insertPosition: "layout-order",
-        addDefaultContent: true,
-        autoSave: true
-      });
-      if (result.success) {
-        this.logger.success("Sections cr\xE9\xE9es via SectionManagerService", {
-          fileName: activeFile.name,
-          sectionsAdded: result.sectionsAdded,
-          addedSections: result.addedSectionNames
-        });
-      } else {
-        this.logger.warn("Cr\xE9ation de sections \xE9chou\xE9e", {
-          fileName: activeFile.name,
-          messages: result.messages
-        });
-      }
-    } catch (error) {
-      this.logger.error("Erreur lors de la cr\xE9ation des sections", error);
-      new import_obsidian7.Notice(`\u274C Erreur: ${error.message}`, 4e3);
-    }
-  }
-  // ====================================================================
-  // COMMANDES DE DEBUG ET DIAGNOSTIC
-  // ====================================================================
-  /**
-   * 🚨 NOUVELLE COMMANDE : Diagnostic complet des boutons
-   */
-  debugButtonState() {
-    var _a, _b, _c;
     const activeFile = this.app.workspace.getActiveFile();
-    const activeLeaf = this.app.workspace.activeLeaf;
-    if (activeFile && activeLeaf) {
-      const diagnostics = {
-        fileName: activeFile.name,
-        currentViewType: activeLeaf.view.getViewType(),
-        hasAgileBoardLayout: !!((_b = (_a = this.app.metadataCache.getFileCache(activeFile)) == null ? void 0 : _a.frontmatter) == null ? void 0 : _b["agile-board"]),
-        viewSwitcherState: (_c = this.viewSwitcher) == null ? void 0 : _c.getDiagnostics(),
-        buttonsCount: document.querySelectorAll(".agile-board-switch-button").length,
-        services: {
-          viewSwitcher: !!this.viewSwitcher,
-          boardViewService: !!this.boardViewService,
-          modelDetector: !!this.modelDetector
-        }
-      };
-      console.group("\u{1F50D} DIAGNOSTIC BOUTONS AGILE BOARD");
-      console.table(diagnostics);
-      console.log("\u{1F4CA} Diagnostics ViewSwitcher:", diagnostics.viewSwitcherState);
-      console.groupEnd();
-      this.logger.debug("Debug \xE9tat boutons", diagnostics);
-      if (this.viewSwitcher) {
-        console.log("\u{1F504} Force update ViewSwitcher...");
-        this.viewSwitcher.forceUpdate();
-      }
-      if (this.modelDetector) {
-        console.log("\u{1F504} Force update ModelDetector...");
-        this.modelDetector.forceUpdate();
-      }
-      new import_obsidian7.Notice(`\u{1F50D} Diagnostic termin\xE9 - Boutons: ${diagnostics.buttonsCount} | Type: ${diagnostics.currentViewType}`, 4e3);
+    if (!activeFile) {
+      new import_obsidian5.Notice("\u274C Aucun fichier actif");
+      return;
     }
-  }
-  /**
-   * Force la mise à jour des boutons
-   */
-  forceUpdateButtons() {
     try {
-      const activeFile = this.app.workspace.getActiveFile();
-      if (activeFile && this.viewSwitcher) {
-        this.logger.debug("Mise \xE0 jour forc\xE9e des boutons", { fileName: activeFile.name });
-        this.viewSwitcher.forceUpdate();
-        setTimeout(() => {
-          this.viewSwitcher.updateSwitchButtonForFile(activeFile);
-        }, 200);
-        new import_obsidian7.Notice("\u{1F504} Boutons mis \xE0 jour", 2e3);
-      } else {
-        new import_obsidian7.Notice("\u274C Aucun fichier actif ou ViewSwitcher indisponible", 3e3);
-      }
+      await this.services.file.createMissingSections(activeFile);
     } catch (error) {
-      this.logger.error("Erreur mise \xE0 jour boutons", error);
-      new import_obsidian7.Notice(`\u274C Erreur: ${error.message}`, 3e3);
+      this.logger.error("Erreur cr\xE9ation sections", error);
     }
   }
+  // ===================================================================
+  // GETTERS DE COMPATIBILITÉ (pour BoardView qui attend les anciens services)
+  // ===================================================================
   /**
-   * Active/désactive le debug via commande
+   * Getter pour layoutService (compatibilité BoardView)
    */
-  async toggleDebug() {
-    const wasEnabled = this.settings.debug.enabled;
-    this.settings.debug.enabled = !wasEnabled;
-    await this.saveSettings();
-    const status = this.settings.debug.enabled ? "activ\xE9" : "d\xE9sactiv\xE9";
-    const icon = this.settings.debug.enabled ? "\u2705" : "\u274C";
-    this.logger.config(`Debug ${status} via commande`);
-    new import_obsidian7.Notice(`${icon} Debug ${status}`, 3e3);
+  get layoutService() {
+    return this.services.layout;
   }
   /**
-   * Lance un test complet du système de debug
+   * Getter pour fileService (compatibilité BoardView)
    */
-  testDebugSystem() {
-    this.logger.info("Test du syst\xE8me de debug lanc\xE9 via commande");
-    this.logger.testSystem();
-    new import_obsidian7.Notice("\u{1F9EA} Test de debug ex\xE9cut\xE9 - v\xE9rifiez la console (F12)", 4e3);
+  get fileService() {
+    return this.services.file;
   }
   /**
-   * Force la sauvegarde immédiate des logs
+   * Getter pour sectionManager (compatibilité BoardView)
    */
-  async saveLogsNow() {
-    if (!this.settings.debug.logToFile) {
-      new import_obsidian7.Notice("\u26A0\uFE0F Sauvegarde fichier d\xE9sactiv\xE9e", 3e3);
-      return;
-    }
-    this.logger.info("Sauvegarde manuelle des logs demand\xE9e");
-    await this.logger.saveLogsToFile();
-    new import_obsidian7.Notice("\u{1F4BE} Logs sauvegard\xE9s avec succ\xE8s", 2e3);
-  }
-  // ====================================================================
-  // MÉTHODES UTILITAIRES POUR LAYOUTS
-  // ====================================================================
-  /**
-   * Groupe les layouts par catégorie
-   */
-  groupLayoutsByCategory(layouts) {
-    const grouped = {};
-    for (const layout of layouts) {
-      const category = layout.category || "custom";
-      if (!grouped[category]) {
-        grouped[category] = [];
+  get sectionManager() {
+    return {
+      createMissingSections: async (file) => {
+        return await this.services.file.createMissingSections(file);
       }
-      grouped[category].push(layout);
-    }
-    return grouped;
-  }
-  /**
-   * Affiche les informations détaillées dans les logs
-   */
-  logDetailedLayoutInfo(allLayouts, layoutsByCategory) {
-    this.logger.info("Layouts disponibles - R\xE9sum\xE9", {
-      totalLayouts: allLayouts.length,
-      categories: Object.keys(layoutsByCategory),
-      layoutNames: allLayouts.map((l) => l.name)
-    });
-    for (const [category, layouts] of Object.entries(layoutsByCategory)) {
-      this.logger.info(`Layouts - Cat\xE9gorie: ${category}`, {
-        category,
-        count: layouts.length,
-        layouts: layouts.map((layout) => ({
-          name: layout.name,
-          displayName: layout.displayName,
-          description: layout.description,
-          sectionsCount: layout.sections.length,
-          sections: layout.sections
-        }))
-      });
-    }
-  }
-  /**
-   * Affiche un résumé à l'utilisateur
-   */
-  showLayoutSummaryToUser(allLayouts, layoutsByCategory) {
-    const categoryTexts = Object.entries(layoutsByCategory).map(([category, layouts]) => {
-      const categoryName = this.getCategoryDisplayName(category);
-      const layoutNames = layouts.map((l) => l.displayName).join(", ");
-      return `\u{1F4C2} **${categoryName}** (${layouts.length}) : ${layoutNames}`;
-    });
-    const summaryText = [
-      `\u{1F4CB} **${allLayouts.length} layouts disponibles**`,
-      "",
-      ...categoryTexts,
-      "",
-      "\u{1F50D} Voir console (F12) pour d\xE9tails complets"
-    ].join("\n");
-    new import_obsidian7.Notice(summaryText, 8e3);
-    console.group("\u{1F3AF} LAYOUTS AGILE BOARD DISPONIBLES");
-    console.log(`Total: ${allLayouts.length} layouts`);
-    for (const [category, layouts] of Object.entries(layoutsByCategory)) {
-      console.group(`\u{1F4C2} ${this.getCategoryDisplayName(category)} (${layouts.length})`);
-      for (const layout of layouts) {
-        console.log(`\u{1F4CB} ${layout.displayName} (${layout.name})`);
-        console.log(`   Description: ${layout.description}`);
-        console.log(`   Sections (${layout.sections.length}): ${layout.sections.join(", ")}`);
-        console.log("");
-      }
-      console.groupEnd();
-    }
-    console.groupEnd();
-  }
-  /**
-   * Nom d'affichage convivial pour les catégories
-   */
-  getCategoryDisplayName(category) {
-    const categoryNames = {
-      "productivity": "\u{1F3AF} Productivit\xE9",
-      "planning": "\u{1F4C5} Planification",
-      "project": "\u{1F680} Projets",
-      "personal": "\u{1F464} Personnel",
-      "custom": "\u{1F527} Personnalis\xE9"
     };
-    return categoryNames[category] || `\u{1F4C1} ${category}`;
   }
-  // ====================================================================
-  // CONFIGURATION AUTOMATIQUE
-  // ====================================================================
-  /**
-   * Configure la sauvegarde périodique des logs
-   */
-  setupPeriodicLogSaving() {
-    if (!this.settings.debug.logToFile) {
-      return;
-    }
-    this.registerInterval(
-      window.setInterval(async () => {
-        if (this.settings.debug.logToFile) {
-          this.logger.verbose("Sauvegarde p\xE9riodique des logs", {
-            timestamp: new Date().toISOString()
-          });
-          await this.logger.saveLogsToFile();
-        }
-      }, 5 * 60 * 1e3)
-    );
-    this.logger.config("Sauvegarde p\xE9riodique des logs configur\xE9e (5 min)");
+  // ===================================================================
+  // GESTION DES PARAMÈTRES
+  // ===================================================================
+  async loadSettings() {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
   }
-  /**
-   * Configure les écouteurs d'événements
-   */
-  setupEventListeners() {
-    this.registerEvent(
-      this.app.workspace.on("file-open", (file) => {
-        if (file) {
-          this.logger.navigation("Fichier ouvert", {
-            fileName: file.name,
-            path: file.path
-          });
-        }
-      })
-    );
-    this.registerEvent(
-      this.app.workspace.on("layout-change", () => {
-        this.logger.navigation("Layout workspace modifi\xE9");
-      })
-    );
-    this.logger.config("\xC9couteurs d'\xE9v\xE9nements configur\xE9s");
+  async saveSettings() {
+    var _a, _b;
+    await this.saveData(this.settings);
+    (_a = this.services) == null ? void 0 : _a.updateSettings(this.settings);
+    (_b = this.logger) == null ? void 0 : _b.updateSettings(this.settings.debug);
   }
-  // ====================================================================
-  // MÉTHODES UTILITAIRES
-  // ====================================================================
-  /**
-   * Nettoie les ressources avant arrêt du plugin
-   */
-  cleanupResources() {
-    this.logger.debug("Nettoyage des ressources en cours");
-    this.logger.clearBuffer();
-    this.logger.debug("Ressources nettoy\xE9es");
+  // ===================================================================
+  // API PUBLIQUE
+  // ===================================================================
+  getServices() {
+    return this.services;
   }
-  /**
-   * Retourne la liste des services chargés pour les logs
-   */
-  getLoadedServices() {
-    const services = ["LoggerService"];
-    if (this.layoutService)
-      services.push("LayoutService");
-    if (this.fileService)
-      services.push("FileService");
-    if (this.viewSwitcher)
-      services.push("ViewSwitcher");
-    if (this.modelDetector)
-      services.push("ModelDetector");
-    if (this.noteCreator)
-      services.push("NoteCreatorService");
-    if (this.boardViewService)
-      services.push("BoardViewService");
-    if (this.sectionManager)
-      services.push("SectionManagerService");
-    return services;
-  }
-  // ====================================================================
-  // API PUBLIQUE POUR LES AUTRES COMPOSANTS
-  // ====================================================================
-  /**
-   * Retourne le service de logging
-   */
-  getLogger() {
-    return this.logger;
-  }
-  /**
-   * Retourne la configuration actuelle
-   */
   getSettings() {
     return this.settings;
   }
-  /**
-   * Met à jour une partie de la configuration
-   */
   async updateSettings(updates) {
     this.settings = { ...this.settings, ...updates };
     await this.saveSettings();
-    this.logger.config("Configuration mise \xE0 jour via API", updates);
   }
-  /**
-   * Crée une note avec des options avancées
-   */
-  async createAdvancedNote(layoutName, options) {
-    if (!this.noteCreator) {
-      new import_obsidian7.Notice("\u274C Service de cr\xE9ation non disponible");
-      return;
-    }
-    try {
-      await this.noteCreator.createNoteWithLayout({
-        layoutName,
-        customFileName: options == null ? void 0 : options.fileName,
-        folder: options == null ? void 0 : options.folder,
-        customContent: options == null ? void 0 : options.customContent,
-        autoOpen: true
-      });
-    } catch (error) {
-      this.logger.error("Erreur cr\xE9ation note avanc\xE9e", error);
-    }
-  }
-  /**
-   * Méthode pour obtenir les layouts disponibles (pour l'interface)
-   */
-  getAvailableLayoutsForUI() {
-    var _a;
-    return ((_a = this.noteCreator) == null ? void 0 : _a.getAvailableLayouts()) || [];
-  }
-  /**
-   * Gestionnaire d'erreur global pour le plugin
-   */
-  handleError(error, context) {
-    this.logger.error(`Erreur dans ${context}`, {
-      message: error.message,
-      stack: error.stack,
-      context
-    });
-    new import_obsidian7.Notice(`\u274C Erreur Agile Board: ${error.message}`, 5e3);
-  }
-  /**
-   * Hook appelé après l'initialisation complète
-   */
-  onInitializationComplete() {
-    this.logger.success("Hook d'initialisation compl\xE8te appel\xE9");
-  }
-  /**
-   * Hook appelé lors du changement de configuration debug
-   */
-  onDebugSettingsChanged() {
-    this.logger.config("Configuration debug modifi\xE9e - notification aux services");
+  getLogger() {
+    return this.logger;
   }
 };
