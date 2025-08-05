@@ -22,9 +22,6 @@ export class ParsingConstants {
     /** Extensions de fichiers markdown supportées */
     static readonly MARKDOWN_EXTENSIONS = ['.md', '.markdown'];
     
-    /** Caractères de titre H1 pour détecter les titres principaux */
-    static readonly MAIN_TITLE_REGEX = /^# ([^\n#].*?)$/;
-    
     // ===============================================================
     // MÉTHODES UTILITAIRES
     // ===============================================================
@@ -58,13 +55,20 @@ export class ParsingConstants {
     }
     
     /**
-     * Vérifie si une ligne est un titre principal (H1)
+     * Génère dynamiquement la regex pour le titre principal selon le niveau
+     */
+    static getMainTitleRegex(): RegExp {
+        return new RegExp(`^#{${ParsingConstants.SECTION_HEADER_LEVEL}} ([^\\n#].*?)$`);
+    }
+
+    /**
+     * Vérifie si une ligne est un titre principal (H2)
      * @param line - Ligne à vérifier
      * @returns true si c'est un titre principal
      */
-    static isMainTitle(line: string): boolean {
-        return ParsingConstants.MAIN_TITLE_REGEX.test(line);
-    }
+    //static isMainTitle(line: string): boolean {
+    //    return ParsingConstants.getMainTitleRegex().test(line);
+    //}
     
     /**
      * Nettoie un nom de fichier des caractères interdits

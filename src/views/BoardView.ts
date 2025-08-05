@@ -1,5 +1,5 @@
 import { FileView, TFile } from 'obsidian';
-import { BoardLayout } from '../types';
+import { BoardLayout, FileSection } from '../types';
 import { MarkdownFrame } from '../components/MarkdownFrame';
 import type AgileBoardPlugin from '../main';
 
@@ -51,15 +51,12 @@ export class BoardView extends FileView {
     this.cleanup();
 
     try {
-      // TRANSITION : Utiliser les services via le plugin
+      // Utiliser les services via le plugin
       const services = this.plugin.getServices ? this.plugin.getServices() : null;
       
       if (services) {
-        // NOUVEAU SYSTÈME : Utiliser ServiceContainer
+        console.log('🔧 Utilisation du nouveau système de services');
         await this.renderWithServices(services);
-      } else {
-        // ANCIEN SYSTÈME : Utiliser les services individuels
-        await this.renderWithLegacyServices();
       }
     } catch (error) {
       console.error('❌ Erreur dans renderBoardLayout:', error);
@@ -68,271 +65,230 @@ export class BoardView extends FileView {
   }
 
   /**
-   * NOUVEAU : Rendu avec ServiceContainer
+   * Rendu avec ServiceContainer
    */
   private async renderWithServices(services: any): Promise<void> {
-    const fileCache = this.app.metadataCache.getFileCache(this.file!);
-    const layoutName = fileCache?.frontmatter?.['agile-board'];
+    try {
+      const fileCache = this.app.metadataCache.getFileCache(this.file!);
+      const layoutName = fileCache?.frontmatter?.['agile-board'];
 
-    if (!layoutName) {
-      this.showError('Ce fichier n\'a pas de layout agile-board');
-      return;
+      if (!layoutName) {
+        this.showError('Ce fichier n\'a pas de layout agile-board');
+        return;
+      }
+
+      const layout = services.layout.getModel(layoutName);
+      if (!layout) {
+        this.showError(`Layout "${layoutName}" non trouvé`);
+        return;
+      }
+
+      const analysis = await services.file.analyzeFile(this.file!);
+      
+      // 🔧 CODE DE DEBUG - À placer ici quand les variables sont définies
+      console.log('🔍 DEBUG Layout :');
+      if (layout) {
+        console.log('📋 Sections trouvées dans le layout:');
+        layout.forEach((block, index) => {
+          console.log(`  ${index + 1}. "${block.title}" (x:${block.x}, y:${block.y}, w:${block.w}, h:${block.h})`);
+        });
+      }
+
+      console.log('🔍 DEBUG Sections dans le fichier:', analysis.existingSections);
+      if (analysis.existingSections) {
+        analysis.existingSections.forEach((section, index) => {
+          console.log(`  ${index + 1}. "${section.name}" (${section.lines?.length || 0} lignes)`);
+        });
+      }
+
+      console.log('🔍 DEBUG Correspondances:');
+      layout.forEach(block => {
+          const normalize = (str: string) => str.trim().toLowerCase();
+          analysis.existingSections.forEach(section => {
+              console.log(
+                  `[DEBUG] Compare "${normalize(section.name)}" <-> "${normalize(block.title)}"`
+              );
+          });
+          const matchingSection = analysis.existingSections.find(
+              s => normalize(s.name) === normalize(block.title)
+          );
+          console.log(`  Layout "${block.title}" → Section "${matchingSection?.name || 'NON TROUVÉE'}"`);
+          if (matchingSection) {
+              console.log('    Contenu section:', matchingSection);
+          }
+      });
+      
+      if (analysis.missingSections.length > 0) {
+        console.log('⚠️ Sections manquantes:', analysis.missingSections);
+        this.showMissingSectionsError(analysis.missingSections);
+        return;
+      }
+
+      // Convertir les ParsedSection vers le format attendu
+      const convertedSections = analysis.existingSections.map(section => ({
+        name: section.name,
+        content: section.content,
+        lines: section.lines || section.content.split('\n'),
+        startLine: section.startLine || 0,
+        endLine: section.endLine || 0,
+        isFromLayout: section.isFromLayout || true
+      }));
+
+      await this.createBoard(layout, convertedSections);
+      
+    } catch (error) {
+      console.error('❌ Erreur dans renderWithServices:', error);
+      throw error;
     }
-
-    const layout = services.layout.getModel(layoutName);
-    if (!layout) {
-      this.showError(`Layout "${layoutName}" non trouvé`);
-      return;
-    }
-
-    // Analyser le fichier
-    const analysis = await services.file.analyzeFile(this.file!);
-    
-    if (analysis.missingSections.length > 0) {
-      this.showMissingSectionsError(analysis.missingSections);
-      return;
-    }
-
-    await this.createBoard(layout, analysis.existingSections);
   }
 
-  /**
-   * ANCIEN : Rendu avec services individuels (pour compatibilité)
-   */
-  private async renderWithLegacyServices(): Promise<void> {
-    const fileCache = this.app.metadataCache.getFileCache(this.file!);
-    const layoutName = fileCache?.frontmatter?.['agile-board'];
-
-    if (!layoutName) {
-      this.showError('Ce fichier n\'a pas de layout agile-board');
-      return;
-    }
-
-    const layout = this.plugin.layoutService?.getModel(layoutName);
-    if (!layout) {
-      this.showError(`Layout "${layoutName}" non trouvé`);
-      return;
-    }
-
-    // Parser les sections avec l'ancien système
-    const sections = await this.plugin.fileService?.parseSections(this.file!);
-    if (!sections) {
-      this.showError('Impossible de parser les sections');
-      return;
-    }
-
-    // Vérifier les sections manquantes
-    const requiredSections = layout.map((block: BoardLayout) => block.title);
-    const existingSections = Object.keys(sections);
-    const missingSections = requiredSections.filter(section => 
-      !existingSections.includes(section)
-    );
-
-    if (missingSections.length > 0) {
-      this.showMissingSectionsError(missingSections);
-      return;
-    }
-
-    // Convertir pour compatibilité
-    const convertedSections = Object.entries(sections).map(([name, content]) => ({
-      name,
-      content: content as string,
-      lines: (content as string).split('\n'),
-      startLine: 0,
-      endLine: 0,
-      isFromLayout: true
-    }));
-
-    await this.createBoard(layout, convertedSections);
-  }
 
   /**
    * Crée le tableau avec les sections
    */
   private async createBoard(layout: BoardLayout[], sections: any[]): Promise<void> {
+    console.log('🏗️ Création du board avec', layout.length, 'blocs et', sections.length, 'sections');
+    this.gridContainer = null;
     this.contentEl.empty();
     
-    // Créer le conteneur principal
+    // Créer le conteneur principal - styles gérés par CSS
     this.gridContainer = this.contentEl.createDiv('agile-board-grid');
-    this.gridContainer.style.display = 'grid';
-    this.gridContainer.style.gridTemplateColumns = 'repeat(24, 1fr)';
-    this.gridContainer.style.gap = '1rem';
-    this.gridContainer.style.padding = '1rem';
+    this.gridContainer.style.cssText =` 
+      display: grid;
+      grid-template-columns: repeat(24, 1fr);
+      gap: 0.5rem;
+      padding: 1rem;
+      height: 100%;
+      overflow: auto;
+      ` ;
+    console.log('🟦 gridContainer créé:', this.gridContainer);
+    console.log('🟦 gridContainer créé (HTML):', this.gridContainer.outerHTML);
 
     // Créer les frames pour chaque section
     for (const block of layout) {
       const section = sections.find(s => s.name === block.title);
       if (section) {
         await this.createFrame(block, section);
+      } else {
+        console.warn(`⚠️ Section "${block.title}" non trouvée`);
       }
     }
-
+    
     console.log('✅ Board créé avec succès');
   }
 
   /**
- * Crée une frame pour une section
- */
+   * Crée une frame pour une section
+   */
   private async createFrame(layout: BoardLayout, section: any): Promise<void> {
-    const frameContainer = this.gridContainer!.createDiv('frame-container');
-    
-    // Appliquer le positionnement CSS Grid
-    frameContainer.style.gridColumn = `${layout.x + 1} / span ${layout.w}`;
-    frameContainer.style.gridRow = `${layout.y + 1} / span ${layout.h}`;
-    frameContainer.style.border = '1px solid var(--background-modifier-border)';
-    frameContainer.style.borderRadius = '8px';
-    frameContainer.style.backgroundColor = 'var(--background-secondary)';
-    frameContainer.style.padding = '0.5rem';
+    console.log(`🎯 Création frame pour "${layout.title}"`);
+    try {
+      const frameContainer = this.gridContainer!.createDiv('agile-board-frame');
+      
+      // Appliquer le positionnement CSS Grid
+      frameContainer.style.gridColumn = `${layout.x + 1} / span ${layout.w}`;
+      frameContainer.style.gridRow = `${layout.y + 1} / span ${layout.h}`;
+      frameContainer.style.border = '1px solid var(--background-modifier-border)';
+      frameContainer.style.minHeight = '100px';
+      frameContainer.style.display = 'flex';
+      frameContainer.style.flexDirection = 'column';
+      frameContainer.style.overflow = 'hidden'; // Empêche le contenu de déborder du cadre
 
-    // Créer le titre
-    const titleEl = frameContainer.createDiv('frame-title');
-    titleEl.textContent = layout.title;
-    titleEl.style.fontWeight = 'bold';
-    titleEl.style.marginBottom = '0.5rem';
-    titleEl.style.color = 'var(--text-accent)';
+      console.log('🟦 Frame DOM ajoutée frame:', frameContainer);
+      console.log('🟦 Frame DOM ajoutée frame (HTML):', frameContainer.outerHTML);
+      // Titre de la section
+      const titleEl = frameContainer.createDiv('frame-title');
+      titleEl.textContent = layout.title;
+      titleEl.style.fontWeight = 'bold';
+      titleEl.style.marginBottom = '0.5rem';
+      titleEl.style.borderBottom = '1px solid var(--background-modifier-border)'; // Séparateur visuel
+      titleEl.style.color = 'var(--text-accent)';
 
-    // CORRECTION : Créer la frame markdown avec les 5 paramètres requis
-    const frame = new MarkdownFrame(
-      this.app,              // 1. App instance
-      frameContainer,        // 2. Container
-      this.file!,           // 3. File
-      section,              // 4. Section
-      (content: string) => this.onFrameContentChanged(section.name, content) // 5. onChange callback
-    );
+      // 2. CRÉER UN CONTENEUR DÉDIÉ POUR LE CONTENU
+      const contentContainer = frameContainer.createDiv('frame-content');
+      // Ces styles permettent au conteneur de remplir l'espace et de défiler si nécessaire
+      contentContainer.style.flex = '1';
+      contentContainer.style.overflowY = 'auto';
+      contentContainer.style.padding = '0.5rem';
 
-    this.frames.set(layout.title, frame);
+      // Préparer l'objet FileSection pour MarkdownFrame
+      const frameSection: FileSection = {
+        start: section.startLine || 0,
+        end: section.endLine || 0,
+        lines: section.lines || section.content.split('\n'),
+        name: section.name,
+        content: section.content
+      };
+
+      console.log('🟦 Frame DOM ajoutée Section:', frameSection);
+      // Créer la MarkdownFrame
+      const frame = new MarkdownFrame(
+        this.app,              
+        contentContainer, // On passe le conteneur dédié, pas le cadre entier        
+        this.file!,           
+        frameSection,         
+        (content: string) => this.onFrameContentChanged(frameSection.name || section.name, content)
+      );
+      
+      this.frames.set(layout.title, frame);
+      console.log(`✅ Frame "${layout.title}" créée`);
+      
+    } catch (error) {
+      console.error(`❌ Erreur création frame "${layout.title}":`, error);
+      throw error;
+    }
   }
 
   /**
    * Gestionnaire de changement de contenu
    */
-  private async onFrameContentChanged(sectionName: string, content: string): Promise<void> {
+  private async onFrameContentChanged(sectionName: string, newContent: string): Promise<void> {
     try {
-      // TRANSITION : Utiliser le service approprié
+      console.log(`💾 Sauvegarde section "${sectionName}"`);
+      
       const services = this.plugin.getServices ? this.plugin.getServices() : null;
       
       if (services && services.file.updateSectionContent) {
-        // NOUVEAU SYSTÈME
-        await services.file.updateSectionContent(this.file!, sectionName, content);
-      } else if (this.plugin.fileService) {
-        // ANCIEN SYSTÈME - Méthode alternative
-        console.log('Mise à jour de section (ancien système):', sectionName);
-        // Implémentation basique pour la transition
-        await this.updateSectionLegacy(sectionName, content);
+        await services.file.updateSectionContent(this.file!, sectionName, newContent);
+      } else if (this.plugin.fileService && this.plugin.fileService.updateSectionContent) {
+        await this.plugin.fileService.updateSectionContent(this.file!, sectionName, newContent);
       }
       
-      console.log(`✅ Section "${sectionName}" mise à jour`);
     } catch (error) {
-      console.error('❌ Erreur mise à jour section:', error);
+      console.error(`❌ Erreur sauvegarde section "${sectionName}":`, error);
     }
   }
 
   /**
-   * Mise à jour de section (méthode legacy)
-   */
-  private async updateSectionLegacy(sectionName: string, content: string): Promise<void> {
-    try {
-      const fileContent = await this.app.vault.read(this.file!);
-      const lines = fileContent.split('\n');
-      const newLines: string[] = [];
-      let inTargetSection = false;
-      let sectionFound = false;
-
-      for (const line of lines) {
-        if (line.startsWith('# ')) {
-          if (inTargetSection) {
-            // Fin de la section précédente
-            newLines.push(...content.split('\n'));
-            inTargetSection = false;
-          }
-          
-          const currentSection = line.substring(2).trim();
-          if (currentSection === sectionName) {
-            inTargetSection = true;
-            sectionFound = true;
-            newLines.push(line); // Garder le titre
-            continue;
-          }
-        }
-        
-        if (!inTargetSection) {
-          newLines.push(line);
-        }
-      }
-
-      // Si on était encore dans la section à la fin
-      if (inTargetSection) {
-        newLines.push(...content.split('\n'));
-      }
-
-      if (sectionFound) {
-        await this.app.vault.modify(this.file!, newLines.join('\n'));
-      }
-    } catch (error) {
-      console.error('Erreur mise à jour legacy:', error);
-    }
-  }
-
-  /**
-   * Affiche une erreur
-   */
-  private showError(message: string): void {
-    this.contentEl.empty();
-    const errorEl = this.contentEl.createDiv('agile-board-error');
-    errorEl.style.padding = '2rem';
-    errorEl.style.textAlign = 'center';
-    errorEl.style.color = 'var(--text-error)';
-    errorEl.textContent = message;
-  }
-
-  /**
-   * Affiche l'erreur de sections manquantes avec bouton d'action
+   * Affiche une erreur avec sections manquantes
    */
   private showMissingSectionsError(missingSections: string[]): void {
     this.contentEl.empty();
+    const errorContainer = this.contentEl.createDiv('agile-board-error');
     
-    const container = this.contentEl.createDiv('missing-sections-container');
-    container.style.padding = '2rem';
-    container.style.textAlign = 'center';
-
-    const title = container.createEl('h3');
-    title.textContent = 'Sections manquantes détectées';
-    title.style.color = 'var(--text-error)';
-    title.style.marginBottom = '1rem';
-
-    const list = container.createEl('ul');
-    list.style.listStyle = 'disc';
-    list.style.textAlign = 'left';
-    list.style.display = 'inline-block';
-    list.style.marginBottom = '1.5rem';
-
-    for (const section of missingSections) {
-      const item = list.createEl('li');
-      item.textContent = section;
-      item.style.marginBottom = '0.5rem';
-    }
-
-    const button = container.createEl('button');
-    button.textContent = 'Créer les sections manquantes';
-    button.style.padding = '0.5rem 1rem';
-    button.style.backgroundColor = 'var(--interactive-accent)';
-    button.style.color = 'var(--text-on-accent)';
-    button.style.border = 'none';
-    button.style.borderRadius = '4px';
-    button.style.cursor = 'pointer';
-
+    errorContainer.createEl('h3', { text: '⚠️ Sections manquantes' });
+    errorContainer.createEl('p', { 
+      text: `Ce fichier ne contient pas toutes les sections requises :`
+    });
+    
+    const list = errorContainer.createEl('ul');
+    missingSections.forEach(section => {
+      list.createEl('li', { text: `• ${section}` });
+    });
+    
+    const button = errorContainer.createEl('button', {
+      text: '✨ Créer les sections manquantes',
+      cls: 'mod-cta'
+    });
+    
     button.addEventListener('click', async () => {
       try {
-        // TRANSITION : Utiliser le service approprié
         const services = this.plugin.getServices ? this.plugin.getServices() : null;
-        
+        console.log('🔍 DEBUG avant test services renderBoardLayout');
         if (services) {
           await services.file.createMissingSections(this.file!);
-        } else if (this.plugin.sectionManager) {
-          await this.plugin.sectionManager.createMissingSections(this.file!);
         }
-        
-        // Recharger la vue
+        console.log('🔍 DEBUG avant renderBoardLayout');
         await this.renderBoardLayout();
       } catch (error) {
         console.error('Erreur création sections:', error);
@@ -341,11 +297,23 @@ export class BoardView extends FileView {
   }
 
   /**
+   * Affiche une erreur générique
+   */
+  private showError(message: string): void {
+    this.contentEl.empty();
+    const errorEl = this.contentEl.createDiv('agile-board-error');
+    errorEl.createEl('h3', { text: '❌ Erreur' });
+    errorEl.createEl('p', { text: message });
+  }
+
+  /**
    * Nettoie les ressources
    */
   private cleanup(): void {
     this.frames.forEach(frame => frame.destroy());
     this.frames.clear();
+    this.gridContainer?.remove();
     this.gridContainer = null;
+    console.log('🔍 DEBUG cleanup');
   }
 }

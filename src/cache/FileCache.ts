@@ -22,13 +22,15 @@ export class FileCache {
         loader: () => Promise<T>
     ): Promise<T> {
         const cached = this.cache.get(key);
-        
+
         if (cached && 
             !this.isExpired(cached) && 
             cached.fileModified >= fileModified) {
+            console.log(`[FileCache] HIT pour la clé "${key}"`);
             return cached.data as T;
         }
-        
+
+        console.log(`[FileCache] MISS pour la clé "${key}", chargement...`);
         const data = await loader();
         this.set(key, data, fileModified);
         return data;
@@ -38,6 +40,7 @@ export class FileCache {
      * Stocke une valeur dans le cache
      */
     private set<T>(key: string, data: T, fileModified: number): void {
+        console.log(`[FileCache] SET clé "${key}"`);
         this.cache.set(key, {
             data,
             timestamp: Date.now(),
@@ -66,10 +69,15 @@ export class FileCache {
      */
     private cleanup(): void {
         const now = Date.now();
+        let removed = 0;
         for (const [key, cached] of this.cache) {
             if (this.isExpired(cached)) {
                 this.cache.delete(key);
+                removed++;
             }
+        }
+        if (removed > 0) {
+            console.log(`[FileCache] CLEANUP : ${removed} entrées supprimées`);
         }
     }
 
@@ -77,6 +85,7 @@ export class FileCache {
      * Invalide le cache pour une clé spécifique
      */
     invalidate(key: string): void {
+        console.log(`[FileCache] INVALIDATE clé "${key}"`);
         this.cache.delete(key);
     }
 
@@ -84,6 +93,7 @@ export class FileCache {
      * Vide complètement le cache
      */
     clear(): void {
+        console.log(`[FileCache] CLEAR`);
         this.cache.clear();
     }
 

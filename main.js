@@ -1454,8 +1454,10 @@ var _FileCache = class {
   async get(key, fileModified, loader) {
     const cached = this.cache.get(key);
     if (cached && !this.isExpired(cached) && cached.fileModified >= fileModified) {
+      console.log(`[FileCache] HIT pour la cl\xE9 "${key}"`);
       return cached.data;
     }
+    console.log(`[FileCache] MISS pour la cl\xE9 "${key}", chargement...`);
     const data = await loader();
     this.set(key, data, fileModified);
     return data;
@@ -1464,6 +1466,7 @@ var _FileCache = class {
    * Stocke une valeur dans le cache
    */
   set(key, data, fileModified) {
+    console.log(`[FileCache] SET cl\xE9 "${key}"`);
     this.cache.set(key, {
       data,
       timestamp: Date.now(),
@@ -1489,22 +1492,29 @@ var _FileCache = class {
    */
   cleanup() {
     const now = Date.now();
+    let removed = 0;
     for (const [key, cached] of this.cache) {
       if (this.isExpired(cached)) {
         this.cache.delete(key);
+        removed++;
       }
+    }
+    if (removed > 0) {
+      console.log(`[FileCache] CLEANUP : ${removed} entr\xE9es supprim\xE9es`);
     }
   }
   /**
    * Invalide le cache pour une clé spécifique
    */
   invalidate(key) {
+    console.log(`[FileCache] INVALIDATE cl\xE9 "${key}"`);
     this.cache.delete(key);
   }
   /**
    * Vide complètement le cache
    */
   clear() {
+    console.log(`[FileCache] CLEAR`);
     this.cache.clear();
   }
   /**
@@ -1562,6 +1572,85 @@ var AgileBoardError = class extends Error {
   }
 };
 
+// src/constants/parsing.ts
+var _ParsingConstants = class {
+  // ===============================================================
+  // MÉTHODES UTILITAIRES
+  // ===============================================================
+  /**
+   * Vérifie si une ligne est un titre de section
+   * @param line - Ligne à vérifier
+   * @returns true si c'est un titre de section
+   */
+  static isSectionHeader(line) {
+    return _ParsingConstants.SECTION_HEADER_REGEX.test(line);
+  }
+  /**
+   * Extrait le nom d'une section depuis une ligne de titre
+   * @param line - Ligne contenant le titre
+   * @returns Nom de la section ou null si pas trouvé
+   */
+  static extractSectionName(line) {
+    const match = line.match(_ParsingConstants.SECTION_HEADER_REGEX);
+    return match ? match[1].trim() : null;
+  }
+  /**
+   * Génère un titre de section formaté
+   * @param sectionName - Nom de la section
+   * @returns Titre formaté (ex: "## Ma Section")
+   */
+  static formatSectionHeader(sectionName) {
+    return `${"#".repeat(_ParsingConstants.SECTION_HEADER_LEVEL)} ${sectionName}`;
+  }
+  /**
+   * Génère dynamiquement la regex pour le titre principal selon le niveau
+   */
+  static getMainTitleRegex() {
+    return new RegExp(`^#{${_ParsingConstants.SECTION_HEADER_LEVEL}} ([^\\n#].*?)$`);
+  }
+  /**
+   * Vérifie si une ligne est un titre principal (H2)
+   * @param line - Ligne à vérifier
+   * @returns true si c'est un titre principal
+   */
+  //static isMainTitle(line: string): boolean {
+  //    return ParsingConstants.getMainTitleRegex().test(line);
+  //}
+  /**
+   * Nettoie un nom de fichier des caractères interdits
+   * @param fileName - Nom à nettoyer
+   * @returns Nom de fichier sécurisé
+   */
+  static sanitizeFileName(fileName) {
+    return fileName.replace(_ParsingConstants.INVALID_FILENAME_CHARS, "").replace(/\s+/g, " ").trim();
+  }
+  /**
+   * Vérifie si un fichier est un fichier markdown
+   * @param filePath - Chemin du fichier
+   * @returns true si c'est un fichier markdown
+   */
+  static isMarkdownFile(filePath) {
+    return _ParsingConstants.MARKDOWN_EXTENSIONS.some(
+      (ext) => filePath.toLowerCase().endsWith(ext)
+    );
+  }
+};
+var ParsingConstants = _ParsingConstants;
+// ===============================================================
+// CONSTANTES DE PARSING
+// ===============================================================
+/** Niveau de titre pour les sections (2 = ##) */
+ParsingConstants.SECTION_HEADER_LEVEL = 2;
+/** Regex pour détecter les titres de sections (pré-compilée pour performance) */
+ParsingConstants.SECTION_HEADER_REGEX = new RegExp(`^#{${_ParsingConstants.SECTION_HEADER_LEVEL}} ([^
+#].*?)\\s*$`);
+/** Regex pour détecter le frontmatter YAML */
+ParsingConstants.FRONTMATTER_DELIMITER = /^---\s*$/;
+/** Regex pour nettoyer les noms de fichiers */
+ParsingConstants.INVALID_FILENAME_CHARS = /[<>:"/\\|?*]/g;
+/** Extensions de fichiers markdown supportées */
+ParsingConstants.MARKDOWN_EXTENSIONS = [".md", ".markdown"];
+
 // src/services/FileService.ts
 var FileService = class {
   constructor(app, layoutService, logger) {
@@ -1584,7 +1673,7 @@ var FileService = class {
       let inTargetSection = false;
       let sectionFound = false;
       for (const line of lines) {
-        if (line.startsWith("# ")) {
+        if (ParsingConstants.SECTION_HEADER_REGEX.test(line)) {
           if (inTargetSection) {
             newLines.push(...content.split("\n"));
             inTargetSection = false;
@@ -1635,6 +1724,7 @@ var FileService = class {
    */
   async parseFileContentOriginal(file) {
     var _a, _b;
+    console.log("Parsing sections from file: fred ", file.name);
     try {
       const content = await this.app.vault.read(file);
       const lines = content.split("\n");
@@ -1642,7 +1732,7 @@ var FileService = class {
       let currentSection = "";
       let currentContent = [];
       for (const line of lines) {
-        if (line.startsWith("# ")) {
+        if (ParsingConstants.SECTION_HEADER_REGEX.test(line)) {
           if (currentSection) {
             sections[currentSection] = currentContent.join("\n").trim();
           }
@@ -1689,6 +1779,8 @@ var FileService = class {
     const sections = await this.parseSections(file);
     const existingNames = Object.keys(sections);
     const requiredSections = layout.map((block) => block.title);
+    console.log("Required sections:", requiredSections);
+    console.log("Existing sections:", existingNames);
     return {
       file,
       layoutName,
@@ -1798,9 +1890,10 @@ var FileService = class {
     const lines = content.split("\n");
     const newSections = missingSections.map((sectionName) => [
       "",
-      `# ${sectionName}`,
+      ParsingConstants.formatSectionHeader(sectionName),
+      // <-- dynamique !
       "",
-      "<!-- Ajoutez votre contenu ici -->",
+      " contenu ici ",
       ""
     ]).flat();
     return [...lines, ...newSections].join("\n");
@@ -1822,9 +1915,10 @@ var FileService = class {
       var _a;
       const customContent = ((_a = options.customContent) == null ? void 0 : _a[block.title]) || "";
       return [
-        `# ${block.title}`,
+        ParsingConstants.formatSectionHeader(block.title),
+        // Utilisation dynamique du niveau
         "",
-        customContent || "<!-- Ajoutez votre contenu ici -->",
+        customContent || " contenu ici ",
         ""
       ].join("\n");
     });
@@ -1837,7 +1931,8 @@ var FileService = class {
     ].join("\n");
   }
   async createFile(fileName, content, folder) {
-    const fullPath = folder ? `${folder}/${fileName}` : fileName;
+    const safeFileName = ParsingConstants.sanitizeFileName(fileName);
+    const fullPath = folder ? `${folder}/${safeFileName}` : safeFileName;
     if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
       await this.app.vault.createFolder(folder);
     }
@@ -2562,9 +2657,8 @@ var BoardView = class extends import_obsidian2.FileView {
     try {
       const services = this.plugin.getServices ? this.plugin.getServices() : null;
       if (services) {
+        console.log("\u{1F527} Utilisation du nouveau syst\xE8me de services");
         await this.renderWithServices(services);
-      } else {
-        await this.renderWithLegacyServices();
       }
     } catch (error) {
       console.error("\u274C Erreur dans renderBoardLayout:", error);
@@ -2572,220 +2666,191 @@ var BoardView = class extends import_obsidian2.FileView {
     }
   }
   /**
-   * NOUVEAU : Rendu avec ServiceContainer
+   * Rendu avec ServiceContainer
    */
   async renderWithServices(services) {
     var _a;
-    const fileCache = this.app.metadataCache.getFileCache(this.file);
-    const layoutName = (_a = fileCache == null ? void 0 : fileCache.frontmatter) == null ? void 0 : _a["agile-board"];
-    if (!layoutName) {
-      this.showError("Ce fichier n'a pas de layout agile-board");
-      return;
+    try {
+      const fileCache = this.app.metadataCache.getFileCache(this.file);
+      const layoutName = (_a = fileCache == null ? void 0 : fileCache.frontmatter) == null ? void 0 : _a["agile-board"];
+      if (!layoutName) {
+        this.showError("Ce fichier n'a pas de layout agile-board");
+        return;
+      }
+      const layout = services.layout.getModel(layoutName);
+      if (!layout) {
+        this.showError(`Layout "${layoutName}" non trouv\xE9`);
+        return;
+      }
+      const analysis = await services.file.analyzeFile(this.file);
+      console.log("\u{1F50D} DEBUG Layout :");
+      if (layout) {
+        console.log("\u{1F4CB} Sections trouv\xE9es dans le layout:");
+        layout.forEach((block, index) => {
+          console.log(`  ${index + 1}. "${block.title}" (x:${block.x}, y:${block.y}, w:${block.w}, h:${block.h})`);
+        });
+      }
+      console.log("\u{1F50D} DEBUG Sections dans le fichier:", analysis.existingSections);
+      if (analysis.existingSections) {
+        analysis.existingSections.forEach((section, index) => {
+          var _a2;
+          console.log(`  ${index + 1}. "${section.name}" (${((_a2 = section.lines) == null ? void 0 : _a2.length) || 0} lignes)`);
+        });
+      }
+      console.log("\u{1F50D} DEBUG Correspondances:");
+      layout.forEach((block) => {
+        const normalize = (str) => str.trim().toLowerCase();
+        analysis.existingSections.forEach((section) => {
+          console.log(
+            `[DEBUG] Compare "${normalize(section.name)}" <-> "${normalize(block.title)}"`
+          );
+        });
+        const matchingSection = analysis.existingSections.find(
+          (s) => normalize(s.name) === normalize(block.title)
+        );
+        console.log(`  Layout "${block.title}" \u2192 Section "${(matchingSection == null ? void 0 : matchingSection.name) || "NON TROUV\xC9E"}"`);
+        if (matchingSection) {
+          console.log("    Contenu section:", matchingSection);
+        }
+      });
+      if (analysis.missingSections.length > 0) {
+        console.log("\u26A0\uFE0F Sections manquantes:", analysis.missingSections);
+        this.showMissingSectionsError(analysis.missingSections);
+        return;
+      }
+      const convertedSections = analysis.existingSections.map((section) => ({
+        name: section.name,
+        content: section.content,
+        lines: section.lines || section.content.split("\n"),
+        startLine: section.startLine || 0,
+        endLine: section.endLine || 0,
+        isFromLayout: section.isFromLayout || true
+      }));
+      await this.createBoard(layout, convertedSections);
+    } catch (error) {
+      console.error("\u274C Erreur dans renderWithServices:", error);
+      throw error;
     }
-    const layout = services.layout.getModel(layoutName);
-    if (!layout) {
-      this.showError(`Layout "${layoutName}" non trouv\xE9`);
-      return;
-    }
-    const analysis = await services.file.analyzeFile(this.file);
-    if (analysis.missingSections.length > 0) {
-      this.showMissingSectionsError(analysis.missingSections);
-      return;
-    }
-    await this.createBoard(layout, analysis.existingSections);
-  }
-  /**
-   * ANCIEN : Rendu avec services individuels (pour compatibilité)
-   */
-  async renderWithLegacyServices() {
-    var _a, _b, _c;
-    const fileCache = this.app.metadataCache.getFileCache(this.file);
-    const layoutName = (_a = fileCache == null ? void 0 : fileCache.frontmatter) == null ? void 0 : _a["agile-board"];
-    if (!layoutName) {
-      this.showError("Ce fichier n'a pas de layout agile-board");
-      return;
-    }
-    const layout = (_b = this.plugin.layoutService) == null ? void 0 : _b.getModel(layoutName);
-    if (!layout) {
-      this.showError(`Layout "${layoutName}" non trouv\xE9`);
-      return;
-    }
-    const sections = await ((_c = this.plugin.fileService) == null ? void 0 : _c.parseSections(this.file));
-    if (!sections) {
-      this.showError("Impossible de parser les sections");
-      return;
-    }
-    const requiredSections = layout.map((block) => block.title);
-    const existingSections = Object.keys(sections);
-    const missingSections = requiredSections.filter(
-      (section) => !existingSections.includes(section)
-    );
-    if (missingSections.length > 0) {
-      this.showMissingSectionsError(missingSections);
-      return;
-    }
-    const convertedSections = Object.entries(sections).map(([name, content]) => ({
-      name,
-      content,
-      lines: content.split("\n"),
-      startLine: 0,
-      endLine: 0,
-      isFromLayout: true
-    }));
-    await this.createBoard(layout, convertedSections);
   }
   /**
    * Crée le tableau avec les sections
    */
   async createBoard(layout, sections) {
+    console.log("\u{1F3D7}\uFE0F Cr\xE9ation du board avec", layout.length, "blocs et", sections.length, "sections");
+    this.gridContainer = null;
     this.contentEl.empty();
     this.gridContainer = this.contentEl.createDiv("agile-board-grid");
-    this.gridContainer.style.display = "grid";
-    this.gridContainer.style.gridTemplateColumns = "repeat(24, 1fr)";
-    this.gridContainer.style.gap = "1rem";
-    this.gridContainer.style.padding = "1rem";
+    this.gridContainer.style.cssText = ` 
+      display: grid;
+      grid-template-columns: repeat(24, 1fr);
+      gap: 0.5rem;
+      padding: 1rem;
+      height: 100%;
+      overflow: auto;
+      `;
+    console.log("\u{1F7E6} gridContainer cr\xE9\xE9:", this.gridContainer);
+    console.log("\u{1F7E6} gridContainer cr\xE9\xE9 (HTML):", this.gridContainer.outerHTML);
     for (const block of layout) {
       const section = sections.find((s) => s.name === block.title);
       if (section) {
         await this.createFrame(block, section);
+      } else {
+        console.warn(`\u26A0\uFE0F Section "${block.title}" non trouv\xE9e`);
       }
     }
     console.log("\u2705 Board cr\xE9\xE9 avec succ\xE8s");
   }
   /**
-  * Crée une frame pour une section
-  */
+   * Crée une frame pour une section
+   */
   async createFrame(layout, section) {
-    const frameContainer = this.gridContainer.createDiv("frame-container");
-    frameContainer.style.gridColumn = `${layout.x + 1} / span ${layout.w}`;
-    frameContainer.style.gridRow = `${layout.y + 1} / span ${layout.h}`;
-    frameContainer.style.border = "1px solid var(--background-modifier-border)";
-    frameContainer.style.borderRadius = "8px";
-    frameContainer.style.backgroundColor = "var(--background-secondary)";
-    frameContainer.style.padding = "0.5rem";
-    const titleEl = frameContainer.createDiv("frame-title");
-    titleEl.textContent = layout.title;
-    titleEl.style.fontWeight = "bold";
-    titleEl.style.marginBottom = "0.5rem";
-    titleEl.style.color = "var(--text-accent)";
-    const frame = new MarkdownFrame(
-      this.app,
-      // 1. App instance
-      frameContainer,
-      // 2. Container
-      this.file,
-      // 3. File
-      section,
-      // 4. Section
-      (content) => this.onFrameContentChanged(section.name, content)
-      // 5. onChange callback
-    );
-    this.frames.set(layout.title, frame);
+    console.log(`\u{1F3AF} Cr\xE9ation frame pour "${layout.title}"`);
+    try {
+      const frameContainer = this.gridContainer.createDiv("agile-board-frame");
+      frameContainer.style.gridColumn = `${layout.x + 1} / span ${layout.w}`;
+      frameContainer.style.gridRow = `${layout.y + 1} / span ${layout.h}`;
+      frameContainer.style.border = "1px solid var(--background-modifier-border)";
+      frameContainer.style.minHeight = "100px";
+      frameContainer.style.display = "flex";
+      frameContainer.style.flexDirection = "column";
+      frameContainer.style.overflow = "hidden";
+      console.log("\u{1F7E6} Frame DOM ajout\xE9e frame:", frameContainer);
+      console.log("\u{1F7E6} Frame DOM ajout\xE9e frame (HTML):", frameContainer.outerHTML);
+      const titleEl = frameContainer.createDiv("frame-title");
+      titleEl.textContent = layout.title;
+      titleEl.style.fontWeight = "bold";
+      titleEl.style.marginBottom = "0.5rem";
+      titleEl.style.borderBottom = "1px solid var(--background-modifier-border)";
+      titleEl.style.color = "var(--text-accent)";
+      const contentContainer = frameContainer.createDiv("frame-content");
+      contentContainer.style.flex = "1";
+      contentContainer.style.overflowY = "auto";
+      contentContainer.style.padding = "0.5rem";
+      const frameSection = {
+        start: section.startLine || 0,
+        end: section.endLine || 0,
+        lines: section.lines || section.content.split("\n"),
+        name: section.name,
+        content: section.content
+      };
+      console.log("\u{1F7E6} Frame DOM ajout\xE9e Section:", frameSection);
+      const frame = new MarkdownFrame(
+        this.app,
+        contentContainer,
+        // On passe le conteneur dédié, pas le cadre entier        
+        this.file,
+        frameSection,
+        (content) => this.onFrameContentChanged(frameSection.name || section.name, content)
+      );
+      this.frames.set(layout.title, frame);
+      console.log(`\u2705 Frame "${layout.title}" cr\xE9\xE9e`);
+    } catch (error) {
+      console.error(`\u274C Erreur cr\xE9ation frame "${layout.title}":`, error);
+      throw error;
+    }
   }
   /**
    * Gestionnaire de changement de contenu
    */
-  async onFrameContentChanged(sectionName, content) {
+  async onFrameContentChanged(sectionName, newContent) {
     try {
+      console.log(`\u{1F4BE} Sauvegarde section "${sectionName}"`);
       const services = this.plugin.getServices ? this.plugin.getServices() : null;
       if (services && services.file.updateSectionContent) {
-        await services.file.updateSectionContent(this.file, sectionName, content);
-      } else if (this.plugin.fileService) {
-        console.log("Mise \xE0 jour de section (ancien syst\xE8me):", sectionName);
-        await this.updateSectionLegacy(sectionName, content);
+        await services.file.updateSectionContent(this.file, sectionName, newContent);
+      } else if (this.plugin.fileService && this.plugin.fileService.updateSectionContent) {
+        await this.plugin.fileService.updateSectionContent(this.file, sectionName, newContent);
       }
-      console.log(`\u2705 Section "${sectionName}" mise \xE0 jour`);
     } catch (error) {
-      console.error("\u274C Erreur mise \xE0 jour section:", error);
+      console.error(`\u274C Erreur sauvegarde section "${sectionName}":`, error);
     }
   }
   /**
-   * Mise à jour de section (méthode legacy)
-   */
-  async updateSectionLegacy(sectionName, content) {
-    try {
-      const fileContent = await this.app.vault.read(this.file);
-      const lines = fileContent.split("\n");
-      const newLines = [];
-      let inTargetSection = false;
-      let sectionFound = false;
-      for (const line of lines) {
-        if (line.startsWith("# ")) {
-          if (inTargetSection) {
-            newLines.push(...content.split("\n"));
-            inTargetSection = false;
-          }
-          const currentSection = line.substring(2).trim();
-          if (currentSection === sectionName) {
-            inTargetSection = true;
-            sectionFound = true;
-            newLines.push(line);
-            continue;
-          }
-        }
-        if (!inTargetSection) {
-          newLines.push(line);
-        }
-      }
-      if (inTargetSection) {
-        newLines.push(...content.split("\n"));
-      }
-      if (sectionFound) {
-        await this.app.vault.modify(this.file, newLines.join("\n"));
-      }
-    } catch (error) {
-      console.error("Erreur mise \xE0 jour legacy:", error);
-    }
-  }
-  /**
-   * Affiche une erreur
-   */
-  showError(message) {
-    this.contentEl.empty();
-    const errorEl = this.contentEl.createDiv("agile-board-error");
-    errorEl.style.padding = "2rem";
-    errorEl.style.textAlign = "center";
-    errorEl.style.color = "var(--text-error)";
-    errorEl.textContent = message;
-  }
-  /**
-   * Affiche l'erreur de sections manquantes avec bouton d'action
+   * Affiche une erreur avec sections manquantes
    */
   showMissingSectionsError(missingSections) {
     this.contentEl.empty();
-    const container = this.contentEl.createDiv("missing-sections-container");
-    container.style.padding = "2rem";
-    container.style.textAlign = "center";
-    const title = container.createEl("h3");
-    title.textContent = "Sections manquantes d\xE9tect\xE9es";
-    title.style.color = "var(--text-error)";
-    title.style.marginBottom = "1rem";
-    const list = container.createEl("ul");
-    list.style.listStyle = "disc";
-    list.style.textAlign = "left";
-    list.style.display = "inline-block";
-    list.style.marginBottom = "1.5rem";
-    for (const section of missingSections) {
-      const item = list.createEl("li");
-      item.textContent = section;
-      item.style.marginBottom = "0.5rem";
-    }
-    const button = container.createEl("button");
-    button.textContent = "Cr\xE9er les sections manquantes";
-    button.style.padding = "0.5rem 1rem";
-    button.style.backgroundColor = "var(--interactive-accent)";
-    button.style.color = "var(--text-on-accent)";
-    button.style.border = "none";
-    button.style.borderRadius = "4px";
-    button.style.cursor = "pointer";
+    const errorContainer = this.contentEl.createDiv("agile-board-error");
+    errorContainer.createEl("h3", { text: "\u26A0\uFE0F Sections manquantes" });
+    errorContainer.createEl("p", {
+      text: `Ce fichier ne contient pas toutes les sections requises :`
+    });
+    const list = errorContainer.createEl("ul");
+    missingSections.forEach((section) => {
+      list.createEl("li", { text: `\u2022 ${section}` });
+    });
+    const button = errorContainer.createEl("button", {
+      text: "\u2728 Cr\xE9er les sections manquantes",
+      cls: "mod-cta"
+    });
     button.addEventListener("click", async () => {
       try {
         const services = this.plugin.getServices ? this.plugin.getServices() : null;
+        console.log("\u{1F50D} DEBUG avant test services renderBoardLayout");
         if (services) {
           await services.file.createMissingSections(this.file);
-        } else if (this.plugin.sectionManager) {
-          await this.plugin.sectionManager.createMissingSections(this.file);
         }
+        console.log("\u{1F50D} DEBUG avant renderBoardLayout");
         await this.renderBoardLayout();
       } catch (error) {
         console.error("Erreur cr\xE9ation sections:", error);
@@ -2793,12 +2858,24 @@ var BoardView = class extends import_obsidian2.FileView {
     });
   }
   /**
+   * Affiche une erreur générique
+   */
+  showError(message) {
+    this.contentEl.empty();
+    const errorEl = this.contentEl.createDiv("agile-board-error");
+    errorEl.createEl("h3", { text: "\u274C Erreur" });
+    errorEl.createEl("p", { text: message });
+  }
+  /**
    * Nettoie les ressources
    */
   cleanup() {
+    var _a;
     this.frames.forEach((frame) => frame.destroy());
     this.frames.clear();
+    (_a = this.gridContainer) == null ? void 0 : _a.remove();
     this.gridContainer = null;
+    console.log("\u{1F50D} DEBUG cleanup");
   }
 };
 

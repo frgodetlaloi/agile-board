@@ -4,6 +4,7 @@ import { LoggerService } from './LoggerService';
 import { LayoutService } from './LayoutService';
 import { FileCache } from '../cache/FileCache';
 import { AgileBoardError } from '../errors/AgileBoardError';
+import { ParsingConstants } from 'src/constants/parsing';
 
 export interface ParsedSection {
     name: string;
@@ -69,7 +70,7 @@ export class FileService {
       let sectionFound = false;
 
       for (const line of lines) {
-        if (line.startsWith('# ')) {
+        if (ParsingConstants.SECTION_HEADER_REGEX.test(line)) {
           if (inTargetSection) {
             // Fin de la section précédente, ajouter le nouveau contenu
             newLines.push(...content.split('\n'));
@@ -126,6 +127,7 @@ export class FileService {
      * Parse original maintenu pour compatibilité
      */
     private async parseFileContentOriginal(file: TFile): Promise<any> {
+        console.log('Parsing sections from file: fred ', file.name);
         try {
             const content = await this.app.vault.read(file);
             const lines = content.split('\n');
@@ -134,7 +136,7 @@ export class FileService {
             let currentContent: string[] = [];
 
             for (const line of lines) {
-                if (line.startsWith('# ')) {
+                if (ParsingConstants.SECTION_HEADER_REGEX.test(line)) {
                     // Sauvegarder la section précédente
                     if (currentSection) {
                         sections[currentSection] = currentContent.join('\n').trim();
@@ -192,7 +194,8 @@ export class FileService {
         const sections = await this.parseSections(file);
         const existingNames = Object.keys(sections);
         const requiredSections = layout.map((block: BoardLayout) => block.title);
-
+        console.log('Required sections:', requiredSections);
+        console.log('Existing sections:', existingNames);
         return {
             file,
             layoutName,
@@ -323,9 +326,9 @@ export class FileService {
         const lines = content.split('\n');
         const newSections = missingSections.map(sectionName => [
             '',
-            `# ${sectionName}`,
+            ParsingConstants.formatSectionHeader(sectionName), // <-- dynamique !
             '',
-            '<!-- Ajoutez votre contenu ici -->',
+            ' contenu ici ',
             ''
         ]).flat();
 
@@ -357,9 +360,9 @@ export class FileService {
         const sections = layout.map(block => {
             const customContent = options.customContent?.[block.title] || '';
             return [
-                `# ${block.title}`,
+                ParsingConstants.formatSectionHeader(block.title), // Utilisation dynamique du niveau
                 '',
-                customContent || '<!-- Ajoutez votre contenu ici -->',
+                customContent || ' contenu ici ',
                 ''
             ].join('\n');
         });
@@ -374,7 +377,8 @@ export class FileService {
     }
 
     private async createFile(fileName: string, content: string, folder?: string): Promise<TFile> {
-        const fullPath = folder ? `${folder}/${fileName}` : fileName;
+        const safeFileName = ParsingConstants.sanitizeFileName(fileName);
+        const fullPath = folder ? `${folder}/${safeFileName}` : safeFileName;
         
         if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
             await this.app.vault.createFolder(folder);

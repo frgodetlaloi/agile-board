@@ -36,7 +36,6 @@ import { Plugin } from 'obsidian';
 import { BoardLayout, LayoutInfo } from '../types';
 
 // Import des layouts et métadonnées prédéfinis
-// ATTENTION : Chemin relatif corrigé (pas d'alias @/)
 import { BUILT_IN_LAYOUTS, LAYOUT_INFO } from '../constants/layouts';
 
 // =============================================================================
