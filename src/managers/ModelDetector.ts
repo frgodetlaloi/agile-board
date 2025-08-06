@@ -38,10 +38,8 @@
 
 // Import des types Obsidian pour la manipulation des fichiers
 import { TFile } from 'obsidian';
-
-// Import du type du plugin principal
-// ATTENTION : Utilisation du chemin relatif corrigé (pas d'alias @/)
 import type AgileBoardPlugin from '../main';
+import { LoggerService } from '../services/LoggerService';
 
 // =============================================================================
 // CLASSE PRINCIPALE DU DÉTECTEUR
@@ -80,6 +78,7 @@ export class ModelDetector {
    * - Invalidation automatique lors des modifications
    */
   private processedFiles = new Set<string>();
+  private logger: LoggerService;
 
   /**
    * CONSTRUCTEUR avec injection de dépendance
@@ -92,7 +91,9 @@ export class ModelDetector {
    * - plugin.viewSwitcher : Pour mettre à jour l'interface
    * - plugin.registerEvent : Pour l'abonnement sécurisé aux événements
    */
-  constructor(private plugin: AgileBoardPlugin) {}
+  constructor(private plugin: AgileBoardPlugin) {
+    this.logger = plugin.logger;
+  }
 
   // ===========================================================================
   // MÉTHODES DE CYCLE DE VIE
@@ -199,7 +200,7 @@ export class ModelDetector {
    * // → Les boutons de basculement apparaissent
    */
   private handleMetadataChanged(file: TFile): void {
-    console.log('📝 Métadonnées changées pour:', file.basename);
+    this.logger.info('📝 Métadonnées changées pour:', file.basename);
     this.processFile(file);
   }
 
@@ -214,7 +215,7 @@ export class ModelDetector {
    * @param file - Fichier qui vient d'être ouvert/activé
    */
   private handleFileOpen(file: TFile): void {
-    console.log('📂 Fichier ouvert:', file.basename);
+    this.logger.info('📂 Fichier ouvert:', file.basename);
     this.processFile(file);
   }
 
@@ -237,7 +238,7 @@ export class ModelDetector {
    * // et afficher les boutons appropriés
    */
   private processAllOpenFiles(): void {
-    console.log('🔍 Traitement initial de tous les fichiers ouverts...');
+    this.logger.info('🔍 Traitement initial de tous les fichiers ouverts...');
     
     // PARCOURS DE TOUS LES ONGLETS
     this.plugin.app.workspace.iterateAllLeaves((leaf) => {
@@ -300,7 +301,7 @@ export class ModelDetector {
 
     // DÉTECTION DU LAYOUT
     const hasLayout = this.hasAgileBoardLayout(file);
-    console.log(`🎯 Fichier "${file.basename}" - Layout agile-board: ${hasLayout ? 'OUI' : 'NON'}`);
+    this.logger.info(`🎯 Fichier "${file.basename}" - Layout agile-board: ${hasLayout ? 'OUI' : 'NON'}`);
   }
 
   /**
@@ -341,7 +342,7 @@ export class ModelDetector {
     // ÉTAPE 2 : Valider que le layout existe
     const layout = this.plugin.layoutService.getModel(layoutName);
     if (!layout) {
-      console.warn(`⚠️ Layout "${layoutName}" spécifié mais non trouvé`);
+      this.logger.warn(`⚠️ Layout "${layoutName}" spécifié mais non trouvé`);
       return false;
     }
 
@@ -387,7 +388,7 @@ export class ModelDetector {
       this.processedFiles.clear();
       toKeep.forEach(entry => this.processedFiles.add(entry));
       
-      console.log('🧹 Cache nettoyé: gardé 50 entrées sur', entries.length);
+      this.logger.info('🧹 Cache nettoyé: gardé 50 entrées sur', entries.length);
     }
   }
 
@@ -423,144 +424,6 @@ export class ModelDetector {
     // ÉTAPE 2 : Retraiter tous les fichiers
     this.processAllOpenFiles();
     
-    console.log('🔄 Mise à jour forcée terminée');
+    this.logger.info('🔄 Mise à jour forcée terminée');
   }
 }
-
-// =============================================================================
-// NOTES POUR LES DÉBUTANTS
-// =============================================================================
-
-/*
-CONCEPTS CLÉS À RETENIR :
-
-1. **Observer Pattern Appliqué** :
-   - Écoute passive des événements système
-   - Réaction automatique aux changements
-   - Découplage entre émetteur et récepteur
-   - Performance supérieure au polling
-
-2. **Cache Pattern pour Performance** :
-   - Évite les retraitements inutiles
-   - Clé composite avec timestamp
-   - Invalidation automatique
-   - Nettoyage préventif de la mémoire
-
-3. **Coordination de Composants** :
-   - Pont entre événements et interface
-   - Délégation à des composants spécialisés
-   - Orchestration de mises à jour complexes
-   - Séparation des responsabilités
-
-4. **Gestion d'État Événementielle** :
-   - État déduit des événements
-   - Pas de synchronisation manuelle
-   - Cohérence automatique
-   - Robustesse face aux changements
-
-CONCEPTS OBSIDIAN SPÉCIFIQUES :
-
-1. **Système d'Événements** :
-   - metadataCache.on('changed') : Modifications de frontmatter
-   - workspace.on('file-open') : Navigation fichiers
-   - workspace.on('active-leaf-change') : Changements d'onglets
-   - registerEvent() : Abonnement sécurisé
-
-2. **Métadonnées et Cache** :
-   - metadataCache : Cache global des métadonnées
-   - getFileCache() : Métadonnées d'un fichier spécifique
-   - frontmatter : Propriétés YAML du fichier
-   - Invalidation automatique lors des modifications
-
-3. **Workspace et Navigation** :
-   - activeFile : Fichier actuellement ouvert
-   - iterateAllLeaves() : Parcours des onglets
-   - leaf.view : Vue contenue dans un onglet
-   - Détection de types de vue
-
-PATTERNS DE PERFORMANCE :
-
-1. **Cache Intelligent** :
-   - Clé incluant timestamp pour invalidation
-   - Taille limitée avec nettoyage LRU
-   - Évite les calculs redondants
-   - Balance mémoire vs CPU
-
-2. **Délais Optimisés** :
-   - Courts délais pour stabilité UI
-   - Longs délais pour initialisation
-   - Évite les cascades d'événements
-   - Groupement naturel des mises à jour
-
-3. **Filtrage Efficace** :
-   - Filtre précoce des fichiers non-markdown
-   - Vérification de cache avant traitement
-   - Validation en étapes courtes
-   - Arrêt rapide des cas invalides
-
-BONNES PRATIQUES APPLIQUÉES :
-
-1. **Gestion de Cycle de Vie** :
-   - Initialisation différée et progressive
-   - Nettoyage complet des ressources
-   - Gestion des rechargements
-   - État cohérent à tout moment
-
-2. **Robustesse** :
-   - Gestion gracieuse des erreurs
-   - Warnings informatifs
-   - Continuation malgré les problèmes
-   - Récupération d'état possible
-
-3. **Observabilité** :
-   - Logs détaillés avec contexte
-   - Métriques de performance (cache)
-   - Traçabilité des opérations
-   - Facilite le débogage
-
-4. **Extensibilité** :
-   - Interface claire pour force update
-   - Séparation détection/action
-   - Facilité d'ajout d'événements
-   - Configuration flexible
-
-PATTERNS D'EXTENSION POSSIBLE :
-
-1. **Détection Avancée** :
-   - Analyse de contenu des fichiers
-   - Détection de patterns dans le texte
-   - Heuristiques de classification
-   - IA pour suggestions automatiques
-
-2. **Cache Sophistiqué** :
-   - Persistence entre sessions
-   - Stratégies de nettoyage configurables
-   - Métriques de hit/miss ratio
-   - Cache distribué pour équipes
-
-3. **Événements Personnalisés** :
-   - Émission d'événements plugin
-   - Hooks pour autres plugins
-   - Configuration des déclencheurs
-   - Filtres utilisateur
-
-DÉBOGAGE ET MONITORING :
-
-1. **Problèmes Courants** :
-   - Cache qui ne se vide pas : vérifier cleanupProcessedFiles()
-   - Événements manqués : contrôler les délais setTimeout
-   - Performance dégradée : monitorer la taille du cache
-   - Boutons incohérents : utiliser forceUpdate()
-
-2. **Métriques à Surveiller** :
-   - Taille du cache processedFiles
-   - Fréquence des événements triggered
-   - Ratio cache hit/miss
-   - Temps de traitement des fichiers
-
-3. **Outils de Debug** :
-   - forceUpdate() pour reset complet
-   - Logs console détaillés
-   - Inspection du cache via console
-   - Métriques de performance
-*/

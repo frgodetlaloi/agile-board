@@ -1695,12 +1695,12 @@ var FileService = class {
       }
       if (sectionFound) {
         await this.app.vault.modify(file, newLines.join("\n"));
-        console.log(`\u2705 Section "${sectionName}" mise \xE0 jour`);
+        this.logger.info(`\u2705 Section "${sectionName}" mise \xE0 jour`);
       } else {
-        console.warn(`\u26A0\uFE0F Section "${sectionName}" non trouv\xE9e`);
+        this.logger.warn(`\u26A0\uFE0F Section "${sectionName}" non trouv\xE9e`);
       }
     } catch (error) {
-      console.error("\u274C Erreur mise \xE0 jour section:", error);
+      this.logger.error("\u274C Erreur mise \xE0 jour section:", error);
       throw error;
     }
   }
@@ -1724,7 +1724,7 @@ var FileService = class {
    */
   async parseFileContentOriginal(file) {
     var _a, _b;
-    console.log("Parsing sections from file: fred ", file.name);
+    this.logger.info("Parsing sections from file: ", file.name);
     try {
       const content = await this.app.vault.read(file);
       const lines = content.split("\n");
@@ -1779,8 +1779,8 @@ var FileService = class {
     const sections = await this.parseSections(file);
     const existingNames = Object.keys(sections);
     const requiredSections = layout.map((block) => block.title);
-    console.log("Required sections:", requiredSections);
-    console.log("Existing sections:", existingNames);
+    this.logger.info("Required sections:", requiredSections);
+    this.logger.info("Existing sections:", existingNames);
     return {
       file,
       layoutName,
@@ -2626,7 +2626,8 @@ var BoardView = class extends import_obsidian2.FileView {
     this.gridContainer = null;
     this.frames = /* @__PURE__ */ new Map();
     this.plugin = plugin;
-    console.log("\u{1F3AF} BoardView constructor appel\xE9");
+    this.logger = plugin.logger;
+    this.logger.info("\u{1F3AF} BoardView constructor appel\xE9");
   }
   getViewType() {
     return BOARD_VIEW_TYPE;
@@ -2638,30 +2639,30 @@ var BoardView = class extends import_obsidian2.FileView {
     return "layout-grid";
   }
   async onLoadFile(file) {
-    console.log("\u{1F4C2} onLoadFile appel\xE9 pour:", file.basename);
+    this.logger.info("\u{1F4C2} onLoadFile appel\xE9 pour:", file.basename);
     await this.renderBoardLayout();
   }
   async onUnloadFile(file) {
-    console.log("\u{1F4C2} onUnloadFile appel\xE9 pour:", file.basename);
+    this.logger.info("\u{1F4C2} onUnloadFile appel\xE9 pour:", file.basename);
     this.cleanup();
   }
   // Méthode publique pour recharger le board
   async renderBoardLayout() {
-    console.log("\u{1F3A8} renderBoardLayout d\xE9but");
+    this.logger.info("\u{1F3A8} renderBoardLayout d\xE9but");
     if (!this.file) {
-      console.log("\u274C Pas de fichier dans renderBoardLayout");
+      this.logger.info("\u274C Pas de fichier dans renderBoardLayout");
       return;
     }
-    console.log("\u{1F4C4} Fichier actuel:", this.file.basename);
+    this.logger.info("\u{1F4C4} Fichier actuel:", this.file.basename);
     this.cleanup();
     try {
       const services = this.plugin.getServices ? this.plugin.getServices() : null;
       if (services) {
-        console.log("\u{1F527} Utilisation du nouveau syst\xE8me de services");
+        this.logger.info("\u{1F527} Utilisation du nouveau syst\xE8me de services");
         await this.renderWithServices(services);
       }
     } catch (error) {
-      console.error("\u274C Erreur dans renderBoardLayout:", error);
+      this.logger.error("\u274C Erreur dans renderBoardLayout:", error);
       this.showError("Erreur lors du rendu du tableau");
     }
   }
@@ -2683,38 +2684,38 @@ var BoardView = class extends import_obsidian2.FileView {
         return;
       }
       const analysis = await services.file.analyzeFile(this.file);
-      console.log("\u{1F50D} DEBUG Layout :");
+      this.logger.info("\u{1F50D} DEBUG Layout :");
       if (layout) {
         console.log("\u{1F4CB} Sections trouv\xE9es dans le layout:");
         layout.forEach((block, index) => {
-          console.log(`  ${index + 1}. "${block.title}" (x:${block.x}, y:${block.y}, w:${block.w}, h:${block.h})`);
+          this.logger.info(`  ${index + 1}. "${block.title}" (x:${block.x}, y:${block.y}, w:${block.w}, h:${block.h})`);
         });
       }
-      console.log("\u{1F50D} DEBUG Sections dans le fichier:", analysis.existingSections);
+      this.logger.info("\u{1F50D} DEBUG Sections dans le fichier:", analysis.existingSections);
       if (analysis.existingSections) {
         analysis.existingSections.forEach((section, index) => {
           var _a2;
-          console.log(`  ${index + 1}. "${section.name}" (${((_a2 = section.lines) == null ? void 0 : _a2.length) || 0} lignes)`);
+          this.logger.info(`  ${index + 1}. "${section.name}" (${((_a2 = section.lines) == null ? void 0 : _a2.length) || 0} lignes)`);
         });
       }
-      console.log("\u{1F50D} DEBUG Correspondances:");
+      this.logger.info("\u{1F50D} DEBUG Correspondances:");
       layout.forEach((block) => {
         const normalize = (str) => str.trim().toLowerCase();
         analysis.existingSections.forEach((section) => {
-          console.log(
+          this.logger.info(
             `[DEBUG] Compare "${normalize(section.name)}" <-> "${normalize(block.title)}"`
           );
         });
         const matchingSection = analysis.existingSections.find(
           (s) => normalize(s.name) === normalize(block.title)
         );
-        console.log(`  Layout "${block.title}" \u2192 Section "${(matchingSection == null ? void 0 : matchingSection.name) || "NON TROUV\xC9E"}"`);
+        this.logger.info(`  Layout "${block.title}" \u2192 Section "${(matchingSection == null ? void 0 : matchingSection.name) || "NON TROUV\xC9E"}"`);
         if (matchingSection) {
-          console.log("    Contenu section:", matchingSection);
+          this.logger.info("    Contenu section:", matchingSection);
         }
       });
       if (analysis.missingSections.length > 0) {
-        console.log("\u26A0\uFE0F Sections manquantes:", analysis.missingSections);
+        this.logger.info("\u26A0\uFE0F Sections manquantes:", analysis.missingSections);
         this.showMissingSectionsError(analysis.missingSections);
         return;
       }
@@ -2728,7 +2729,7 @@ var BoardView = class extends import_obsidian2.FileView {
       }));
       await this.createBoard(layout, convertedSections);
     } catch (error) {
-      console.error("\u274C Erreur dans renderWithServices:", error);
+      this.logger.error("\u274C Erreur dans renderWithServices:", error);
       throw error;
     }
   }
@@ -2736,7 +2737,13 @@ var BoardView = class extends import_obsidian2.FileView {
    * Crée le tableau avec les sections
    */
   async createBoard(layout, sections) {
-    console.log("\u{1F3D7}\uFE0F Cr\xE9ation du board avec", layout.length, "blocs et", sections.length, "sections");
+    this.logger.debug(
+      "\u{1F3D7}\uFE0F Cr\xE9ation du board avec ${layout.length} blocs et ${sections.length} sections",
+      {
+        layoutCount: layout.length,
+        sectionsCount: sections.length
+      }
+    );
     this.gridContainer = null;
     this.contentEl.empty();
     this.gridContainer = this.contentEl.createDiv("agile-board-grid");
@@ -2748,23 +2755,23 @@ var BoardView = class extends import_obsidian2.FileView {
       height: 100%;
       overflow: auto;
       `;
-    console.log("\u{1F7E6} gridContainer cr\xE9\xE9:", this.gridContainer);
-    console.log("\u{1F7E6} gridContainer cr\xE9\xE9 (HTML):", this.gridContainer.outerHTML);
+    this.logger.debug("\u{1F7E6} gridContainer cr\xE9\xE9:", this.gridContainer);
+    this.logger.debug("\u{1F7E6} gridContainer cr\xE9\xE9 (HTML):", this.gridContainer.outerHTML);
     for (const block of layout) {
       const section = sections.find((s) => s.name === block.title);
       if (section) {
         await this.createFrame(block, section);
       } else {
-        console.warn(`\u26A0\uFE0F Section "${block.title}" non trouv\xE9e`);
+        this.logger.warn(`\u26A0\uFE0F Section "${block.title}" non trouv\xE9e`);
       }
     }
-    console.log("\u2705 Board cr\xE9\xE9 avec succ\xE8s");
+    this.logger.info("\u2705 Board cr\xE9\xE9 avec succ\xE8s");
   }
   /**
    * Crée une frame pour une section
    */
   async createFrame(layout, section) {
-    console.log(`\u{1F3AF} Cr\xE9ation frame pour "${layout.title}"`);
+    this.logger.info(`\u{1F3AF} Cr\xE9ation frame pour "${layout.title}"`);
     try {
       const frameContainer = this.gridContainer.createDiv("agile-board-frame");
       frameContainer.style.gridColumn = `${layout.x + 1} / span ${layout.w}`;
@@ -2774,8 +2781,8 @@ var BoardView = class extends import_obsidian2.FileView {
       frameContainer.style.display = "flex";
       frameContainer.style.flexDirection = "column";
       frameContainer.style.overflow = "hidden";
-      console.log("\u{1F7E6} Frame DOM ajout\xE9e frame:", frameContainer);
-      console.log("\u{1F7E6} Frame DOM ajout\xE9e frame (HTML):", frameContainer.outerHTML);
+      this.logger.info("\u{1F7E6} Frame DOM ajout\xE9e frame:", frameContainer);
+      this.logger.info("\u{1F7E6} Frame DOM ajout\xE9e frame (HTML):", frameContainer.outerHTML);
       const titleEl = frameContainer.createDiv("frame-title");
       titleEl.textContent = layout.title;
       titleEl.style.fontWeight = "bold";
@@ -2793,7 +2800,7 @@ var BoardView = class extends import_obsidian2.FileView {
         name: section.name,
         content: section.content
       };
-      console.log("\u{1F7E6} Frame DOM ajout\xE9e Section:", frameSection);
+      this.logger.info("\u{1F7E6} Frame DOM ajout\xE9e Section:", frameSection);
       const frame = new MarkdownFrame(
         this.app,
         contentContainer,
@@ -2803,9 +2810,9 @@ var BoardView = class extends import_obsidian2.FileView {
         (content) => this.onFrameContentChanged(frameSection.name || section.name, content)
       );
       this.frames.set(layout.title, frame);
-      console.log(`\u2705 Frame "${layout.title}" cr\xE9\xE9e`);
+      this.logger.info(`\u2705 Frame "${layout.title}" cr\xE9\xE9e`);
     } catch (error) {
-      console.error(`\u274C Erreur cr\xE9ation frame "${layout.title}":`, error);
+      this.logger.error(`\u274C Erreur cr\xE9ation frame "${layout.title}":`, error);
       throw error;
     }
   }
@@ -2814,7 +2821,7 @@ var BoardView = class extends import_obsidian2.FileView {
    */
   async onFrameContentChanged(sectionName, newContent) {
     try {
-      console.log(`\u{1F4BE} Sauvegarde section "${sectionName}"`);
+      this.logger.info(`\u{1F4BE} Sauvegarde section "${sectionName}"`);
       const services = this.plugin.getServices ? this.plugin.getServices() : null;
       if (services && services.file.updateSectionContent) {
         await services.file.updateSectionContent(this.file, sectionName, newContent);
@@ -2822,7 +2829,7 @@ var BoardView = class extends import_obsidian2.FileView {
         await this.plugin.fileService.updateSectionContent(this.file, sectionName, newContent);
       }
     } catch (error) {
-      console.error(`\u274C Erreur sauvegarde section "${sectionName}":`, error);
+      this.logger.error(`\u274C Erreur sauvegarde section "${sectionName}":`, error);
     }
   }
   /**
@@ -2846,14 +2853,14 @@ var BoardView = class extends import_obsidian2.FileView {
     button.addEventListener("click", async () => {
       try {
         const services = this.plugin.getServices ? this.plugin.getServices() : null;
-        console.log("\u{1F50D} DEBUG avant test services renderBoardLayout");
+        this.logger.info("\u{1F50D} DEBUG avant test services renderBoardLayout");
         if (services) {
           await services.file.createMissingSections(this.file);
         }
-        console.log("\u{1F50D} DEBUG avant renderBoardLayout");
+        this.logger.info("\u{1F50D} DEBUG avant renderBoardLayout");
         await this.renderBoardLayout();
       } catch (error) {
-        console.error("Erreur cr\xE9ation sections:", error);
+        this.logger.error("Erreur cr\xE9ation sections:", error);
       }
     });
   }
@@ -2875,7 +2882,7 @@ var BoardView = class extends import_obsidian2.FileView {
     this.frames.clear();
     (_a = this.gridContainer) == null ? void 0 : _a.remove();
     this.gridContainer = null;
-    console.log("\u{1F50D} DEBUG cleanup");
+    this.logger.info("\u{1F50D} DEBUG cleanup");
   }
 };
 
@@ -2889,6 +2896,9 @@ var ViewSwitcher = class {
     // Délai pour éviter les appels multiples
     this.lastProcessedFile = null;
     this.lastViewType = null;
+    this.logger = plugin.logger;
+    this.addSwitchButton();
+    this.updateSwitchButton();
   }
   // ===========================================================================
   // MÉTHODES DE BASCULEMENT ENTRE VUES (CORRIGÉES)
@@ -2899,7 +2909,7 @@ var ViewSwitcher = class {
   async switchToBoardView(file) {
     const activeLeaf = this.plugin.app.workspace.activeLeaf;
     if (activeLeaf) {
-      console.log("\u{1F3AF} Basculement vers Board View pour:", file.basename);
+      this.logger.info("\u{1F3AF} Basculement vers Board View pour:", { file: file.basename });
       await activeLeaf.setViewState({
         type: BOARD_VIEW_TYPE,
         state: { file: file.path }
@@ -2913,7 +2923,7 @@ var ViewSwitcher = class {
   async switchToMarkdownView(file) {
     const activeLeaf = this.plugin.app.workspace.activeLeaf;
     if (activeLeaf) {
-      console.log("\u{1F4DD} Basculement vers Markdown View pour:", file.basename);
+      this.logger.info("\u{1F4DD} Basculement vers Markdown View pour:", { file: file.basename });
       await activeLeaf.setViewState({
         type: "markdown",
         state: { file: file.path }
@@ -2946,7 +2956,7 @@ var ViewSwitcher = class {
       const activeLeaf = this.plugin.app.workspace.activeLeaf;
       return (activeLeaf == null ? void 0 : activeLeaf.view.getViewType()) || null;
     } catch (error) {
-      console.warn("\u26A0\uFE0F Erreur lors de la d\xE9tection du type de vue:", error);
+      this.logger.warn("\u26A0\uFE0F Erreur lors de la d\xE9tection du type de vue:", error);
       return null;
     }
   }
@@ -2965,7 +2975,7 @@ var ViewSwitcher = class {
       const layout = (_b = this.plugin.layoutService) == null ? void 0 : _b.getModel(layoutName);
       return !!layout;
     } catch (error) {
-      console.warn("\u26A0\uFE0F Erreur lors de la v\xE9rification du layout:", error);
+      this.logger.warn("\u26A0\uFE0F Erreur lors de la v\xE9rification du layout:", error);
       return false;
     }
   }
@@ -3013,7 +3023,7 @@ var ViewSwitcher = class {
     this.updateTimer = window.setTimeout(() => {
       const targetFile = file || this.plugin.app.workspace.getActiveFile();
       if (targetFile) {
-        console.log(`\u{1F504} Mise \xE0 jour boutons d\xE9clench\xE9e par: ${trigger}`);
+        this.logger.info(`\u{1F504} Mise \xE0 jour boutons d\xE9clench\xE9e par: ${trigger}`);
         this.updateSwitchButtonForFile(targetFile);
       }
       this.updateTimer = null;
@@ -3025,7 +3035,7 @@ var ViewSwitcher = class {
   updateSwitchButtonForFile(file) {
     try {
       if (!file) {
-        console.log("\u26A0\uFE0F Pas de fichier pour mise \xE0 jour boutons");
+        this.logger.info("\u26A0\uFE0F Pas de fichier pour mise \xE0 jour boutons");
         this.removeSwitchButtons();
         return;
       }
@@ -3033,7 +3043,7 @@ var ViewSwitcher = class {
       const currentViewType = this.getCurrentViewType();
       const isMarkdownView = this.isCurrentViewMarkdownView();
       const isBoardView = this.isCurrentViewBoardView();
-      console.log(`\u{1F50D} \xC9tat actuel:`, {
+      this.logger.info(`\u{1F50D} \xC9tat actuel:`, {
         fileName: file.basename,
         hasLayout,
         currentViewType,
@@ -3042,29 +3052,29 @@ var ViewSwitcher = class {
       });
       const fileKey = `${file.path}-${currentViewType}`;
       if (this.lastProcessedFile === fileKey) {
-        console.log("\u23ED\uFE0F M\xEAme \xE9tat, pas de mise \xE0 jour n\xE9cessaire");
+        this.logger.info("\u23ED\uFE0F M\xEAme \xE9tat, pas de mise \xE0 jour n\xE9cessaire");
         return;
       }
       this.lastProcessedFile = fileKey;
       if (!hasLayout) {
-        console.log("\u274C Pas de layout agile-board, suppression des boutons");
+        this.logger.info("\u274C Pas de layout agile-board, suppression des boutons");
         this.removeSwitchButtons();
         return;
       }
       if (isMarkdownView && currentViewType === "markdown") {
-        console.log("\u{1F4DD} Vue Markdown d\xE9tect\xE9e \u2192 Afficher bouton Board");
+        this.logger.info("\u{1F4DD} Vue Markdown d\xE9tect\xE9e \u2192 Afficher bouton Board");
         this.removeSwitchButtons();
         setTimeout(() => this.ensureBoardModeButton(), 50);
       } else if (isBoardView && currentViewType === BOARD_VIEW_TYPE) {
-        console.log("\u{1F4CA} Vue Board d\xE9tect\xE9e \u2192 Afficher bouton Markdown");
+        this.logger.info("\u{1F4CA} Vue Board d\xE9tect\xE9e \u2192 Afficher bouton Markdown");
         this.removeSwitchButtons();
         setTimeout(() => this.ensureNormalModeButton(), 50);
       } else {
-        console.log(`\u2753 Vue non reconnue (${currentViewType}) \u2192 Supprimer boutons`);
+        this.logger.info(`\u2753 Vue non reconnue (${currentViewType}) \u2192 Supprimer boutons`);
         this.removeSwitchButtons();
       }
     } catch (error) {
-      console.error("\u274C Erreur lors de la mise \xE0 jour des boutons:", error);
+      this.logger.error("\u274C Erreur lors de la mise \xE0 jour des boutons:", error);
       this.removeSwitchButtons();
     }
   }
@@ -3085,23 +3095,23 @@ var ViewSwitcher = class {
     try {
       const markdownView = this.plugin.app.workspace.getActiveViewOfType(import_obsidian3.MarkdownView);
       if (!markdownView) {
-        console.log("\u26A0\uFE0F Pas de vue Markdown active pour ajouter le bouton Board");
+        this.logger.info("\u26A0\uFE0F Pas de vue Markdown active pour ajouter le bouton Board");
         return;
       }
       const viewActions = markdownView.containerEl.querySelector(".view-actions");
       if (!viewActions) {
-        console.log("\u26A0\uFE0F Zone view-actions non trouv\xE9e");
+        this.logger.info("\u26A0\uFE0F Zone view-actions non trouv\xE9e");
         return;
       }
       const existingButton = viewActions.querySelector(".agile-board-switch-button");
       if (existingButton) {
-        console.log("\u{1F9F9} Suppression bouton existant");
+        this.logger.info("\u{1F9F9} Suppression bouton existant");
         existingButton.remove();
       }
       const button = markdownView.addAction("layout-grid", "Basculer vers la vue Board", () => {
         const activeFile = this.plugin.app.workspace.getActiveFile();
         if (activeFile) {
-          console.log("\u{1F3AF} Clic bouton Board \u2192 Basculement");
+          this.logger.info("\u{1F3AF} Clic bouton Board \u2192 Basculement");
           this.switchToBoardView(activeFile);
         }
       });
@@ -3114,9 +3124,9 @@ var ViewSwitcher = class {
         border-radius: 3px;
         opacity: 1;
       `;
-      console.log("\u2705 Bouton Mode Board ajout\xE9");
+      this.logger.info("\u2705 Bouton Mode Board ajout\xE9");
     } catch (error) {
-      console.error("\u274C Erreur lors de l'ajout du bouton Mode Board:", error);
+      this.logger.error("\u274C Erreur lors de l'ajout du bouton Mode Board:", error);
     }
   }
   /**
@@ -3126,23 +3136,23 @@ var ViewSwitcher = class {
     try {
       const boardView = this.plugin.app.workspace.getActiveViewOfType(BoardView);
       if (!boardView) {
-        console.log("\u26A0\uFE0F Pas de vue Board active pour ajouter le bouton Markdown");
+        this.logger.info("\u26A0\uFE0F Pas de vue Board active pour ajouter le bouton Markdown");
         return;
       }
       const viewActions = boardView.containerEl.querySelector(".view-actions");
       if (!viewActions) {
-        console.log("\u26A0\uFE0F Zone view-actions non trouv\xE9e dans BoardView");
+        this.logger.info("\u26A0\uFE0F Zone view-actions non trouv\xE9e dans BoardView");
         return;
       }
       const existingButton = viewActions.querySelector(".agile-board-switch-button");
       if (existingButton) {
-        console.log("\u{1F9F9} Suppression bouton existant");
+        this.logger.info("\u{1F9F9} Suppression bouton existant");
         existingButton.remove();
       }
       const button = boardView.addAction("document", "Basculer vers la vue Markdown", () => {
         const activeFile = this.plugin.app.workspace.getActiveFile();
         if (activeFile) {
-          console.log("\u{1F4DD} Clic bouton Markdown \u2192 Basculement");
+          this.logger.info("\u{1F4DD} Clic bouton Markdown \u2192 Basculement");
           this.switchToMarkdownView(activeFile);
         }
       });
@@ -3155,9 +3165,9 @@ var ViewSwitcher = class {
         border-radius: 3px;
         opacity: 1;
       `;
-      console.log("\u2705 Bouton Mode Markdown ajout\xE9");
+      this.logger.info("\u2705 Bouton Mode Markdown ajout\xE9");
     } catch (error) {
-      console.error("\u274C Erreur lors de l'ajout du bouton Mode Markdown:", error);
+      this.logger.error("\u274C Erreur lors de l'ajout du bouton Mode Markdown:", error);
     }
   }
   /**
@@ -3167,7 +3177,7 @@ var ViewSwitcher = class {
     try {
       const buttons = document.querySelectorAll(".agile-board-switch-button");
       buttons.forEach((button) => {
-        console.log("\u{1F5D1}\uFE0F Suppression bouton trouv\xE9");
+        this.logger.info("\u{1F5D1}\uFE0F Suppression bouton trouv\xE9");
         button.remove();
       });
       const views = [
@@ -3182,7 +3192,7 @@ var ViewSwitcher = class {
         }
       });
     } catch (error) {
-      console.error("\u274C Erreur lors de la suppression des boutons:", error);
+      this.logger.error("\u274C Erreur lors de la suppression des boutons:", error);
     }
   }
   // ===========================================================================
@@ -3192,7 +3202,7 @@ var ViewSwitcher = class {
    * Force une mise à jour complète (pour le debugging)
    */
   forceUpdate() {
-    console.log("\u{1F504} Force update des boutons ViewSwitcher");
+    this.logger.info("\u{1F504} Force update des boutons ViewSwitcher");
     this.lastProcessedFile = null;
     if (this.updateTimer) {
       clearTimeout(this.updateTimer);
@@ -3224,7 +3234,7 @@ var ViewSwitcher = class {
    * Nettoie les ressources utilisées par le ViewSwitcher
    */
   stop() {
-    console.log("\u{1F6D1} Arr\xEAt du ViewSwitcher");
+    this.logger.info("\u{1F6D1} Arr\xEAt du ViewSwitcher");
     if (this.updateTimer) {
       clearTimeout(this.updateTimer);
       this.updateTimer = null;
@@ -3265,6 +3275,7 @@ var ModelDetector = class {
      * - Invalidation automatique lors des modifications
      */
     this.processedFiles = /* @__PURE__ */ new Set();
+    this.logger = plugin.logger;
   }
   // ===========================================================================
   // MÉTHODES DE CYCLE DE VIE
@@ -3355,7 +3366,7 @@ var ModelDetector = class {
    * // → Les boutons de basculement apparaissent
    */
   handleMetadataChanged(file) {
-    console.log("\u{1F4DD} M\xE9tadonn\xE9es chang\xE9es pour:", file.basename);
+    this.logger.info("\u{1F4DD} M\xE9tadonn\xE9es chang\xE9es pour:", file.basename);
     this.processFile(file);
   }
   /**
@@ -3369,7 +3380,7 @@ var ModelDetector = class {
    * @param file - Fichier qui vient d'être ouvert/activé
    */
   handleFileOpen(file) {
-    console.log("\u{1F4C2} Fichier ouvert:", file.basename);
+    this.logger.info("\u{1F4C2} Fichier ouvert:", file.basename);
     this.processFile(file);
   }
   /**
@@ -3391,7 +3402,7 @@ var ModelDetector = class {
    * // et afficher les boutons appropriés
    */
   processAllOpenFiles() {
-    console.log("\u{1F50D} Traitement initial de tous les fichiers ouverts...");
+    this.logger.info("\u{1F50D} Traitement initial de tous les fichiers ouverts...");
     this.plugin.app.workspace.iterateAllLeaves((leaf) => {
       const view = leaf.view;
       if (view.getViewType() === "markdown" && view.file) {
@@ -3438,7 +3449,7 @@ var ModelDetector = class {
     this.processedFiles.add(fileKey);
     this.cleanupProcessedFiles();
     const hasLayout = this.hasAgileBoardLayout(file);
-    console.log(`\u{1F3AF} Fichier "${file.basename}" - Layout agile-board: ${hasLayout ? "OUI" : "NON"}`);
+    this.logger.info(`\u{1F3AF} Fichier "${file.basename}" - Layout agile-board: ${hasLayout ? "OUI" : "NON"}`);
   }
   /**
    * Vérifie si un fichier a un layout agile-board valide
@@ -3475,7 +3486,7 @@ var ModelDetector = class {
       return false;
     const layout = this.plugin.layoutService.getModel(layoutName);
     if (!layout) {
-      console.warn(`\u26A0\uFE0F Layout "${layoutName}" sp\xE9cifi\xE9 mais non trouv\xE9`);
+      this.logger.warn(`\u26A0\uFE0F Layout "${layoutName}" sp\xE9cifi\xE9 mais non trouv\xE9`);
       return false;
     }
     return true;
@@ -3511,7 +3522,7 @@ var ModelDetector = class {
       const toKeep = entries.slice(-50);
       this.processedFiles.clear();
       toKeep.forEach((entry) => this.processedFiles.add(entry));
-      console.log("\u{1F9F9} Cache nettoy\xE9: gard\xE9 50 entr\xE9es sur", entries.length);
+      this.logger.info("\u{1F9F9} Cache nettoy\xE9: gard\xE9 50 entr\xE9es sur", entries.length);
     }
   }
   // ===========================================================================
@@ -3541,7 +3552,7 @@ var ModelDetector = class {
   forceUpdate() {
     this.processedFiles.clear();
     this.processAllOpenFiles();
-    console.log("\u{1F504} Mise \xE0 jour forc\xE9e termin\xE9e");
+    this.logger.info("\u{1F504} Mise \xE0 jour forc\xE9e termin\xE9e");
   }
 };
 

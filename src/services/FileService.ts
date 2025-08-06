@@ -98,12 +98,12 @@ export class FileService {
 
       if (sectionFound) {
         await this.app.vault.modify(file, newLines.join('\n'));
-        console.log(`✅ Section "${sectionName}" mise à jour`);
+        this.logger.info(`✅ Section "${sectionName}" mise à jour`);
       } else {
-        console.warn(`⚠️ Section "${sectionName}" non trouvée`);
+        this.logger.warn(`⚠️ Section "${sectionName}" non trouvée`);
       }
     } catch (error) {
-      console.error('❌ Erreur mise à jour section:', error);
+      this.logger.error('❌ Erreur mise à jour section:', error);
       throw error;
     }
   }
@@ -127,7 +127,7 @@ export class FileService {
      * Parse original maintenu pour compatibilité
      */
     private async parseFileContentOriginal(file: TFile): Promise<any> {
-        console.log('Parsing sections from file: fred ', file.name);
+        this.logger.info('Parsing sections from file: ', file.name);
         try {
             const content = await this.app.vault.read(file);
             const lines = content.split('\n');
@@ -194,8 +194,8 @@ export class FileService {
         const sections = await this.parseSections(file);
         const existingNames = Object.keys(sections);
         const requiredSections = layout.map((block: BoardLayout) => block.title);
-        console.log('Required sections:', requiredSections);
-        console.log('Existing sections:', existingNames);
+        this.logger.info('Required sections:', requiredSections);
+        this.logger.info('Existing sections:', existingNames);
         return {
             file,
             layoutName,

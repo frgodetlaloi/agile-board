@@ -2,6 +2,7 @@ import { FileView, TFile } from 'obsidian';
 import { BoardLayout, FileSection } from '../types';
 import { MarkdownFrame } from '../components/MarkdownFrame';
 import type AgileBoardPlugin from '../main';
+import { LoggerService } from '../services/LoggerService';
 
 export const BOARD_VIEW_TYPE = 'agile-board-view';
 
@@ -9,11 +10,13 @@ export class BoardView extends FileView {
   private plugin: AgileBoardPlugin;
   private gridContainer: HTMLElement | null = null;
   private frames = new Map<string, MarkdownFrame>();
+  private logger: LoggerService;
 
   constructor(leaf: any, plugin: AgileBoardPlugin) {
     super(leaf);
     this.plugin = plugin;
-    console.log('🎯 BoardView constructor appelé');
+    this.logger = plugin.logger;
+    this.logger.info('🎯 BoardView constructor appelé');
   }
 
   getViewType(): string {
@@ -29,25 +32,25 @@ export class BoardView extends FileView {
   }
 
   async onLoadFile(file: TFile): Promise<void> {
-    console.log('📂 onLoadFile appelé pour:', file.basename);
+    this.logger.info('📂 onLoadFile appelé pour:', file.basename);
     await this.renderBoardLayout();
   }
 
   async onUnloadFile(file: TFile): Promise<void> {
-    console.log('📂 onUnloadFile appelé pour:', file.basename);
+    this.logger.info('📂 onUnloadFile appelé pour:', file.basename);
     this.cleanup();
   }
 
   // Méthode publique pour recharger le board
   async renderBoardLayout(): Promise<void> {
-    console.log('🎨 renderBoardLayout début');
+    this.logger.info('🎨 renderBoardLayout début');
     
     if (!this.file) {
-      console.log('❌ Pas de fichier dans renderBoardLayout');
+      this.logger.info('❌ Pas de fichier dans renderBoardLayout');
       return;
     }
 
-    console.log('📄 Fichier actuel:', this.file.basename);
+    this.logger.info('📄 Fichier actuel:', this.file.basename);
     this.cleanup();
 
     try {
@@ -55,11 +58,11 @@ export class BoardView extends FileView {
       const services = this.plugin.getServices ? this.plugin.getServices() : null;
       
       if (services) {
-        console.log('🔧 Utilisation du nouveau système de services');
+        this.logger.info('🔧 Utilisation du nouveau système de services');
         await this.renderWithServices(services);
       }
     } catch (error) {
-      console.error('❌ Erreur dans renderBoardLayout:', error);
+      this.logger.error('❌ Erreur dans renderBoardLayout:', error);
       this.showError('Erreur lors du rendu du tableau');
     }
   }
@@ -86,40 +89,40 @@ export class BoardView extends FileView {
       const analysis = await services.file.analyzeFile(this.file!);
       
       // 🔧 CODE DE DEBUG - À placer ici quand les variables sont définies
-      console.log('🔍 DEBUG Layout :');
+      this.logger.info('🔍 DEBUG Layout :');
       if (layout) {
         console.log('📋 Sections trouvées dans le layout:');
         layout.forEach((block, index) => {
-          console.log(`  ${index + 1}. "${block.title}" (x:${block.x}, y:${block.y}, w:${block.w}, h:${block.h})`);
+          this.logger.info(`  ${index + 1}. "${block.title}" (x:${block.x}, y:${block.y}, w:${block.w}, h:${block.h})`);
         });
       }
 
-      console.log('🔍 DEBUG Sections dans le fichier:', analysis.existingSections);
+      this.logger.info('🔍 DEBUG Sections dans le fichier:', analysis.existingSections);
       if (analysis.existingSections) {
         analysis.existingSections.forEach((section, index) => {
-          console.log(`  ${index + 1}. "${section.name}" (${section.lines?.length || 0} lignes)`);
+          this.logger.info(`  ${index + 1}. "${section.name}" (${section.lines?.length || 0} lignes)`);
         });
       }
 
-      console.log('🔍 DEBUG Correspondances:');
+      this.logger.info('🔍 DEBUG Correspondances:');
       layout.forEach(block => {
           const normalize = (str: string) => str.trim().toLowerCase();
           analysis.existingSections.forEach(section => {
-              console.log(
+              this.logger.info(
                   `[DEBUG] Compare "${normalize(section.name)}" <-> "${normalize(block.title)}"`
               );
           });
           const matchingSection = analysis.existingSections.find(
               s => normalize(s.name) === normalize(block.title)
           );
-          console.log(`  Layout "${block.title}" → Section "${matchingSection?.name || 'NON TROUVÉE'}"`);
+          this.logger.info(`  Layout "${block.title}" → Section "${matchingSection?.name || 'NON TROUVÉE'}"`);
           if (matchingSection) {
-              console.log('    Contenu section:', matchingSection);
+              this.logger.info('    Contenu section:', matchingSection);
           }
       });
       
       if (analysis.missingSections.length > 0) {
-        console.log('⚠️ Sections manquantes:', analysis.missingSections);
+        this.logger.info('⚠️ Sections manquantes:', analysis.missingSections);
         this.showMissingSectionsError(analysis.missingSections);
         return;
       }
@@ -137,7 +140,7 @@ export class BoardView extends FileView {
       await this.createBoard(layout, convertedSections);
       
     } catch (error) {
-      console.error('❌ Erreur dans renderWithServices:', error);
+      this.logger.error('❌ Erreur dans renderWithServices:', error);
       throw error;
     }
   }
@@ -147,7 +150,12 @@ export class BoardView extends FileView {
    * Crée le tableau avec les sections
    */
   private async createBoard(layout: BoardLayout[], sections: any[]): Promise<void> {
-    console.log('🏗️ Création du board avec', layout.length, 'blocs et', sections.length, 'sections');
+    this.logger.debug('🏗️ Création du board avec ${layout.length} blocs et ${sections.length} sections',
+      {
+        layoutCount: layout.length,
+        sectionsCount: sections.length
+      }
+    );
     this.gridContainer = null;
     this.contentEl.empty();
     
@@ -161,8 +169,8 @@ export class BoardView extends FileView {
       height: 100%;
       overflow: auto;
       ` ;
-    console.log('🟦 gridContainer créé:', this.gridContainer);
-    console.log('🟦 gridContainer créé (HTML):', this.gridContainer.outerHTML);
+    this.logger.debug('🟦 gridContainer créé:', this.gridContainer);
+    this.logger.debug('🟦 gridContainer créé (HTML):', this.gridContainer.outerHTML);
 
     // Créer les frames pour chaque section
     for (const block of layout) {
@@ -170,18 +178,18 @@ export class BoardView extends FileView {
       if (section) {
         await this.createFrame(block, section);
       } else {
-        console.warn(`⚠️ Section "${block.title}" non trouvée`);
+        this.logger.warn(`⚠️ Section "${block.title}" non trouvée`);
       }
     }
     
-    console.log('✅ Board créé avec succès');
+    this.logger.info('✅ Board créé avec succès');
   }
 
   /**
    * Crée une frame pour une section
    */
   private async createFrame(layout: BoardLayout, section: any): Promise<void> {
-    console.log(`🎯 Création frame pour "${layout.title}"`);
+    this.logger.info(`🎯 Création frame pour "${layout.title}"`);
     try {
       const frameContainer = this.gridContainer!.createDiv('agile-board-frame');
       
@@ -194,8 +202,8 @@ export class BoardView extends FileView {
       frameContainer.style.flexDirection = 'column';
       frameContainer.style.overflow = 'hidden'; // Empêche le contenu de déborder du cadre
 
-      console.log('🟦 Frame DOM ajoutée frame:', frameContainer);
-      console.log('🟦 Frame DOM ajoutée frame (HTML):', frameContainer.outerHTML);
+      this.logger.info('🟦 Frame DOM ajoutée frame:', frameContainer);
+      this.logger.info('🟦 Frame DOM ajoutée frame (HTML):', frameContainer.outerHTML);
       // Titre de la section
       const titleEl = frameContainer.createDiv('frame-title');
       titleEl.textContent = layout.title;
@@ -220,7 +228,7 @@ export class BoardView extends FileView {
         content: section.content
       };
 
-      console.log('🟦 Frame DOM ajoutée Section:', frameSection);
+      this.logger.info('🟦 Frame DOM ajoutée Section:', frameSection);
       // Créer la MarkdownFrame
       const frame = new MarkdownFrame(
         this.app,              
@@ -231,10 +239,10 @@ export class BoardView extends FileView {
       );
       
       this.frames.set(layout.title, frame);
-      console.log(`✅ Frame "${layout.title}" créée`);
+      this.logger.info(`✅ Frame "${layout.title}" créée`);
       
     } catch (error) {
-      console.error(`❌ Erreur création frame "${layout.title}":`, error);
+      this.logger.error(`❌ Erreur création frame "${layout.title}":`, error);
       throw error;
     }
   }
@@ -244,7 +252,7 @@ export class BoardView extends FileView {
    */
   private async onFrameContentChanged(sectionName: string, newContent: string): Promise<void> {
     try {
-      console.log(`💾 Sauvegarde section "${sectionName}"`);
+      this.logger.info(`💾 Sauvegarde section "${sectionName}"`);
       
       const services = this.plugin.getServices ? this.plugin.getServices() : null;
       
@@ -255,7 +263,7 @@ export class BoardView extends FileView {
       }
       
     } catch (error) {
-      console.error(`❌ Erreur sauvegarde section "${sectionName}":`, error);
+      this.logger.error(`❌ Erreur sauvegarde section "${sectionName}":`, error);
     }
   }
 
@@ -284,14 +292,14 @@ export class BoardView extends FileView {
     button.addEventListener('click', async () => {
       try {
         const services = this.plugin.getServices ? this.plugin.getServices() : null;
-        console.log('🔍 DEBUG avant test services renderBoardLayout');
+        this.logger.info('🔍 DEBUG avant test services renderBoardLayout');
         if (services) {
           await services.file.createMissingSections(this.file!);
         }
-        console.log('🔍 DEBUG avant renderBoardLayout');
+        this.logger.info('🔍 DEBUG avant renderBoardLayout');
         await this.renderBoardLayout();
       } catch (error) {
-        console.error('Erreur création sections:', error);
+        this.logger.error('Erreur création sections:', error);
       }
     });
   }
@@ -314,6 +322,6 @@ export class BoardView extends FileView {
     this.frames.clear();
     this.gridContainer?.remove();
     this.gridContainer = null;
-    console.log('🔍 DEBUG cleanup');
+    this.logger.info('🔍 DEBUG cleanup');
   }
 }

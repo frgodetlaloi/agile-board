@@ -1,6 +1,7 @@
 import { MarkdownView } from 'obsidian';
 import { BoardView, BOARD_VIEW_TYPE } from '../views/BoardView';
 import type AgileBoardPlugin from '../main';
+import { LoggerService } from '../services/LoggerService'; 
 
 /**
  * Gestionnaire de basculement entre vues - VERSION CORRIGÉE
@@ -17,8 +18,13 @@ export class ViewSwitcher {
   private readonly DEBOUNCE_DELAY = 150; // Délai pour éviter les appels multiples
   private lastProcessedFile: string | null = null;
   private lastViewType: string | null = null;
+  private logger: LoggerService;
 
-  constructor(private plugin: AgileBoardPlugin) {}
+  constructor(private plugin: AgileBoardPlugin) {
+    this.logger = plugin.logger;
+    this.addSwitchButton(); // Initialisation des boutons FRED
+    this.updateSwitchButton(); // Mise à jour initiale FRED
+  }
 
   // ===========================================================================
   // MÉTHODES DE BASCULEMENT ENTRE VUES (CORRIGÉES)
@@ -31,7 +37,7 @@ export class ViewSwitcher {
     const activeLeaf = this.plugin.app.workspace.activeLeaf;
     
     if (activeLeaf) {
-      console.log('🎯 Basculement vers Board View pour:', file.basename);
+      this.logger.info('🎯 Basculement vers Board View pour:', {file: file.basename});
       
       await activeLeaf.setViewState({
         type: BOARD_VIEW_TYPE,
@@ -50,7 +56,7 @@ export class ViewSwitcher {
     const activeLeaf = this.plugin.app.workspace.activeLeaf;
     
     if (activeLeaf) {
-      console.log('📝 Basculement vers Markdown View pour:', file.basename);
+      this.logger.info('📝 Basculement vers Markdown View pour:', {file: file.basename});
       
       await activeLeaf.setViewState({
         type: 'markdown',
@@ -90,7 +96,7 @@ export class ViewSwitcher {
       const activeLeaf = this.plugin.app.workspace.activeLeaf;
       return activeLeaf?.view.getViewType() || null;
     } catch (error) {
-      console.warn('⚠️ Erreur lors de la détection du type de vue:', error);
+      this.logger.warn('⚠️ Erreur lors de la détection du type de vue:', error);
       return null;
     }
   }
@@ -111,7 +117,7 @@ export class ViewSwitcher {
       const layout = this.plugin.layoutService?.getModel(layoutName);
       return !!layout;
     } catch (error) {
-      console.warn('⚠️ Erreur lors de la vérification du layout:', error);
+      this.logger.warn('⚠️ Erreur lors de la vérification du layout:', error);
       return false;
     }
   }
@@ -173,7 +179,7 @@ export class ViewSwitcher {
     this.updateTimer = window.setTimeout(() => {
       const targetFile = file || this.plugin.app.workspace.getActiveFile();
       if (targetFile) {
-        console.log(`🔄 Mise à jour boutons déclenchée par: ${trigger}`);
+        this.logger.info(`🔄 Mise à jour boutons déclenchée par: ${trigger}`);
         this.updateSwitchButtonForFile(targetFile);
       }
       this.updateTimer = null;
@@ -186,7 +192,7 @@ export class ViewSwitcher {
   updateSwitchButtonForFile(file: any): void {
     try {
       if (!file) {
-        console.log('⚠️ Pas de fichier pour mise à jour boutons');
+        this.logger.info('⚠️ Pas de fichier pour mise à jour boutons');
         this.removeSwitchButtons();
         return;
       }
@@ -197,7 +203,7 @@ export class ViewSwitcher {
       const isMarkdownView = this.isCurrentViewMarkdownView();
       const isBoardView = this.isCurrentViewBoardView();
 
-      console.log(`🔍 État actuel:`, {
+      this.logger.info(`🔍 État actuel:`, {
         fileName: file.basename,
         hasLayout,
         currentViewType,
@@ -208,33 +214,33 @@ export class ViewSwitcher {
       // Mettre en cache pour éviter les updates redondants
       const fileKey = `${file.path}-${currentViewType}`;
       if (this.lastProcessedFile === fileKey) {
-        console.log('⏭️ Même état, pas de mise à jour nécessaire');
+        this.logger.info('⏭️ Même état, pas de mise à jour nécessaire');
         return;
       }
       this.lastProcessedFile = fileKey;
 
       if (!hasLayout) {
-        console.log('❌ Pas de layout agile-board, suppression des boutons');
+        this.logger.info('❌ Pas de layout agile-board, suppression des boutons');
         this.removeSwitchButtons();
         return;
       }
 
       // LOGIQUE PRINCIPALE : Afficher le bon bouton selon la vue
       if (isMarkdownView && currentViewType === 'markdown') {
-        console.log('📝 Vue Markdown détectée → Afficher bouton Board');
+        this.logger.info('📝 Vue Markdown détectée → Afficher bouton Board');
         this.removeSwitchButtons(); // Nettoyer d'abord
         setTimeout(() => this.ensureBoardModeButton(), 50);
       } else if (isBoardView && currentViewType === BOARD_VIEW_TYPE) {
-        console.log('📊 Vue Board détectée → Afficher bouton Markdown');
+        this.logger.info('📊 Vue Board détectée → Afficher bouton Markdown');
         this.removeSwitchButtons(); // Nettoyer d'abord
         setTimeout(() => this.ensureNormalModeButton(), 50);
       } else {
-        console.log(`❓ Vue non reconnue (${currentViewType}) → Supprimer boutons`);
+        this.logger.info(`❓ Vue non reconnue (${currentViewType}) → Supprimer boutons`);
         this.removeSwitchButtons();
       }
 
     } catch (error) {
-      console.error('❌ Erreur lors de la mise à jour des boutons:', error);
+      this.logger.error('❌ Erreur lors de la mise à jour des boutons:', error);
       this.removeSwitchButtons(); // Sécurité : nettoyer en cas d'erreur
     }
   }
@@ -258,20 +264,20 @@ export class ViewSwitcher {
     try {
       const markdownView = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
       if (!markdownView) {
-        console.log('⚠️ Pas de vue Markdown active pour ajouter le bouton Board');
+        this.logger.info('⚠️ Pas de vue Markdown active pour ajouter le bouton Board');
         return;
       }
 
       const viewActions = markdownView.containerEl.querySelector('.view-actions');
       if (!viewActions) {
-        console.log('⚠️ Zone view-actions non trouvée');
+        this.logger.info('⚠️ Zone view-actions non trouvée');
         return;
       }
 
       // Nettoyer les boutons existants
       const existingButton = viewActions.querySelector('.agile-board-switch-button');
       if (existingButton) {
-        console.log('🧹 Suppression bouton existant');
+        this.logger.info('🧹 Suppression bouton existant');
         existingButton.remove();
       }
 
@@ -279,7 +285,7 @@ export class ViewSwitcher {
       const button = markdownView.addAction('layout-grid', 'Basculer vers la vue Board', () => {
         const activeFile = this.plugin.app.workspace.getActiveFile();
         if (activeFile) {
-          console.log('🎯 Clic bouton Board → Basculement');
+          this.logger.info('🎯 Clic bouton Board → Basculement');
           this.switchToBoardView(activeFile);
         }
       });
@@ -296,10 +302,10 @@ export class ViewSwitcher {
         opacity: 1;
       `;
       
-      console.log('✅ Bouton Mode Board ajouté');
+      this.logger.info('✅ Bouton Mode Board ajouté');
       
     } catch (error) {
-      console.error('❌ Erreur lors de l\'ajout du bouton Mode Board:', error);
+      this.logger.error('❌ Erreur lors de l\'ajout du bouton Mode Board:', error);
     }
   }
 
@@ -310,20 +316,20 @@ export class ViewSwitcher {
     try {
       const boardView = this.plugin.app.workspace.getActiveViewOfType(BoardView);
       if (!boardView) {
-        console.log('⚠️ Pas de vue Board active pour ajouter le bouton Markdown');
+        this.logger.info('⚠️ Pas de vue Board active pour ajouter le bouton Markdown');
         return;
       }
 
       const viewActions = boardView.containerEl.querySelector('.view-actions');
       if (!viewActions) {
-        console.log('⚠️ Zone view-actions non trouvée dans BoardView');
+        this.logger.info('⚠️ Zone view-actions non trouvée dans BoardView');
         return;
       }
 
       // Nettoyer les boutons existants
       const existingButton = viewActions.querySelector('.agile-board-switch-button');
       if (existingButton) {
-        console.log('🧹 Suppression bouton existant');
+        this.logger.info('🧹 Suppression bouton existant');
         existingButton.remove();
       }
 
@@ -331,7 +337,7 @@ export class ViewSwitcher {
       const button = boardView.addAction('document', 'Basculer vers la vue Markdown', () => {
         const activeFile = this.plugin.app.workspace.getActiveFile();
         if (activeFile) {
-          console.log('📝 Clic bouton Markdown → Basculement');
+          this.logger.info('📝 Clic bouton Markdown → Basculement');
           this.switchToMarkdownView(activeFile);
         }
       });
@@ -348,10 +354,10 @@ export class ViewSwitcher {
         opacity: 1;
       `;
       
-      console.log('✅ Bouton Mode Markdown ajouté');
+      this.logger.info('✅ Bouton Mode Markdown ajouté');
       
     } catch (error) {
-      console.error('❌ Erreur lors de l\'ajout du bouton Mode Markdown:', error);
+      this.logger.error('❌ Erreur lors de l\'ajout du bouton Mode Markdown:', error);
     }
   }
 
@@ -363,7 +369,7 @@ export class ViewSwitcher {
       // Méthode 1 : Recherche globale dans le document
       const buttons = document.querySelectorAll('.agile-board-switch-button');
       buttons.forEach(button => {
-        console.log('🗑️ Suppression bouton trouvé');
+        this.logger.info('🗑️ Suppression bouton trouvé');
         button.remove();
       });
       
@@ -382,7 +388,7 @@ export class ViewSwitcher {
       });
       
     } catch (error) {
-      console.error('❌ Erreur lors de la suppression des boutons:', error);
+      this.logger.error('❌ Erreur lors de la suppression des boutons:', error);
     }
   }
 
@@ -394,7 +400,7 @@ export class ViewSwitcher {
    * Force une mise à jour complète (pour le debugging)
    */
   forceUpdate(): void {
-    console.log('🔄 Force update des boutons ViewSwitcher');
+    this.logger.info('🔄 Force update des boutons ViewSwitcher');
     this.lastProcessedFile = null; // Reset du cache
     
     if (this.updateTimer) {
@@ -431,7 +437,7 @@ export class ViewSwitcher {
    * Nettoie les ressources utilisées par le ViewSwitcher
    */
   stop(): void {
-    console.log('🛑 Arrêt du ViewSwitcher');
+    this.logger.info('🛑 Arrêt du ViewSwitcher');
     
     if (this.updateTimer) {
       clearTimeout(this.updateTimer);
