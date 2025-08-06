@@ -2107,7 +2107,7 @@ var MarkdownFrame = class {
    * (newContent) => saveToFile(sectionName, newContent)
    * );
    */
-  constructor(app, container, file, section, onChange) {
+  constructor(app, container, file, section, onChange, logger) {
     this.app = app;
     this.container = container;
     this.file = file;
@@ -2123,6 +2123,7 @@ var MarkdownFrame = class {
      * - true : Mode édition (textarea visible)
      */
     this.isEditing = false;
+    this.logger = logger;
     this.content = section.lines.join("\n");
     this.initializeFrame();
   }
@@ -2256,10 +2257,10 @@ var MarkdownFrame = class {
         component
         // Composant pour cycle de vie
       );
-      console.log("\u2705 Contenu rendu avec le moteur Obsidian (plugins support\xE9s)");
+      this.logger.info("\u2705 Contenu rendu avec le moteur Obsidian (plugins support\xE9s)");
       this.setupInteractions();
     } catch (error) {
-      console.warn("\u26A0\uFE0F Erreur rendu Obsidian, fallback vers rendu simple:", error);
+      this.logger.warn("\u26A0\uFE0F Erreur rendu Obsidian, fallback vers rendu simple:", error);
       this.previewContainer.innerHTML = this.renderSimpleMarkdown(this.content);
     }
   }
@@ -2336,7 +2337,7 @@ var MarkdownFrame = class {
         this.changeTimeout = setTimeout(() => {
           this.onChange(this.content);
         }, 500);
-        console.log(`\u2705 T\xE2che ${isChecked ? "coch\xE9e" : "d\xE9coch\xE9e"}: ${taskText}`);
+        this.logger.info(`\u2705 T\xE2che ${isChecked ? "coch\xE9e" : "d\xE9coch\xE9e"}: ${taskText}`);
         break;
       }
     }
@@ -2453,10 +2454,10 @@ var MarkdownFrame = class {
     this.previewContainer.addEventListener("click", (event) => {
       const target = event.target;
       if (this.isInteractiveElement(target)) {
-        console.log("\u{1F3AF} Clic sur \xE9l\xE9ment interactif, pas de mode \xE9dition");
+        this.logger.info("\u{1F3AF} Clic sur \xE9l\xE9ment interactif, pas de mode \xE9dition");
         return;
       }
-      console.log("\u{1F5B1}\uFE0F Clic sur preview \u2192 mode \xE9dition");
+      this.logger.info("\u{1F5B1}\uFE0F Clic sur preview \u2192 mode \xE9dition");
       this.enterEditMode();
     });
   }
@@ -2518,12 +2519,12 @@ var MarkdownFrame = class {
       }, 1e3);
     });
     this.textArea.addEventListener("blur", () => {
-      console.log("\u{1F4DD} Blur sur textarea \u2192 mode preview");
+      this.logger.info("\u{1F4DD} Blur sur textarea \u2192 mode preview");
       this.exitEditMode();
     });
     this.textArea.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
-        console.log("\u2328\uFE0F Escape \u2192 mode preview");
+        this.logger.info("\u2328\uFE0F Escape \u2192 mode preview");
         this.exitEditMode();
       }
     });
@@ -2546,7 +2547,7 @@ var MarkdownFrame = class {
     this.editorContainer.style.display = "block";
     this.textArea.value = this.content;
     this.textArea.focus();
-    console.log("\u270F\uFE0F Mode \xE9dition activ\xE9");
+    this.logger.info("\u270F\uFE0F Mode \xE9dition activ\xE9");
   }
   /**
    * Bascule vers le mode preview
@@ -2565,7 +2566,7 @@ var MarkdownFrame = class {
     this.editorContainer.style.display = "none";
     this.previewContainer.style.display = "block";
     this.renderContent();
-    console.log("\u{1F441}\uFE0F Mode preview activ\xE9");
+    this.logger.info("\u{1F441}\uFE0F Mode preview activ\xE9");
   }
   /**
    * Force l'affichage du mode preview
@@ -2614,7 +2615,7 @@ var MarkdownFrame = class {
    */
   destroy() {
     this.container.empty();
-    console.log("\u{1F5D1}\uFE0F MarkdownFrame d\xE9truite");
+    this.logger.info("\u{1F5D1}\uFE0F MarkdownFrame d\xE9truite");
   }
 };
 
@@ -2686,7 +2687,7 @@ var BoardView = class extends import_obsidian2.FileView {
       const analysis = await services.file.analyzeFile(this.file);
       this.logger.info("\u{1F50D} DEBUG Layout :");
       if (layout) {
-        console.log("\u{1F4CB} Sections trouv\xE9es dans le layout:");
+        this.logger.info("\u{1F4CB} Sections trouv\xE9es dans le layout:");
         layout.forEach((block, index) => {
           this.logger.info(`  ${index + 1}. "${block.title}" (x:${block.x}, y:${block.y}, w:${block.w}, h:${block.h})`);
         });
@@ -2807,7 +2808,8 @@ var BoardView = class extends import_obsidian2.FileView {
         // On passe le conteneur dédié, pas le cadre entier        
         this.file,
         frameSection,
-        (content) => this.onFrameContentChanged(frameSection.name || section.name, content)
+        (content) => this.onFrameContentChanged(frameSection.name || section.name, content),
+        this.plugin.logger
       );
       this.frames.set(layout.title, frame);
       this.logger.info(`\u2705 Frame "${layout.title}" cr\xE9\xE9e`);
@@ -3449,7 +3451,10 @@ var ModelDetector = class {
     this.processedFiles.add(fileKey);
     this.cleanupProcessedFiles();
     const hasLayout = this.hasAgileBoardLayout(file);
-    this.logger.info(`\u{1F3AF} Fichier "${file.basename}" - Layout agile-board: ${hasLayout ? "OUI" : "NON"}`);
+    this.logger.debug(`V\xE9rification du Layout pour le fichier`, {
+      file: file.basename,
+      hasLayout
+    });
   }
   /**
    * Vérifie si un fichier a un layout agile-board valide
@@ -3706,14 +3711,14 @@ var AgileBoardSettingsTab = class extends import_obsidian4.PluginSettingTab {
 // src/main.ts
 var AgileBoardPlugin = class extends import_obsidian5.Plugin {
   async onload() {
-    console.log("\u{1F680} Chargement Agile Board Plugin v0.8.0");
+    this.logger.info("\u{1F680} Chargement Agile Board Plugin v0.8.1");
     try {
       await this.initializeCore();
       await this.initializeServices();
       await this.initializeUI();
-      console.log("\u2705 Agile Board Plugin charg\xE9 avec succ\xE8s");
+      this.logger.info("\u2705 Agile Board Plugin charg\xE9 avec succ\xE8s");
     } catch (error) {
-      console.error("\u274C Erreur chargement plugin:", error);
+      this.logger.error("\u274C Erreur chargement plugin:", error);
       new import_obsidian5.Notice("\u274C Erreur lors du chargement du plugin Agile Board");
     }
   }
@@ -3723,7 +3728,7 @@ var AgileBoardPlugin = class extends import_obsidian5.Plugin {
     (_b = this.modelDetector) == null ? void 0 : _b.onUnload();
     (_c = this.viewSwitcher) == null ? void 0 : _c.stop();
     (_d = this.services) == null ? void 0 : _d.dispose();
-    console.log("\u{1F6D1} Agile Board Plugin arr\xEAt\xE9");
+    this.logger.info("\u{1F6D1} Agile Board Plugin arr\xEAt\xE9");
   }
   /**
    * Initialise les composants de base

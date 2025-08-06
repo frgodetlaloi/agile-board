@@ -20,17 +20,17 @@ export default class AgileBoardPlugin extends Plugin {
     private modelDetector!: ModelDetector;
 
     async onload(): Promise<void> {
-        console.log('🚀 Chargement Agile Board Plugin v0.8.0');
+        this.logger.info('🚀 Chargement Agile Board Plugin v0.8.1');
         
         try {
             await this.initializeCore();
             await this.initializeServices();
             await this.initializeUI();
             
-            console.log('✅ Agile Board Plugin chargé avec succès');
+            this.logger.info('✅ Agile Board Plugin chargé avec succès');
             
         } catch (error) {
-            console.error('❌ Erreur chargement plugin:', error);
+            this.logger.error('❌ Erreur chargement plugin:', error);
             new Notice('❌ Erreur lors du chargement du plugin Agile Board');
         }
     }
@@ -45,7 +45,7 @@ export default class AgileBoardPlugin extends Plugin {
         // Nettoyer les services
         this.services?.dispose();
         
-        console.log('🛑 Agile Board Plugin arrêté');
+        this.logger.info('🛑 Agile Board Plugin arrêté');
     }
 
     /**

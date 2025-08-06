@@ -301,7 +301,10 @@ export class ModelDetector {
 
     // DÉTECTION DU LAYOUT
     const hasLayout = this.hasAgileBoardLayout(file);
-    this.logger.info(`🎯 Fichier "${file.basename}" - Layout agile-board: ${hasLayout ? 'OUI' : 'NON'}`);
+    this.logger.debug(`Vérification du Layout pour le fichier`, {
+      file: file.basename,
+      hasLayout: hasLayout
+    });
   }
 
   /**

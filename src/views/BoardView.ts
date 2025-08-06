@@ -91,7 +91,7 @@ export class BoardView extends FileView {
       // 🔧 CODE DE DEBUG - À placer ici quand les variables sont définies
       this.logger.info('🔍 DEBUG Layout :');
       if (layout) {
-        console.log('📋 Sections trouvées dans le layout:');
+        this.logger.info('📋 Sections trouvées dans le layout:');
         layout.forEach((block, index) => {
           this.logger.info(`  ${index + 1}. "${block.title}" (x:${block.x}, y:${block.y}, w:${block.w}, h:${block.h})`);
         });
@@ -235,7 +235,8 @@ export class BoardView extends FileView {
         contentContainer, // On passe le conteneur dédié, pas le cadre entier        
         this.file!,           
         frameSection,         
-        (content: string) => this.onFrameContentChanged(frameSection.name || section.name, content)
+        (content: string) => this.onFrameContentChanged(frameSection.name || section.name, content),
+        this.plugin.logger
       );
       
       this.frames.set(layout.title, frame);

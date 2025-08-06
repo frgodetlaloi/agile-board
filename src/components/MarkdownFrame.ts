@@ -41,6 +41,8 @@ import { App, TFile } from 'obsidian';
 // Import des types personnalisés depuis notre fichier de types
 import { FileSection } from '../types';
 
+import { LoggerService } from '../services/LoggerService';
+
 // =============================================================================
 // CLASSE PRINCIPALE DU COMPOSANT
 // =============================================================================
@@ -116,6 +118,14 @@ export class MarkdownFrame {
    */
   private changeTimeout: any;
 
+  /**
+   * Logger pour les messages de debug et info
+   * * UTILISATION :
+   * Pour suivre le cycle de vie du composant et les erreurs.
+   * Permet de désactiver les logs en production.
+   */
+  private logger: LoggerService;
+
   // ===========================================================================
   // CONSTRUCTEUR ET INITIALISATION
   // ===========================================================================
@@ -148,8 +158,10 @@ export class MarkdownFrame {
     private container: HTMLElement,
     private file: TFile,
     private section: FileSection,
-    private onChange: (content: string) => void
+    private onChange: (content: string) => void,
+    logger: LoggerService
   ) {
+    this.logger = logger;
     // INITIALISATION DU CONTENU
     // Joindre les lignes de la section avec retours à la ligne
     this.content = section.lines.join('\n');
@@ -317,14 +329,14 @@ export class MarkdownFrame {
         component                    // Composant pour cycle de vie
       );
       
-      console.log('✅ Contenu rendu avec le moteur Obsidian (plugins supportés)');
+      this.logger.info('✅ Contenu rendu avec le moteur Obsidian (plugins supportés)');
       
       // POST-TRAITEMENT pour interactions
       this.setupInteractions();
       
     } catch (error) {
       // FALLBACK : Rendu simple en cas d'erreur
-      console.warn('⚠️ Erreur rendu Obsidian, fallback vers rendu simple:', error);
+      this.logger.warn('⚠️ Erreur rendu Obsidian, fallback vers rendu simple:', error);
       this.previewContainer.innerHTML = this.renderSimpleMarkdown(this.content);
     }
   }
@@ -426,7 +438,7 @@ export class MarkdownFrame {
           this.onChange(this.content);
         }, 500);
         
-        console.log(`✅ Tâche ${isChecked ? 'cochée' : 'décochée'}: ${taskText}`);
+        this.logger.info(`✅ Tâche ${isChecked ? 'cochée' : 'décochée'}: ${taskText}`);
         break;
       }
     }
@@ -568,11 +580,11 @@ export class MarkdownFrame {
       
       // FILTRAGE : Ne pas éditer si clic sur élément interactif
       if (this.isInteractiveElement(target)) {
-        console.log('🎯 Clic sur élément interactif, pas de mode édition');
+        this.logger.info('🎯 Clic sur élément interactif, pas de mode édition');
         return;
       }
       
-      console.log('🖱️ Clic sur preview → mode édition');
+      this.logger.info('🖱️ Clic sur preview → mode édition');
       this.enterEditMode();
     });
   }
@@ -656,14 +668,14 @@ export class MarkdownFrame {
 
     // ÉVÉNEMENT 2 : Perte de focus (sortie d'édition)
     this.textArea.addEventListener('blur', () => {
-      console.log('📝 Blur sur textarea → mode preview');
+      this.logger.info('📝 Blur sur textarea → mode preview');
       this.exitEditMode();
     });
 
     // ÉVÉNEMENT 3 : Raccourcis clavier
     this.textArea.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
-        console.log('⌨️ Escape → mode preview');
+        this.logger.info('⌨️ Escape → mode preview');
         this.exitEditMode();
       }
     });
@@ -688,7 +700,7 @@ export class MarkdownFrame {
     this.editorContainer.style.display = 'block';
     this.textArea.value = this.content;
     this.textArea.focus();
-    console.log('✏️ Mode édition activé');
+    this.logger.info('✏️ Mode édition activé');
   }
 
   /**
@@ -708,7 +720,7 @@ export class MarkdownFrame {
     this.editorContainer.style.display = 'none';
     this.previewContainer.style.display = 'block';
     this.renderContent();
-    console.log('👁️ Mode preview activé');
+    this.logger.info('👁️ Mode preview activé');
   }
 
   /**
@@ -765,6 +777,6 @@ export class MarkdownFrame {
    */
   destroy(): void {
     this.container.empty();
-    console.log('🗑️ MarkdownFrame détruite');
+    this.logger.info('🗑️ MarkdownFrame détruite');
   }
 }
