@@ -151,6 +151,21 @@ export class AgileBoardSettingsTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 }));
 
+        // Intervalle de sauvegarde
+        new Setting(containerEl)
+            .setName('Intervalle de sauvegarde auto')
+            .setDesc('Intervalle en minutes pour sauvegarder automatiquement les logs')
+            .addSlider(slider => slider
+                .setLimits(1, 60, 1)
+                .setValue(this.plugin.settings.debug.autoSaveInterval)
+                .setDynamicTooltip()
+                .onChange(async (value) => {
+                    this.plugin.settings.debug.autoSaveInterval = value;
+                    await this.plugin.saveSettings();
+                    this.plugin.logger.info(`Intervalle de sauvegarde des logs mis à jour: ${value} minute(s)`);
+                }));
+
+
         // Taille maximale
         new Setting(containerEl)
             .setName('Taille maximale du fichier')

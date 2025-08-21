@@ -45,6 +45,9 @@ export interface DebugSettings {
     
     /** Taille maximale du fichier de log en bytes avant rotation */
     maxLogFileSize: number;
+
+    /** Intervalle de sauvegarde automatique en minutes */
+    autoSaveInterval: number;
 }
 
 /**

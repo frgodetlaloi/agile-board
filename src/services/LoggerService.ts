@@ -30,7 +30,10 @@ export class LoggerService {
      * Ajoute un message au buffer
      */
     private addToBuffer(level: LogLevel, message: string, data?: any, source?: string): void {
-        const timestamp = new Date().toISOString();
+        const now = new Date();
+        const pad = (num: number) => num.toString().padStart(2, '0');
+        const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ` +
+                        `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
         const levelStr = LogLevel[level];
         const dataStr = data ? ` | Data: ${JSON.stringify(data)}` : '';
         const sourceStr = source ? ` | Source: ${source}` : '';

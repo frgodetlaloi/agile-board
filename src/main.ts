@@ -18,19 +18,22 @@ export default class AgileBoardPlugin extends Plugin {
     // Managers
     private viewSwitcher!: ViewSwitcher;
     private modelDetector!: ModelDetector;
+    // autres propertés
+    private logSaveInterval: number | null = null;
 
     async onload(): Promise<void> {
-        this.logger.info('🚀 Chargement Agile Board Plugin v0.8.1');
-        
         try {
             await this.initializeCore();
+            this.logger.startup('🚀 Chargement Agile Board Plugin v0.8.1');
             await this.initializeServices();
             await this.initializeUI();
-            
+            // Démarrer le timer de sauvegarde des logs
+            this.setupLogAutoSave();
+
             this.logger.info('✅ Agile Board Plugin chargé avec succès');
             
         } catch (error) {
-            this.logger.error('❌ Erreur chargement plugin:', error);
+            console.error('❌ Erreur chargement plugin:', error);
             new Notice('❌ Erreur lors du chargement du plugin Agile Board');
         }
     }
@@ -159,6 +162,29 @@ export default class AgileBoardPlugin extends Plugin {
         }
     }
 
+    /**
+     * Configure un intervalle pour sauvegarder les logs
+     */
+    private setupLogAutoSave(): void {
+        // Nettoyer l'ancien intervalle s'il existe
+        if (this.logSaveInterval) {
+            clearInterval(this.logSaveInterval);
+        }
+
+        if (this.settings.debug.enabled && this.settings.debug.logToFile) {
+            const intervalInMinutes = this.settings.debug.autoSaveInterval;
+            const intervalInMs = intervalInMinutes * 60 * 1000;
+
+            this.logSaveInterval = this.registerInterval (
+                window.setInterval(() => {
+                    this.logger.saveLogsToFile();
+                }, intervalInMs)
+            ); 
+            this.logger.info('📝 Intervalle de sauvegarde des logs configuré toutes les 5 minutes');
+        }
+    }
+
+
     // ===================================================================
     // GETTERS DE COMPATIBILITÉ (pour BoardView qui attend les anciens services)
     // ===================================================================
@@ -200,6 +226,7 @@ export default class AgileBoardPlugin extends Plugin {
         await this.saveData(this.settings);
         this.services?.updateSettings(this.settings);
         this.logger?.updateSettings(this.settings.debug);
+        this.setupLogAutoSave();
     }
 
     // ===================================================================
