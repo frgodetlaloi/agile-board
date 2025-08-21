@@ -29,6 +29,8 @@
  * - State Machine : Bascule entre états preview/édition
  * - Observer Pattern : Callback pour notifier les changements
  * - Debouncing : Délai avant sauvegarde pour optimiser
+ * 
+ * ✅ CORRECTION BUG #4 : Gestion d'erreurs complète avec fallbacks
  */
 
 // =============================================================================
@@ -48,21 +50,14 @@ import { LoggerService } from '../services/LoggerService';
 // =============================================================================
 
 /**
- * Composant d'édition markdown interactif
- * * ARCHITECTURE :
- * Ce composant encapsule complètement la logique d'affichage et d'édition
- * d'une section markdown. Il gère son propre état et cycle de vie.
- * * CYCLE DE VIE :
- * 1. Construction avec paramètres
- * 2. Initialisation de l'interface (preview + éditeur)
- * 3. Gestion des événements utilisateur
- * 4. Mise à jour du contenu selon les modifications
- * 5. Destruction propre lors du nettoyage
- * * ÉTAT INTERNE :
- * - Mode actuel (preview/édition)
- * - Contenu markdown
- * - Références aux éléments DOM
- * - Timer de sauvegarde automatique
+ * Composant d'édition markdown interactif avec gestion d'erreurs robuste
+ * 
+ * ✅ AMÉLIORATIONS Bug #4 :
+ * - Try-catch global sur toutes les opérations critiques
+ * - Fallbacks intelligents en cas d'erreur de rendu
+ * - Recovery automatique des états incohérents
+ * - Logging détaillé des erreurs pour debugging
+ * - Validation des données avant traitement
  */
 export class MarkdownFrame {
   
@@ -126,32 +121,23 @@ export class MarkdownFrame {
    */
   private logger: LoggerService;
 
+  /**
+   * ✅ NOUVEAU : Indicateur d'état d'erreur
+   */
+  private isInErrorState = false;
+
+  /**
+   * ✅ NOUVEAU : Compteur de tentatives de rendu
+   */
+  private renderAttempts = 0;
+  private readonly MAX_RENDER_ATTEMPTS = 3;
+
   // ===========================================================================
   // CONSTRUCTEUR ET INITIALISATION
   // ===========================================================================
 
   /**
-   * CONSTRUCTEUR du composant MarkdownFrame
-   * * @param app - Instance principale d'Obsidian
-   * @param container - Élément DOM parent où injecter le composant
-   * @param file - Fichier source contenant cette section
-   * @param section - Métadonnées de la section (lignes, position)
-   * @param onChange - Callback appelé lors des modifications
-   * * INJECTION DE DÉPENDANCES :
-   * - app : Pour accès aux APIs Obsidian (rendu, navigation)
-   * - container : Pour manipulation DOM
-   * - file : Pour contexte de rendu (chemins relatifs, etc.)
-   * - onChange : Pour notifier le parent des changements
-   * * INITIALISATION :
-   * Le constructeur démarre immédiatement l'initialisation complète.
-   * * @example
-   * const frame = new MarkdownFrame(
-   * app,
-   * frameElement,
-   * currentFile,
-   * sectionData,
-   * (newContent) => saveToFile(sectionName, newContent)
-   * );
+   * CONSTRUCTEUR du composant MarkdownFrame avec validation robuste
    */
   constructor(
     private app: App,
@@ -162,51 +148,128 @@ export class MarkdownFrame {
     logger: LoggerService
   ) {
     this.logger = logger;
-    // INITIALISATION DU CONTENU
-    // Joindre les lignes de la section avec retours à la ligne
-    this.content = section.lines.join('\n');
     
-    // DÉMARRAGE DE L'INITIALISATION
-    this.initializeFrame();
+    try {
+      // ✅ VALIDATION DES PARAMÈTRES
+      this.validateConstructorParams();
+      
+      // INITIALISATION DU CONTENU
+      this.content = section.lines.join('\n');
+      
+      // DÉMARRAGE DE L'INITIALISATION avec gestion d'erreurs
+      this.initializeFrame();
+      
+      this.logger.info('✅ MarkdownFrame initialisé avec succès', {
+        sectionName: section.name,
+        contentLength: this.content.length
+      });
+      
+    } catch (error) {
+      this.logger.error('❌ Erreur critique lors de l\'initialisation de MarkdownFrame', error);
+      this.initializeErrorState();
+    }
   }
 
   /**
-   * Initialise complètement l'interface du composant
-   * * ÉTAPES D'INITIALISATION :
-   * 1. Configuration du conteneur principal
-   * 2. Création du conteneur preview
-   * 3. Création du conteneur d'édition
-   * 4. Affichage initial en mode preview
-   * * PATTERN TEMPLATE METHOD :
-   * Orchestration de l'initialisation en étapes définies.
+   * ✅ NOUVEAU : Validation des paramètres du constructeur
+   */
+  private validateConstructorParams(): void {
+    if (!this.app) {
+      throw new Error('App Obsidian requis');
+    }
+    if (!this.container) {
+      throw new Error('Container DOM requis');
+    }
+    if (!this.file) {
+      throw new Error('Fichier TFile requis');
+    }
+    if (!this.section) {
+      throw new Error('Section FileSection requise');
+    }
+    if (!this.onChange || typeof this.onChange !== 'function') {
+      throw new Error('Callback onChange requis');
+    }
+    if (!this.logger) {
+      throw new Error('Logger requis');
+    }
+  }
+
+  /**
+   * ✅ NOUVEAU : Initialise un état d'erreur de base
+   */
+  private initializeErrorState(): void {
+    try {
+      this.isInErrorState = true;
+      this.container.empty();
+      
+      const errorDiv = this.container.createDiv('markdown-frame-error');
+      errorDiv.innerHTML = `
+        <div style="
+          color: var(--text-error);
+          background: var(--background-secondary);
+          border: 1px solid var(--background-modifier-border);
+          border-radius: 4px;
+          padding: 1rem;
+          text-align: center;
+        ">
+          <h4>⚠️ Erreur de composant</h4>
+          <p>Impossible d'initialiser cette section.</p>
+          <button onclick="location.reload()" style="
+            background: var(--interactive-accent);
+            color: var(--text-on-accent);
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+          ">
+            🔄 Recharger
+          </button>
+        </div>
+      `;
+      
+    } catch (fallbackError) {
+      this.logger.error('❌ Erreur critique dans initializeErrorState', fallbackError);
+      // Dernier recours : affichage texte simple
+      this.container.textContent = '⚠️ Erreur critique - Veuillez recharger la page';
+    }
+  }
+
+  /**
+   * Initialise complètement l'interface du composant avec gestion d'erreurs
    */
   private initializeFrame(): void {
-    this.setupContainer();
-    this.createPreviewContainer();
-    this.createEditorContainer();
-    this.showPreview();
+    try {
+      this.setupContainer();
+      this.createPreviewContainer();
+      this.createEditorContainer();
+      this.showPreview();
+      
+    } catch (error) {
+      this.logger.error('❌ Erreur lors de l\'initialisation de la frame', error);
+      this.initializeErrorState();
+    }
   }
 
   /**
    * Configure le conteneur principal du composant
-   * * NETTOYAGE :
-   * Vide le conteneur existant pour éviter les conflits.
-   * * STYLES CSS :
-   * - Position relative pour positionnement des enfants
-   * - Overflow hidden pour contenir le contenu
-   * - Dimensions 100% pour remplir l'espace disponible
    */
   private setupContainer(): void {
-    // NETTOYAGE PRÉALABLE
-    this.container.empty();
-    
-    // CONFIGURATION CSS
-    this.container.style.cssText = `
-      width: 100%;
-      height: 100%;
-      position: relative;
-      overflow: hidden;
-    `;
+    try {
+      // NETTOYAGE PRÉALABLE
+      this.container.empty();
+      
+      // CONFIGURATION CSS
+      this.container.style.cssText = `
+        width: 100%;
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+      `;
+      
+    } catch (error) {
+      this.logger.error('❌ Erreur setupContainer', error);
+      throw error; // Remonte l'erreur pour gestion de niveau supérieur
+    }
   }
 
   // ===========================================================================
@@ -215,568 +278,987 @@ export class MarkdownFrame {
 
   /**
    * Crée et configure le conteneur de preview (affichage rendu)
-   * * RESPONSABILITÉS :
-   * - Affichage du contenu markdown rendu
-   * - Gestion des interactions (clics, tâches, liens)
-   * - Détection du basculement vers l'édition
-   * * STYLES :
-   * Intégration avec les variables CSS d'Obsidian pour cohérence visuelle.
    */
   private createPreviewContainer(): void {
-    // CRÉATION DE L'ÉLÉMENT
-    this.previewContainer = this.container.createDiv('markdown-preview');
-    
-    // CONFIGURATION CSS
-    this.previewContainer.style.cssText = `
-      width: 100%;
-      height: 100%;
-      overflow: auto;
-      padding: 0.5rem;
-      cursor: text;
-      box-sizing: border-box;
-    `;
-    
-    // RENDU INITIAL DU CONTENU
-    this.renderContent();
-    
-    // CONFIGURATION DES ÉVÉNEMENTS
-    this.setupPreviewEvents();
+    try {
+      // CRÉATION DE L'ÉLÉMENT
+      this.previewContainer = this.container.createDiv('markdown-preview');
+      
+      // CONFIGURATION CSS
+      this.previewContainer.style.cssText = `
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        padding: 0.5rem;
+        cursor: text;
+        box-sizing: border-box;
+      `;
+      
+      // RENDU INITIAL DU CONTENU
+      this.renderContent();
+      
+      // CONFIGURATION DES ÉVÉNEMENTS
+      this.setupPreviewEvents();
+      
+    } catch (error) {
+      this.logger.error('❌ Erreur createPreviewContainer', error);
+      throw error;
+    }
   }
 
   /**
    * Crée et configure le conteneur d'édition (textarea)
-   * * RESPONSABILITÉS :
-   * - Interface de modification directe du markdown
-   * - Sauvegarde automatique des changements
-   * - Gestion des raccourcis clavier (Escape)
-   * * VISIBILITÉ :
-   * Initialement caché, affiché seulement en mode édition.
    */
   private createEditorContainer(): void {
-    // CRÉATION DU CONTENEUR
-    this.editorContainer = this.container.createDiv('markdown-editor');
-    this.editorContainer.style.cssText = `
-      width: 100%;
-      height: 100%;
-      display: none;
-      box-sizing: border-box;
-    `;
+    try {
+      // CRÉATION DU CONTENEUR
+      this.editorContainer = this.container.createDiv('markdown-editor');
+      this.editorContainer.style.cssText = `
+        width: 100%;
+        height: 100%;
+        display: none;
+        box-sizing: border-box;
+      `;
 
-    // CRÉATION DU TEXTAREA
-    this.textArea = this.editorContainer.createEl('textarea');
-    this.textArea.style.cssText = `
-      width: 100%;
-      height: 100%;
-      border: none;
-      outline: none;
-      resize: none;
-      font-family: var(--font-text);
-      font-size: var(--font-size-normal);
-      background: transparent;
-      color: var(--text-normal);
-      padding: 0.5rem;
-      box-sizing: border-box;
-      line-height: 1.6;
-    `;
+      // CRÉATION DU TEXTAREA
+      this.textArea = this.editorContainer.createEl('textarea');
+      this.textArea.style.cssText = `
+        width: 100%;
+        height: 100%;
+        border: none;
+        outline: none;
+        resize: none;
+        font-family: var(--font-text);
+        font-size: var(--font-size-normal);
+        background: transparent;
+        color: var(--text-normal);
+        padding: 0.5rem;
+        box-sizing: border-box;
+        line-height: 1.6;
+      `;
 
-    // INITIALISATION DU CONTENU
-    this.textArea.value = this.content;
-    
-    // CONFIGURATION DES ÉVÉNEMENTS
-    this.setupEditorEvents();
+      // INITIALISATION DU CONTENU
+      this.textArea.value = this.content;
+      
+      // CONFIGURATION DES ÉVÉNEMENTS
+      this.setupEditorEvents();
+      
+    } catch (error) {
+      this.logger.error('❌ Erreur createEditorContainer', error);
+      throw error;
+    }
   }
 
   // ===========================================================================
-  // MOTEUR DE RENDU MARKDOWN
+  // MOTEUR DE RENDU MARKDOWN AVEC GESTION D'ERREURS ROBUSTE
   // ===========================================================================
 
   /**
-   * Rend le contenu markdown avec le moteur officiel d'Obsidian
-   * * MOTEUR DE RENDU :
-   * Utilise MarkdownRenderer.renderMarkdown() qui supporte :
-   * - Toutes les extensions markdown d'Obsidian
-   * - Plugins tiers (Tasks, Dataview, etc.)
-   * - Liens internes et navigation
-   * - Syntaxe avancée (callouts, etc.)
-   * * FALLBACK :
-   * En cas d'erreur, utilise un moteur de rendu simple
-   * pour maintenir la fonctionnalité de base.
-   * * GESTION DU CONTENU VIDE :
-   * Affiche un placeholder engageant pour inciter à l'édition.
+   * ✅ CORRECTION BUG #4 : Rend le contenu markdown avec gestion d'erreurs complète
    */
   private async renderContent(): Promise<void> {
-    // NETTOYAGE PRÉALABLE
-    this.previewContainer.empty();
-    
-    // CAS SPÉCIAL : CONTENU VIDE
-    if (!this.content.trim()) {
-      this.renderEmptyState();
+    // ✅ PROTECTION CONTRE LES APPELS MULTIPLES
+    if (this.renderAttempts >= this.MAX_RENDER_ATTEMPTS) {
+      this.logger.warn('🚫 Nombre maximum de tentatives de rendu atteint', {
+        attempts: this.renderAttempts,
+        sectionName: this.section.name
+      });
+      this.renderPermanentFallback();
       return;
     }
 
-    // RENDU AVEC LE MOTEUR OBSIDIAN
+    this.renderAttempts++;
+
     try {
-      // IMPORT DYNAMIQUE pour éviter les erreurs de dépendance
-      const { MarkdownRenderer, Component } = require('obsidian');
+      // ✅ VALIDATION PRÉALABLE
+      this.validateRenderState();
+
+      // NETTOYAGE PRÉALABLE
+      this.previewContainer.empty();
+      
+      // CAS SPÉCIAL : CONTENU VIDE
+      if (!this.content.trim()) {
+        this.renderEmptyState();
+        this.resetRenderAttempts();
+        return;
+      }
+
+      // ✅ TENTATIVE DE RENDU AVEC LE MOTEUR OBSIDIAN
+      await this.attemptObsidianRender();
+      
+      // ✅ SUCCÈS : Reset du compteur d'erreurs
+      this.resetRenderAttempts();
+      this.isInErrorState = false;
+      
+      this.logger.info('✅ Contenu rendu avec succès', {
+        engine: 'obsidian',
+        contentLength: this.content.length,
+        attempt: this.renderAttempts
+      });
+      
+    } catch (error) {
+      this.logger.error('❌ Erreur lors du rendu du contenu', {
+        error: error.message,
+        attempt: this.renderAttempts,
+        sectionName: this.section.name,
+        contentPreview: this.content.substring(0, 100) + '...'
+      });
+
+      // ✅ FALLBACK INTELLIGENT SELON LE TYPE D'ERREUR
+      await this.handleRenderError(error);
+    }
+  }
+
+  /**
+   * ✅ NOUVEAU : Validation de l'état avant rendu
+   */
+  private validateRenderState(): void {
+    if (!this.previewContainer) {
+      throw new Error('previewContainer non initialisé');
+    }
+    if (this.content === null || this.content === undefined) {
+      throw new Error('Contenu invalide');
+    }
+    if (!this.file || !this.file.path) {
+      throw new Error('Fichier invalide');
+    }
+  }
+
+  /**
+   * ✅ NOUVEAU : Tentative de rendu avec le moteur Obsidian
+   */
+  private async attemptObsidianRender(): Promise<void> {
+    try {
+      // ✅ IMPORT DYNAMIQUE SÉCURISÉ
+      const obsidianModules = await this.safeRequireObsidian();
+      
+      if (!obsidianModules) {
+        throw new Error('Modules Obsidian non disponibles');
+      }
+
+      const { MarkdownRenderer, Component } = obsidianModules;
       const component = new Component();
       
-      // RENDU OFFICIEL OBSIDIAN
-      // Supporte tous les plugins et extensions
-      await MarkdownRenderer.renderMarkdown(
-        this.content,                 // Contenu à rendre
-        this.previewContainer,        // Conteneur de destination
-        this.file.path,              // Contexte de fichier (pour liens relatifs)
-        component                    // Composant pour cycle de vie
-      );
-      
-      this.logger.info('✅ Contenu rendu avec le moteur Obsidian (plugins supportés)');
+      // ✅ RENDU OFFICIEL OBSIDIAN avec timeout
+      await Promise.race([
+        MarkdownRenderer.renderMarkdown(
+          this.content,
+          this.previewContainer,
+          this.file.path,
+          component
+        ),
+        this.createTimeoutPromise(5000) // Timeout de 5 secondes
+      ]);
       
       // POST-TRAITEMENT pour interactions
       this.setupInteractions();
       
     } catch (error) {
-      // FALLBACK : Rendu simple en cas d'erreur
-      this.logger.warn('⚠️ Erreur rendu Obsidian, fallback vers rendu simple:', error);
-      this.previewContainer.innerHTML = this.renderSimpleMarkdown(this.content);
+      // Enrichir l'erreur avec du contexte
+      throw new Error(`Rendu Obsidian échoué: ${error.message}`);
     }
   }
 
   /**
-   * Configure les interactions avec les éléments rendus
-   * * INTERACTIONS SUPPORTÉES :
-   * 1. Tâches cochables (Tasks plugin)
-   * 2. Liens internes Obsidian
-   * 3. Liens externes
-   * 4. Éléments Dataview
-   * * PATTERN EVENT DELEGATION :
-   * Ajoute des écouteurs sur les éléments spécifiques
-   * plutôt que sur le conteneur global.
-   * * PRÉVENTION DE PROPAGATION :
-   * Empêche les clics sur éléments interactifs de déclencher
-   * le mode édition.
+   * ✅ NOUVEAU : Import sécurisé des modules Obsidian
    */
-  private setupInteractions(): void {
-    // INTERACTION 1 : TÂCHES COCHABLES
-    // Trouve toutes les checkbox de tâches et ajoute la gestion
-    const taskCheckboxes = this.previewContainer.querySelectorAll('input[type="checkbox"].task-list-item-checkbox');
-    taskCheckboxes.forEach(checkbox => {
-      checkbox.addEventListener('change', (event) => {
-        const target = event.target as HTMLInputElement;
-        this.handleTaskToggle(target);
-      });
-    });
+  private async safeRequireObsidian(): Promise<any> {
+    try {
+      return require('obsidian');
+    } catch (error) {
+      this.logger.warn('⚠️ Modules Obsidian non disponibles via require', error);
+      
+      // ✅ FALLBACK : Tentative d'accès via l'app
+      if (this.app && (this.app as any).MarkdownRenderer) {
+        return {
+          MarkdownRenderer: (this.app as any).MarkdownRenderer,
+          Component: (this.app as any).Component || class Component {}
+        };
+      }
+      
+      return null;
+    }
+  }
 
-    // INTERACTION 2 : LIENS INTERNES OBSIDIAN
-    // Gestion de la navigation via les liens [[...]]
-    const internalLinks = this.previewContainer.querySelectorAll('a.internal-link');
-    internalLinks.forEach(link => {
-      link.addEventListener('click', (event) => {
-        event.preventDefault();
-        
-        // Récupération du lien cible
-        const href = link.getAttribute('data-href') || link.getAttribute('href');
-        if (href) {
-          // NAVIGATION OBSIDIAN
-          // openLinkText gère tous types de liens internes
-          this.app.workspace.openLinkText(href, this.file.path);
-        }
-      });
-    });
-
-    // INTERACTION 3 : PRÉVENTION GLOBALE
-    // Empêche les clics sur éléments interactifs de déclencher l'édition
-    const interactiveElements = this.previewContainer.querySelectorAll('input, button, a, .dataview, .task-list-item');
-    interactiveElements.forEach(element => {
-      element.addEventListener('click', (event) => {
-        event.stopPropagation();  // Empêche la propagation vers le conteneur
-      });
+  /**
+   * ✅ NOUVEAU : Crée une promesse de timeout
+   */
+  private createTimeoutPromise(ms: number): Promise<never> {
+    return new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(`Timeout après ${ms}ms`)), ms);
     });
   }
 
   /**
-   * Gère le cochage/décochage des tâches
-   * * ALGORITHME :
-   * 1. Identifier la tâche modifiée dans le DOM
-   * 2. Trouver la ligne correspondante dans le markdown
-   * 3. Mettre à jour la syntaxe de tâche ([ ] ↔ [x])
-   * 4. Déclencher la sauvegarde automatique
-   * * SYNCHRONISATION :
-   * Maintient la cohérence entre affichage et source markdown.
-   * * @param checkbox - Élément checkbox qui a été modifié
-   * * @example
-   * // Utilisateur coche une tâche dans l'affichage
-   * // handleTaskToggle() met à jour le markdown :
-   * // "- [ ] Tâche" → "- [x] Tâche"
+   * ✅ NOUVEAU : Gestion intelligente des erreurs de rendu
+   */
+  private async handleRenderError(error: Error): Promise<void> {
+    const errorMessage = error.message.toLowerCase();
+    
+    // ✅ STRATÉGIE DE FALLBACK SELON LE TYPE D'ERREUR
+    if (errorMessage.includes('timeout')) {
+      this.logger.warn('⏱️ Timeout de rendu - Passage en mode simple');
+      this.renderSimpleFallback();
+      
+    } else if (errorMessage.includes('module') || errorMessage.includes('require')) {
+      this.logger.warn('📦 Erreur de module - Passage en rendu de base');
+      this.renderBasicMarkdown();
+      
+    } else if (this.renderAttempts < this.MAX_RENDER_ATTEMPTS) {
+      this.logger.warn('🔄 Nouvelle tentative de rendu dans 1 seconde');
+      setTimeout(() => this.renderContent(), 1000);
+      
+    } else {
+      this.logger.error('💥 Échec définitif du rendu - Mode texte brut');
+      this.renderPermanentFallback();
+    }
+  }
+
+  /**
+   * ✅ NOUVEAU : Fallback simple avec markdown de base
+   */
+  private renderSimpleFallback(): void {
+    try {
+      this.previewContainer.empty();
+      this.previewContainer.innerHTML = this.renderSimpleMarkdown(this.content);
+      
+      // Ajouter un indicateur de mode fallback
+      const indicator = this.previewContainer.createDiv('fallback-indicator');
+      indicator.style.cssText = `
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        background: var(--background-modifier-warning);
+        color: var(--text-warning);
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.7em;
+        opacity: 0.7;
+      `;
+      indicator.textContent = '⚠️ Mode simplifié';
+      
+    } catch (error) {
+      this.logger.error('❌ Erreur dans renderSimpleFallback', error);
+      this.renderPermanentFallback();
+    }
+  }
+
+  /**
+   * ✅ NOUVEAU : Fallback avec markdown basique
+   */
+  private renderBasicMarkdown(): void {
+    try {
+      this.previewContainer.empty();
+      
+      // Rendu très basique ligne par ligne
+      const lines = this.content.split('\n');
+      for (const line of lines) {
+        const lineEl = this.previewContainer.createDiv('basic-line');
+        lineEl.style.marginBottom = '0.5em';
+        lineEl.textContent = line || ' '; // Préserver les lignes vides
+      }
+      
+    } catch (error) {
+      this.logger.error('❌ Erreur dans renderBasicMarkdown', error);
+      this.renderPermanentFallback();
+    }
+  }
+
+  /**
+   * ✅ NOUVEAU : Fallback permanent en cas d'échec total
+   */
+  private renderPermanentFallback(): void {
+    try {
+      this.isInErrorState = true;
+      this.previewContainer.empty();
+      
+      const errorContainer = this.previewContainer.createDiv('permanent-fallback');
+      errorContainer.innerHTML = `
+        <div style="
+          color: var(--text-error);
+          background: var(--background-secondary);
+          border: 1px dashed var(--background-modifier-border);
+          border-radius: 4px;
+          padding: 1rem;
+          margin-bottom: 1rem;
+        ">
+          <div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
+            <span style="margin-right: 0.5rem;">⚠️</span>
+            <strong>Erreur de rendu</strong>
+          </div>
+          <p style="margin: 0; opacity: 0.8;">
+            Affichage du contenu en mode texte brut. 
+            <button onclick="location.reload()" style="
+              background: none; 
+              border: none; 
+              color: var(--text-accent); 
+              text-decoration: underline; 
+              cursor: pointer;
+            ">Recharger</button>
+          </p>
+        </div>
+      `;
+      
+      // Afficher le contenu en texte brut
+      const contentEl = errorContainer.createEl('pre');
+      contentEl.style.cssText = `
+        white-space: pre-wrap;
+        font-family: var(--font-text);
+        font-size: var(--font-size-normal);
+        color: var(--text-normal);
+        background: var(--background-primary);
+        padding: 1rem;
+        border-radius: 4px;
+        overflow: auto;
+      `;
+      contentEl.textContent = this.content;
+      
+    } catch (finalError) {
+      this.logger.error('❌ Erreur critique dans renderPermanentFallback', finalError);
+      // Dernier recours absolu
+      this.previewContainer.textContent = `⚠️ ERREUR CRITIQUE\n\n${this.content}`;
+    }
+  }
+
+  /**
+   * ✅ AMÉLIORATION : Reset sécurisé du compteur de tentatives
+   */
+  private resetRenderAttempts(): void {
+    this.renderAttempts = 0;
+  }
+
+  /**
+   * Configure les interactions avec les éléments rendus (avec gestion d'erreurs)
+   */
+  private setupInteractions(): void {
+    try {
+      // INTERACTION 1 : TÂCHES COCHABLES
+      const taskCheckboxes = this.previewContainer.querySelectorAll('input[type="checkbox"].task-list-item-checkbox');
+      taskCheckboxes.forEach(checkbox => {
+        try {
+          checkbox.addEventListener('change', (event) => {
+            const target = event.target as HTMLInputElement;
+            this.handleTaskToggle(target);
+          });
+        } catch (error) {
+          this.logger.warn('⚠️ Erreur configuration tâche', error);
+        }
+      });
+
+      // INTERACTION 2 : LIENS INTERNES OBSIDIAN
+      const internalLinks = this.previewContainer.querySelectorAll('a.internal-link');
+      internalLinks.forEach(link => {
+        try {
+          link.addEventListener('click', (event) => {
+            event.preventDefault();
+            
+            const href = link.getAttribute('data-href') || link.getAttribute('href');
+            if (href && this.app.workspace) {
+              this.app.workspace.openLinkText(href, this.file.path);
+            }
+          });
+        } catch (error) {
+          this.logger.warn('⚠️ Erreur configuration lien', error);
+        }
+      });
+
+      // INTERACTION 3 : PRÉVENTION GLOBALE
+      const interactiveElements = this.previewContainer.querySelectorAll('input, button, a, .dataview, .task-list-item');
+      interactiveElements.forEach(element => {
+        try {
+          element.addEventListener('click', (event) => {
+            event.stopPropagation();
+          });
+        } catch (error) {
+          this.logger.warn('⚠️ Erreur configuration interaction', error);
+        }
+      });
+      
+    } catch (error) {
+      this.logger.error('❌ Erreur globale setupInteractions', error);
+      // Ne pas faire échouer le rendu pour les interactions
+    }
+  }
+
+  /**
+   * Gère le cochage/décochage des tâches (avec validation)
    */
   private handleTaskToggle(checkbox: HTMLInputElement): void {
-    const isChecked = checkbox.checked;
-    const listItem = checkbox.closest('li');
-    
-    if (!listItem) return;
+    try {
+      // ✅ VALIDATION
+      if (!checkbox) {
+        throw new Error('Checkbox invalide');
+      }
 
-    // EXTRACTION DU TEXTE DE LA TÂCHE
-    const taskText = this.getTaskTextFromListItem(listItem);
-    if (!taskText) return;
-
-    // MISE À JOUR DU MARKDOWN
-    const lines = this.content.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
+      const isChecked = checkbox.checked;
+      const listItem = checkbox.closest('li');
       
-      // IDENTIFICATION DE LA LIGNE DE TÂCHE
-      if (this.isTaskLine(line) && this.getTaskTextFromLine(line) === taskText) {
-        // BASCULEMENT DE L'ÉTAT
-        const newCheckState = isChecked ? '[x]' : '[ ]';
-        lines[i] = line.replace(/\[[ x]\]/, newCheckState);
+      if (!listItem) {
+        throw new Error('Élément de liste parent non trouvé');
+      }
+
+      // EXTRACTION DU TEXTE DE LA TÂCHE
+      const taskText = this.getTaskTextFromListItem(listItem);
+      if (!taskText) {
+        throw new Error('Texte de tâche non trouvé');
+      }
+
+      // MISE À JOUR DU MARKDOWN
+      const lines = this.content.split('\n');
+      let updated = false;
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
         
-        // MISE À JOUR DU CONTENU
+        if (this.isTaskLine(line) && this.getTaskTextFromLine(line) === taskText) {
+          const newCheckState = isChecked ? '[x]' : '[ ]';
+          lines[i] = line.replace(/\[[ x]\]/, newCheckState);
+          updated = true;
+          break;
+        }
+      }
+
+      if (updated) {
         this.content = lines.join('\n');
         
         // SAUVEGARDE DIFFÉRÉE
         clearTimeout(this.changeTimeout);
         this.changeTimeout = setTimeout(() => {
-          this.onChange(this.content);
+          try {
+            this.onChange(this.content);
+          } catch (error) {
+            this.logger.error('❌ Erreur callback onChange', error);
+          }
         }, 500);
         
-        this.logger.info(`✅ Tâche ${isChecked ? 'cochée' : 'décochée'}: ${taskText}`);
-        break;
+        this.logger.info(`✅ Tâche ${isChecked ? 'cochée' : 'décochée'}`, { taskText });
       }
+      
+    } catch (error) {
+      this.logger.error('❌ Erreur handleTaskToggle', error);
+      // Restaurer l'état précédent de la checkbox
+      checkbox.checked = !checkbox.checked;
     }
   }
 
   /**
    * Extrait le texte d'une tâche depuis un élément de liste DOM
-   * * @param listItem - Élément <li> contenant la tâche
-   * @returns string | null - Texte de la tâche ou null si non trouvé
    */
   private getTaskTextFromListItem(listItem: HTMLElement): string | null {
-    // Le texte de la tâche est généralement dans le dernier nœud texte
-    const textNode = listItem.childNodes[listItem.childNodes.length - 1];
-    return textNode?.textContent?.trim() || null;
+    try {
+      const textNode = listItem.childNodes[listItem.childNodes.length - 1];
+      return textNode?.textContent?.trim() || null;
+    } catch (error) {
+      this.logger.warn('⚠️ Erreur extraction texte tâche', error);
+      return null;
+    }
   }
 
   /**
    * Vérifie si une ligne markdown est une tâche
-   * * @param line - Ligne de texte à vérifier
-   * @returns boolean - true si c'est une ligne de tâche
-   * * @example
-   * isTaskLine("- [x] Tâche terminée");  // true
-   * isTaskLine("- [ ] Tâche à faire");   // true
-   * isTaskLine("- Simple liste");        // false
    */
   private isTaskLine(line: string): boolean {
-    // REGEX pour détecter les tâches : espaces optionnels + liste + checkbox
-    return /^[\s]*[-*+] \[[ x]\]/.test(line);
+    try {
+      return /^[\s]*[-*+] \[[ x]\]/.test(line);
+    } catch (error) {
+      this.logger.warn('⚠️ Erreur vérification ligne tâche', error);
+      return false;
+    }
   }
 
   /**
    * Extrait le texte d'une tâche depuis une ligne markdown
-   * * @param line - Ligne markdown contenant une tâche
-   * @returns string - Texte de la tâche (sans la syntaxe de liste/checkbox)
    */
   private getTaskTextFromLine(line: string): string {
-    const match = line.match(/^[\s]*[-*+] \[[ x]\] (.+)$/);
-    return match ? match[1].trim() : '';
+    try {
+      const match = line.match(/^[\s]*[-*+] \[[ x]\] (.+)$/);
+      return match ? match[1].trim() : '';
+    } catch (error) {
+      this.logger.warn('⚠️ Erreur extraction texte ligne', error);
+      return '';
+    }
   }
 
   /**
-   * Moteur de rendu markdown simple (fallback)
-   * * UTILISATION :
-   * Quand le moteur Obsidian n'est pas disponible ou échoue.
-   * Supporte la syntaxe markdown de base.
-   * * FONCTIONNALITÉS :
-   * - Liens internes [[...]]
-   * - Gras **texte**
-   * - Italique *texte*
-   * - Listes simples
-   * * @param content - Contenu markdown à rendre
-   * @returns string - HTML généré
+   * Moteur de rendu markdown simple (fallback) - Version sécurisée
    */
   private renderSimpleMarkdown(content: string): string {
-    let html = content;
-    
-    // TRANSFORMATION 1 : Liens internes [[...]]
-    html = html.replace(/\[\[([^\]]+)\]\]/g, '<span class="internal-link">$1</span>');
-    
-    // TRANSFORMATION 2 : Gras **text**
-    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    
-    // TRANSFORMATION 3 : Italique *text*
-    html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
-    
-    // TRANSFORMATION 4 : Listes simples
-    html = html.replace(/^[\s]*[-*+] (.+)$/gm, '<li>$1</li>');
-    
-    // TRANSFORMATION 5 : Regroupement des listes
-    const lines = html.split('\n');
-    let result = '';
-    let inList = false;
-    
-    for (const line of lines) {
-      const trimmed = line.trim();
+    try {
+      let html = content;
       
-      if (trimmed.includes('<li>')) {
-        if (!inList) {
-          result += '<ul>\n';
-          inList = true;
-        }
-        result += line + '\n';
-      } else {
-        if (inList) {
-          result += '</ul>\n';
-          inList = false;
-        }
+      // TRANSFORMATION 1 : Liens internes [[...]]
+      html = html.replace(/\[\[([^\]]+)\]\]/g, '<span class="internal-link">$1</span>');
+      
+      // TRANSFORMATION 2 : Gras **text**
+      html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      
+      // TRANSFORMATION 3 : Italique *text*
+      html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+      
+      // TRANSFORMATION 4 : Listes simples
+      html = html.replace(/^[\s]*[-*+] (.+)$/gm, '<li>$1</li>');
+      
+      // TRANSFORMATION 5 : Regroupement des listes
+      const lines = html.split('\n');
+      let result = '';
+      let inList = false;
+      
+      for (const line of lines) {
+        const trimmed = line.trim();
         
-        if (trimmed === '') {
-          result += '<br>\n';
+        if (trimmed.includes('<li>')) {
+          if (!inList) {
+            result += '<ul>\n';
+            inList = true;
+          }
+          result += line + '\n';
         } else {
-          result += `<p>${trimmed}</p>\n`;
+          if (inList) {
+            result += '</ul>\n';
+            inList = false;
+          }
+          
+          if (trimmed === '') {
+            result += '<br>\n';
+          } else {
+            result += `<p>${trimmed}</p>\n`;
+          }
         }
       }
+      
+      if (inList) {
+        result += '</ul>\n';
+      }
+      
+      return result;
+      
+    } catch (error) {
+      this.logger.error('❌ Erreur renderSimpleMarkdown', error);
+      // Fallback ultime : retourner le contenu en HTML échappé
+      return `<pre>${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`;
     }
-    
-    // FERMETURE DE LISTE EN COURS
-    if (inList) {
-      result += '</ul>\n';
-    }
-    
-    return result;
   }
 
   /**
    * Affiche un état vide engageant pour inciter à l'édition
-   * * DESIGN UX :
-   * Message clair et incitatif plutôt qu'un vide intimidant.
-   * Style cohérent avec l'interface Obsidian.
    */
   private renderEmptyState(): void {
-    const placeholder = this.previewContainer.createDiv('empty-placeholder');
-    placeholder.style.cssText = `
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      min-height: 80px;
-      color: var(--text-muted);
-      font-style: italic;
-      cursor: text;
-    `;
-    placeholder.textContent = 'Cliquez pour commencer à écrire...';
+    try {
+      const placeholder = this.previewContainer.createDiv('empty-placeholder');
+      placeholder.style.cssText = `
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        min-height: 80px;
+        color: var(--text-muted);
+        font-style: italic;
+        cursor: text;
+      `;
+      placeholder.textContent = 'Cliquez pour commencer à écrire...';
+      
+    } catch (error) {
+      this.logger.error('❌ Erreur renderEmptyState', error);
+      // Fallback simple
+      this.previewContainer.textContent = 'Cliquez pour écrire...';
+    }
   }
 
   // ===========================================================================
-  // GESTION DES ÉVÉNEMENTS ET INTERACTIONS
+  // GESTION DES ÉVÉNEMENTS ET INTERACTIONS (avec protection d'erreurs)
   // ===========================================================================
 
   /**
-   * Configure les événements du mode preview
-   * * DÉTECTION INTELLIGENTE :
-   * Distingue les clics sur éléments interactifs des clics d'édition.
-   * Évite le basculement involontaire vers l'édition.
+   * Configure les événements du mode preview avec gestion d'erreurs
    */
   private setupPreviewEvents(): void {
-    this.previewContainer.addEventListener('click', (event) => {
-      const target = event.target as HTMLElement;
+    try {
+      this.previewContainer.addEventListener('click', (event) => {
+        try {
+          const target = event.target as HTMLElement;
+          
+          // FILTRAGE : Ne pas éditer si clic sur élément interactif
+          if (this.isInteractiveElement(target)) {
+            this.logger.info('🎯 Clic sur élément interactif, pas de mode édition');
+            return;
+          }
+          
+          this.logger.info('🖱️ Clic sur preview → mode édition');
+          this.enterEditMode();
+          
+        } catch (error) {
+          this.logger.error('❌ Erreur dans gestionnaire clic preview', error);
+        }
+      });
       
-      // FILTRAGE : Ne pas éditer si clic sur élément interactif
-      if (this.isInteractiveElement(target)) {
-        this.logger.info('🎯 Clic sur élément interactif, pas de mode édition');
-        return;
-      }
-      
-      this.logger.info('🖱️ Clic sur preview → mode édition');
-      this.enterEditMode();
-    });
+    } catch (error) {
+      this.logger.error('❌ Erreur setupPreviewEvents', error);
+    }
   }
 
   /**
-   * Détecte si un élément est interactif (ne doit pas déclencher l'édition)
-   * * ÉLÉMENTS INTERACTIFS :
-   * - Éléments HTML standard : input, button, a, select
-   * - Éléments Obsidian : liens internes, tags
-   * - Éléments de plugins : dataview, tasks
-   * - Éléments avec attributs spéciaux
-   * * ALGORITHME :
-   * Remonte la hiérarchie DOM pour vérifier tous les parents.
-   * Un élément est interactif si lui ou un parent l'est.
-   * * @param element - Élément à vérifier
-   * @returns boolean - true si interactif
+   * Détecte si un élément est interactif avec validation
    */
   private isInteractiveElement(element: HTMLElement): boolean {
-    let current: HTMLElement | null = element;
-    
-    // REMONTÉE DE LA HIÉRARCHIE DOM
-    while (current && current !== this.previewContainer) {
-      const tagName = current.tagName.toLowerCase();
-      const classList = Array.from(current.classList);
+    try {
+      if (!element) return false;
       
-      // VÉRIFICATION 1 : Éléments HTML interactifs
-      if (['input', 'button', 'a', 'select', 'textarea'].includes(tagName)) {
-        return true;
+      let current: HTMLElement | null = element;
+      
+      // REMONTÉE DE LA HIÉRARCHIE DOM
+      while (current && current !== this.previewContainer) {
+        const tagName = current.tagName?.toLowerCase() || '';
+        const classList = Array.from(current.classList || []);
+        
+        // VÉRIFICATION 1 : Éléments HTML interactifs
+        if (['input', 'button', 'a', 'select', 'textarea'].includes(tagName)) {
+          return true;
+        }
+        
+        // VÉRIFICATION 2 : Classes spéciales d'Obsidian et plugins
+        const interactiveClasses = [
+          'internal-link',
+          'external-link',
+          'tag',
+          'dataview',
+          'task-list-item-checkbox',
+          'task-list-item',
+          'cm-hmd-codeblock',
+          'block-language-dataview',
+          'block-language-tasks'
+        ];
+        
+        if (interactiveClasses.some(cls => classList.includes(cls))) {
+          return true;
+        }
+        
+        // VÉRIFICATION 3 : Attributs spéciaux
+        if (current.hasAttribute('href') || 
+            current.hasAttribute('data-href') || 
+            current.hasAttribute('data-task') ||
+            current.hasAttribute('contenteditable')) {
+          return true;
+        }
+        
+        // REMONTÉE AU PARENT
+        current = current.parentElement;
       }
       
-      // VÉRIFICATION 2 : Classes spéciales d'Obsidian et plugins
-      const interactiveClasses = [
-        'internal-link',
-        'external-link',
-        'tag',
-        'dataview',
-        'task-list-item-checkbox',
-        'task-list-item',
-        'cm-hmd-codeblock',
-        'block-language-dataview',
-        'block-language-tasks'
-      ];
+      return false;
       
-      if (interactiveClasses.some(cls => classList.includes(cls))) {
-        return true;
-      }
-      
-      // VÉRIFICATION 3 : Attributs spéciaux
-      if (current.hasAttribute('href') || 
-          current.hasAttribute('data-href') || 
-          current.hasAttribute('data-task') ||
-          current.hasAttribute('contenteditable')) {
-        return true;
-      }
-      
-      // REMONTÉE AU PARENT
-      current = current.parentElement;
+    } catch (error) {
+      this.logger.warn('⚠️ Erreur isInteractiveElement', error);
+      return false; // En cas d'erreur, considérer comme non-interactif
     }
-    
-    return false;
   }
 
   /**
-   * Configure les événements du mode édition
-   * * ÉVÉNEMENTS GÉRÉS :
-   * - input : Sauvegarde différée des modifications
-   * - blur : Retour automatique au mode preview
-   * - keydown : Raccourcis clavier (Escape)
+   * Configure les événements du mode édition avec gestion d'erreurs
    */
   private setupEditorEvents(): void {
-    // ÉVÉNEMENT 1 : Modification du contenu
-    this.textArea.addEventListener('input', () => {
-      this.content = this.textArea.value;
+    try {
+      // ÉVÉNEMENT 1 : Modification du contenu
+      this.textArea.addEventListener('input', () => {
+        try {
+          this.content = this.textArea.value;
+          
+          // SAUVEGARDE DIFFÉRÉE (DEBOUNCING)
+          clearTimeout(this.changeTimeout);
+          this.changeTimeout = setTimeout(() => {
+            try {
+              this.onChange(this.content);
+            } catch (error) {
+              this.logger.error('❌ Erreur callback onChange dans input', error);
+            }
+          }, 1000);
+          
+        } catch (error) {
+          this.logger.error('❌ Erreur dans gestionnaire input', error);
+        }
+      });
+
+      // ÉVÉNEMENT 2 : Perte de focus (sortie d'édition)
+      this.textArea.addEventListener('blur', () => {
+        try {
+          this.logger.info('📝 Blur sur textarea → mode preview');
+          this.exitEditMode();
+        } catch (error) {
+          this.logger.error('❌ Erreur dans gestionnaire blur', error);
+        }
+      });
+
+      // ÉVÉNEMENT 3 : Raccourcis clavier
+      this.textArea.addEventListener('keydown', (event) => {
+        try {
+          if (event.key === 'Escape') {
+            this.logger.info('⌨️ Escape → mode preview');
+            this.exitEditMode();
+          }
+        } catch (error) {
+          this.logger.error('❌ Erreur dans gestionnaire keydown', error);
+        }
+      });
       
-      // SAUVEGARDE DIFFÉRÉE (DEBOUNCING)
-      clearTimeout(this.changeTimeout);
-      this.changeTimeout = setTimeout(() => {
-        this.onChange(this.content);
-      }, 1000);
-    });
-
-    // ÉVÉNEMENT 2 : Perte de focus (sortie d'édition)
-    this.textArea.addEventListener('blur', () => {
-      this.logger.info('📝 Blur sur textarea → mode preview');
-      this.exitEditMode();
-    });
-
-    // ÉVÉNEMENT 3 : Raccourcis clavier
-    this.textArea.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') {
-        this.logger.info('⌨️ Escape → mode preview');
-        this.exitEditMode();
-      }
-    });
+    } catch (error) {
+      this.logger.error('❌ Erreur setupEditorEvents', error);
+    }
   }
 
   // ===========================================================================
-  // GESTION DES MODES (PREVIEW ↔ ÉDITION)
+  // GESTION DES MODES (PREVIEW ↔ ÉDITION) avec recovery
   // ===========================================================================
 
   /**
-   * Bascule vers le mode édition
-   * * PROCESSUS :
-   * 1. Marquer l'état comme "en édition"
-   * 2. Cacher le preview
-   * 3. Afficher l'éditeur
-   * 4. Synchroniser le contenu
-   * 5. Donner le focus au textarea
+   * Bascule vers le mode édition avec gestion d'erreurs
    */
   private enterEditMode(): void {
-    this.isEditing = true;
-    this.previewContainer.style.display = 'none';
-    this.editorContainer.style.display = 'block';
-    this.textArea.value = this.content;
-    this.textArea.focus();
-    this.logger.info('✏️ Mode édition activé');
+    try {
+      // ✅ VALIDATION DE L'ÉTAT
+      if (this.isInErrorState) {
+        this.logger.warn('⚠️ Impossible de passer en mode édition - état d\'erreur');
+        return;
+      }
+
+      if (!this.textArea || !this.editorContainer) {
+        throw new Error('Composants d\'édition non initialisés');
+      }
+
+      this.isEditing = true;
+      this.previewContainer.style.display = 'none';
+      this.editorContainer.style.display = 'block';
+      this.textArea.value = this.content;
+      
+      // ✅ FOCUS SÉCURISÉ
+      setTimeout(() => {
+        try {
+          if (this.textArea && this.isEditing) {
+            this.textArea.focus();
+          }
+        } catch (error) {
+          this.logger.warn('⚠️ Erreur focus textarea', error);
+        }
+      }, 10);
+      
+      this.logger.info('✏️ Mode édition activé');
+      
+    } catch (error) {
+      this.logger.error('❌ Erreur enterEditMode', error);
+      // Recovery : forcer le retour en mode preview
+      this.forcePreviewMode();
+    }
   }
 
   /**
-   * Bascule vers le mode preview
-   * * PROCESSUS :
-   * 1. Vérifier qu'on est bien en édition
-   * 2. Récupérer le contenu du textarea
-   * 3. Cacher l'éditeur
-   * 4. Afficher le preview
-   * 5. Re-rendre le contenu
+   * Bascule vers le mode preview avec gestion d'erreurs
    */
   private exitEditMode(): void {
-    if (!this.isEditing) return;
-    
-    this.isEditing = false;
-    this.content = this.textArea.value;
-    this.editorContainer.style.display = 'none';
-    this.previewContainer.style.display = 'block';
-    this.renderContent();
-    this.logger.info('👁️ Mode preview activé');
+    try {
+      if (!this.isEditing) return;
+      
+      // ✅ VALIDATION DE L'ÉTAT
+      if (!this.previewContainer || !this.editorContainer) {
+        throw new Error('Composants de preview non initialisés');
+      }
+      
+      this.isEditing = false;
+      this.content = this.textArea.value;
+      this.editorContainer.style.display = 'none';
+      this.previewContainer.style.display = 'block';
+      
+      // ✅ RE-RENDU SÉCURISÉ
+      this.renderContent().catch(error => {
+        this.logger.error('❌ Erreur re-rendu après édition', error);
+        // En cas d'erreur, garder l'ancien contenu visible
+      });
+      
+      this.logger.info('👁️ Mode preview activé');
+      
+    } catch (error) {
+      this.logger.error('❌ Erreur exitEditMode', error);
+      this.forcePreviewMode();
+    }
+  }
+
+  /**
+   * ✅ NOUVEAU : Force le mode preview en cas d'erreur
+   */
+  private forcePreviewMode(): void {
+    try {
+      this.isEditing = false;
+      
+      if (this.editorContainer) {
+        this.editorContainer.style.display = 'none';
+      }
+      
+      if (this.previewContainer) {
+        this.previewContainer.style.display = 'block';
+      }
+      
+      this.logger.info('🔧 Mode preview forcé après erreur');
+      
+    } catch (error) {
+      this.logger.error('❌ Erreur critique dans forcePreviewMode', error);
+      // Ultime recours : reload complet
+      this.initializeErrorState();
+    }
   }
 
   /**
    * Force l'affichage du mode preview
-   * * UTILISATION :
-   * Initialisation du composant et réinitialisations.
    */
   private showPreview(): void {
-    this.previewContainer.style.display = 'block';
-    this.editorContainer.style.display = 'none';
-    this.isEditing = false;
+    try {
+      if (this.previewContainer && this.editorContainer) {
+        this.previewContainer.style.display = 'block';
+        this.editorContainer.style.display = 'none';
+        this.isEditing = false;
+      }
+    } catch (error) {
+      this.logger.error('❌ Erreur showPreview', error);
+    }
   }
 
   // ===========================================================================
-  // API PUBLIQUE DU COMPOSANT
+  // API PUBLIQUE DU COMPOSANT (avec validation)
   // ===========================================================================
 
   /**
-   * Met à jour le contenu de la section
-   * * UTILISATION :
-   * Quand le fichier source est modifié externement.
-   * Maintient la synchronisation avec la source de vérité.
-   * * @param section - Nouvelles données de section
+   * Met à jour le contenu de la section avec validation
    */
   updateContent(section: FileSection): void {
-    this.section = section;
-    this.content = section.lines.join('\n');
-    
-    if (this.isEditing) {
-      // MODE ÉDITION : Mettre à jour le textarea
-      this.textArea.value = this.content;
-    } else {
-      // MODE PREVIEW : Re-rendre le contenu
-      this.renderContent();
+    try {
+      // ✅ VALIDATION
+      if (!section) {
+        throw new Error('Section requise pour updateContent');
+      }
+
+      if (!section.lines || !Array.isArray(section.lines)) {
+        throw new Error('Section.lines requis et doit être un tableau');
+      }
+
+      this.section = section;
+      this.content = section.lines.join('\n');
+      
+      if (this.isEditing) {
+        // MODE ÉDITION : Mettre à jour le textarea
+        if (this.textArea) {
+          this.textArea.value = this.content;
+        }
+      } else {
+        // MODE PREVIEW : Re-rendre le contenu
+        this.renderContent().catch(error => {
+          this.logger.error('❌ Erreur re-rendu dans updateContent', error);
+        });
+      }
+      
+      this.logger.info('✅ Contenu mis à jour', {
+        sectionName: section.name,
+        contentLength: this.content.length
+      });
+      
+    } catch (error) {
+      this.logger.error('❌ Erreur updateContent', error);
     }
   }
 
   /**
-   * Obtient le contenu actuel de la section
-   * * @returns string - Contenu markdown actuel
+   * Obtient le contenu actuel de la section de manière sécurisée
    */
   getContent(): string {
-    return this.isEditing ? this.textArea.value : this.content;
+    try {
+      if (this.isEditing && this.textArea) {
+        return this.textArea.value;
+      }
+      return this.content || '';
+      
+    } catch (error) {
+      this.logger.error('❌ Erreur getContent', error);
+      return this.content || '';
+    }
   }
 
   /**
-   * Détruit proprement le composant
-   * * NETTOYAGE :
-   * - Vide le conteneur DOM
-   * - Annule les timers en cours
-   * - Libère les références
-   * * UTILISATION :
-   * Appelée lors du nettoyage de la BoardView.
+   * ✅ NOUVEAU : Obtient l'état du composant pour debugging
+   */
+  getState(): any {
+    try {
+      return {
+        isEditing: this.isEditing,
+        isInErrorState: this.isInErrorState,
+        renderAttempts: this.renderAttempts,
+        contentLength: this.content?.length || 0,
+        hasPreviewContainer: !!this.previewContainer,
+        hasEditorContainer: !!this.editorContainer,
+        hasTextArea: !!this.textArea,
+        sectionName: this.section?.name || 'unknown'
+      };
+    } catch (error) {
+      this.logger.error('❌ Erreur getState', error);
+      return { error: 'Unable to get state' };
+    }
+  }
+
+  /**
+   * ✅ NOUVEAU : Tente une récupération en cas d'état incohérent
+   */
+  recover(): void {
+    try {
+      this.logger.info('🔧 Tentative de récupération du composant');
+      
+      // Reset des états
+      this.isInErrorState = false;
+      this.renderAttempts = 0;
+      
+      // Nettoyage et réinitialisation
+      this.container.empty();
+      this.initializeFrame();
+      
+      this.logger.info('✅ Récupération réussie');
+      
+    } catch (error) {
+      this.logger.error('❌ Échec de la récupération', error);
+      this.initializeErrorState();
+    }
+  }
+
+  /**
+   * Détruit proprement le composant avec nettoyage complet
    */
   destroy(): void {
-    this.container.empty();
-    this.logger.info('🗑️ MarkdownFrame détruite');
+    try {
+      // ✅ NETTOYAGE DES TIMERS
+      if (this.changeTimeout) {
+        clearTimeout(this.changeTimeout);
+        this.changeTimeout = null;
+      }
+
+      // ✅ NETTOYAGE DES ÉLÉMENTS DOM
+      if (this.container) {
+        this.container.empty();
+      }
+
+      // ✅ RÉINITIALISATION DES RÉFÉRENCES
+      this.previewContainer = null as any;
+      this.editorContainer = null as any;
+      this.textArea = null as any;
+      
+      // ✅ RESET DES ÉTATS
+      this.isEditing = false;
+      this.isInErrorState = false;
+      this.renderAttempts = 0;
+      
+      this.logger.info('🗑️ MarkdownFrame détruite proprement');
+      
+    } catch (error) {
+      this.logger.error('❌ Erreur lors de la destruction', error);
+      // Nettoyage forcé même en cas d'erreur
+      try {
+        if (this.container) {
+          this.container.innerHTML = '';
+        }
+      } catch (finalError) {
+        console.error('Erreur critique destruction MarkdownFrame:', finalError);
+      }
+    }
   }
 }

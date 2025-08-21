@@ -54,13 +54,28 @@ var LoggerService = class {
   updateSettings(settings) {
     this.settings = settings;
   }
+  safeStringify(data, maxLength = 500) {
+    if (!data)
+      return "";
+    try {
+      let result = JSON.stringify(data);
+      if (result.length > maxLength) {
+        result = result.substring(0, maxLength) + "...[truncated]";
+      }
+      return result;
+    } catch (error) {
+      return "[unstringifiable object]";
+    }
+  }
   /**
    * Ajoute un message au buffer
    */
   addToBuffer(level, message, data, source) {
-    const timestamp = new Date().toISOString();
+    const now = new Date();
+    const pad = (num) => num.toString().padStart(2, "0");
+    const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
     const levelStr = LogLevel[level];
-    const dataStr = data ? ` | Data: ${JSON.stringify(data)}` : "";
+    const dataStr = data ? ` | Data: ${this.safeStringify(data)}` : "";
     const sourceStr = source ? ` | Source: ${source}` : "";
     const logEntry = `[${timestamp}] ${levelStr}: ${message}${dataStr}${sourceStr}`;
     this.logBuffer.push(logEntry);
@@ -1060,20 +1075,6 @@ var LAYOUT_INFO = {
 
 // src/services/LayoutService.ts
 var LayoutService = class {
-  /**
-   * CONSTRUCTEUR avec injection de dépendance
-   * 
-   * @param plugin - Instance du plugin principal
-   * 
-   * INJECTION DE DÉPENDANCE :
-   * Le plugin est injecté pour potentiel accès futur à :
-   * - Configuration utilisateur
-   * - Système de logs
-   * - Événements du plugin
-   * 
-   * MODIFICATEUR private :
-   * Le plugin est stocké pour usage interne uniquement
-   */
   constructor(plugin) {
     this.plugin = plugin;
     /**
@@ -1090,6 +1091,7 @@ var LayoutService = class {
      * - V = BoardLayout[] (array de blocs)
      */
     this.models = /* @__PURE__ */ new Map();
+    this.logger = plugin.logger;
   }
   // ===========================================================================
   // MÉTHODES DE CHARGEMENT ET INITIALISATION
@@ -1120,7 +1122,7 @@ var LayoutService = class {
    * // Log: "📋 Layouts disponibles: layout_eisenhower, layout_kanban, ..."
    */
   load() {
-    console.log("\u{1F4D0} Chargement des layouts int\xE9gr\xE9s...");
+    this.logger.info("\u{1F4D0} Chargement des layouts int\xE9gr\xE9s...");
     this.models.clear();
     let loadedCount = 0;
     for (const [name, layout] of Object.entries(BUILT_IN_LAYOUTS)) {
@@ -1229,10 +1231,11 @@ var LayoutService = class {
    * // false car x(20) + w(5) = 25 > 24 (déborde à droite)
    */
   isBlockInBounds(block) {
+    const MIN_SIZE = 2;
     return block.x >= 0 && // Position X positive
     block.y >= 0 && // Position Y positive
-    block.w > 0 && // Largeur positive
-    block.h > 0 && // Hauteur positive
+    block.w > MIN_SIZE && // Largeur positive
+    block.h > MIN_SIZE && // Hauteur positive
     block.x + block.w <= 24 && // Pas de débordement horizontal
     block.y + block.h <= 100;
   }
@@ -1446,6 +1449,7 @@ var _FileCache = class {
   constructor() {
     // 5 minutes
     this.cache = /* @__PURE__ */ new Map();
+    this.dispose();
     this.startCleanupTimer();
   }
   /**
@@ -2025,8 +2029,10 @@ var DEFAULT_SETTINGS = {
     // Console activée par défaut
     logFileName: "agile-board-debug.log",
     // Nom du fichier de log
-    maxLogFileSize: 5 * 1024 * 1024
+    maxLogFileSize: 5 * 1024 * 1024,
     // 5MB maximum avant rotation
+    autoSaveInterval: 5
+    // Sauvegarde automatique toutes les 5 minutes
   }
 };
 var DEVELOPMENT_SETTINGS = {
@@ -2039,8 +2045,10 @@ var DEVELOPMENT_SETTINGS = {
     // Console uniquement pour dev
     logToConsole: true,
     logFileName: "agile-board-dev.log",
-    maxLogFileSize: 2 * 1024 * 1024
+    maxLogFileSize: 2 * 1024 * 1024,
     // 2MB pour le dev
+    autoSaveInterval: 1
+    // Sauvegarde toutes les 1 minute pour dev
   }
 };
 var DIAGNOSTIC_SETTINGS = {
@@ -2054,8 +2062,10 @@ var DIAGNOSTIC_SETTINGS = {
     logToConsole: false,
     // Pas de pollution console en diagnostic
     logFileName: "agile-board-diagnostic.log",
-    maxLogFileSize: 1024 * 1024
+    maxLogFileSize: 1024 * 1024,
     // 1MB pour diagnostic
+    autoSaveInterval: 5
+    // Sauvegarde toutes les 5 minutes
   }
 };
 var PRODUCTION_SETTINGS = {
@@ -2071,8 +2081,10 @@ var PRODUCTION_SETTINGS = {
     logToConsole: false,
     // Pas de pollution console
     logFileName: "agile-board-errors.log",
-    maxLogFileSize: 512 * 1024
+    maxLogFileSize: 512 * 1024,
     // 512KB pour erreurs seulement
+    autoSaveInterval: 10
+    // Sauvegarde toutes les 10 minutes
   }
 };
 
@@ -2085,27 +2097,7 @@ var MarkdownFrame = class {
   // CONSTRUCTEUR ET INITIALISATION
   // ===========================================================================
   /**
-   * CONSTRUCTEUR du composant MarkdownFrame
-   * * @param app - Instance principale d'Obsidian
-   * @param container - Élément DOM parent où injecter le composant
-   * @param file - Fichier source contenant cette section
-   * @param section - Métadonnées de la section (lignes, position)
-   * @param onChange - Callback appelé lors des modifications
-   * * INJECTION DE DÉPENDANCES :
-   * - app : Pour accès aux APIs Obsidian (rendu, navigation)
-   * - container : Pour manipulation DOM
-   * - file : Pour contexte de rendu (chemins relatifs, etc.)
-   * - onChange : Pour notifier le parent des changements
-   * * INITIALISATION :
-   * Le constructeur démarre immédiatement l'initialisation complète.
-   * * @example
-   * const frame = new MarkdownFrame(
-   * app,
-   * frameElement,
-   * currentFile,
-   * sectionData,
-   * (newContent) => saveToFile(sectionName, newContent)
-   * );
+   * CONSTRUCTEUR du composant MarkdownFrame avec validation robuste
    */
   constructor(app, container, file, section, onChange, logger) {
     this.app = app;
@@ -2123,499 +2115,903 @@ var MarkdownFrame = class {
      * - true : Mode édition (textarea visible)
      */
     this.isEditing = false;
+    /**
+     * ✅ NOUVEAU : Indicateur d'état d'erreur
+     */
+    this.isInErrorState = false;
+    /**
+     * ✅ NOUVEAU : Compteur de tentatives de rendu
+     */
+    this.renderAttempts = 0;
+    this.MAX_RENDER_ATTEMPTS = 3;
     this.logger = logger;
-    this.content = section.lines.join("\n");
-    this.initializeFrame();
+    try {
+      this.validateConstructorParams();
+      this.content = section.lines.join("\n");
+      this.initializeFrame();
+      this.logger.info("\u2705 MarkdownFrame initialis\xE9 avec succ\xE8s", {
+        sectionName: section.name,
+        contentLength: this.content.length
+      });
+    } catch (error) {
+      this.logger.error("\u274C Erreur critique lors de l'initialisation de MarkdownFrame", error);
+      this.initializeErrorState();
+    }
   }
   /**
-   * Initialise complètement l'interface du composant
-   * * ÉTAPES D'INITIALISATION :
-   * 1. Configuration du conteneur principal
-   * 2. Création du conteneur preview
-   * 3. Création du conteneur d'édition
-   * 4. Affichage initial en mode preview
-   * * PATTERN TEMPLATE METHOD :
-   * Orchestration de l'initialisation en étapes définies.
+   * ✅ NOUVEAU : Validation des paramètres du constructeur
+   */
+  validateConstructorParams() {
+    if (!this.app) {
+      throw new Error("App Obsidian requis");
+    }
+    if (!this.container) {
+      throw new Error("Container DOM requis");
+    }
+    if (!this.file) {
+      throw new Error("Fichier TFile requis");
+    }
+    if (!this.section) {
+      throw new Error("Section FileSection requise");
+    }
+    if (!this.onChange || typeof this.onChange !== "function") {
+      throw new Error("Callback onChange requis");
+    }
+    if (!this.logger) {
+      throw new Error("Logger requis");
+    }
+  }
+  /**
+   * ✅ NOUVEAU : Initialise un état d'erreur de base
+   */
+  initializeErrorState() {
+    try {
+      this.isInErrorState = true;
+      this.container.empty();
+      const errorDiv = this.container.createDiv("markdown-frame-error");
+      errorDiv.innerHTML = `
+        <div style="
+          color: var(--text-error);
+          background: var(--background-secondary);
+          border: 1px solid var(--background-modifier-border);
+          border-radius: 4px;
+          padding: 1rem;
+          text-align: center;
+        ">
+          <h4>\u26A0\uFE0F Erreur de composant</h4>
+          <p>Impossible d'initialiser cette section.</p>
+          <button onclick="location.reload()" style="
+            background: var(--interactive-accent);
+            color: var(--text-on-accent);
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+          ">
+            \u{1F504} Recharger
+          </button>
+        </div>
+      `;
+    } catch (fallbackError) {
+      this.logger.error("\u274C Erreur critique dans initializeErrorState", fallbackError);
+      this.container.textContent = "\u26A0\uFE0F Erreur critique - Veuillez recharger la page";
+    }
+  }
+  /**
+   * Initialise complètement l'interface du composant avec gestion d'erreurs
    */
   initializeFrame() {
-    this.setupContainer();
-    this.createPreviewContainer();
-    this.createEditorContainer();
-    this.showPreview();
+    try {
+      this.setupContainer();
+      this.createPreviewContainer();
+      this.createEditorContainer();
+      this.showPreview();
+    } catch (error) {
+      this.logger.error("\u274C Erreur lors de l'initialisation de la frame", error);
+      this.initializeErrorState();
+    }
   }
   /**
    * Configure le conteneur principal du composant
-   * * NETTOYAGE :
-   * Vide le conteneur existant pour éviter les conflits.
-   * * STYLES CSS :
-   * - Position relative pour positionnement des enfants
-   * - Overflow hidden pour contenir le contenu
-   * - Dimensions 100% pour remplir l'espace disponible
    */
   setupContainer() {
-    this.container.empty();
-    this.container.style.cssText = `
-      width: 100%;
-      height: 100%;
-      position: relative;
-      overflow: hidden;
-    `;
+    try {
+      this.container.empty();
+      this.container.style.cssText = `
+        width: 100%;
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+      `;
+    } catch (error) {
+      this.logger.error("\u274C Erreur setupContainer", error);
+      throw error;
+    }
   }
   // ===========================================================================
   // CRÉATION DES INTERFACES PREVIEW ET ÉDITION
   // ===========================================================================
   /**
    * Crée et configure le conteneur de preview (affichage rendu)
-   * * RESPONSABILITÉS :
-   * - Affichage du contenu markdown rendu
-   * - Gestion des interactions (clics, tâches, liens)
-   * - Détection du basculement vers l'édition
-   * * STYLES :
-   * Intégration avec les variables CSS d'Obsidian pour cohérence visuelle.
    */
   createPreviewContainer() {
-    this.previewContainer = this.container.createDiv("markdown-preview");
-    this.previewContainer.style.cssText = `
-      width: 100%;
-      height: 100%;
-      overflow: auto;
-      padding: 0.5rem;
-      cursor: text;
-      box-sizing: border-box;
-    `;
-    this.renderContent();
-    this.setupPreviewEvents();
+    try {
+      this.previewContainer = this.container.createDiv("markdown-preview");
+      this.previewContainer.style.cssText = `
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        padding: 0.5rem;
+        cursor: text;
+        box-sizing: border-box;
+      `;
+      this.renderContent();
+      this.setupPreviewEvents();
+    } catch (error) {
+      this.logger.error("\u274C Erreur createPreviewContainer", error);
+      throw error;
+    }
   }
   /**
    * Crée et configure le conteneur d'édition (textarea)
-   * * RESPONSABILITÉS :
-   * - Interface de modification directe du markdown
-   * - Sauvegarde automatique des changements
-   * - Gestion des raccourcis clavier (Escape)
-   * * VISIBILITÉ :
-   * Initialement caché, affiché seulement en mode édition.
    */
   createEditorContainer() {
-    this.editorContainer = this.container.createDiv("markdown-editor");
-    this.editorContainer.style.cssText = `
-      width: 100%;
-      height: 100%;
-      display: none;
-      box-sizing: border-box;
-    `;
-    this.textArea = this.editorContainer.createEl("textarea");
-    this.textArea.style.cssText = `
-      width: 100%;
-      height: 100%;
-      border: none;
-      outline: none;
-      resize: none;
-      font-family: var(--font-text);
-      font-size: var(--font-size-normal);
-      background: transparent;
-      color: var(--text-normal);
-      padding: 0.5rem;
-      box-sizing: border-box;
-      line-height: 1.6;
-    `;
-    this.textArea.value = this.content;
-    this.setupEditorEvents();
+    try {
+      this.editorContainer = this.container.createDiv("markdown-editor");
+      this.editorContainer.style.cssText = `
+        width: 100%;
+        height: 100%;
+        display: none;
+        box-sizing: border-box;
+      `;
+      this.textArea = this.editorContainer.createEl("textarea");
+      this.textArea.style.cssText = `
+        width: 100%;
+        height: 100%;
+        border: none;
+        outline: none;
+        resize: none;
+        font-family: var(--font-text);
+        font-size: var(--font-size-normal);
+        background: transparent;
+        color: var(--text-normal);
+        padding: 0.5rem;
+        box-sizing: border-box;
+        line-height: 1.6;
+      `;
+      this.textArea.value = this.content;
+      this.setupEditorEvents();
+    } catch (error) {
+      this.logger.error("\u274C Erreur createEditorContainer", error);
+      throw error;
+    }
   }
   // ===========================================================================
-  // MOTEUR DE RENDU MARKDOWN
+  // MOTEUR DE RENDU MARKDOWN AVEC GESTION D'ERREURS ROBUSTE
   // ===========================================================================
   /**
-   * Rend le contenu markdown avec le moteur officiel d'Obsidian
-   * * MOTEUR DE RENDU :
-   * Utilise MarkdownRenderer.renderMarkdown() qui supporte :
-   * - Toutes les extensions markdown d'Obsidian
-   * - Plugins tiers (Tasks, Dataview, etc.)
-   * - Liens internes et navigation
-   * - Syntaxe avancée (callouts, etc.)
-   * * FALLBACK :
-   * En cas d'erreur, utilise un moteur de rendu simple
-   * pour maintenir la fonctionnalité de base.
-   * * GESTION DU CONTENU VIDE :
-   * Affiche un placeholder engageant pour inciter à l'édition.
+   * ✅ CORRECTION BUG #4 : Rend le contenu markdown avec gestion d'erreurs complète
    */
   async renderContent() {
-    this.previewContainer.empty();
-    if (!this.content.trim()) {
-      this.renderEmptyState();
+    if (this.renderAttempts >= this.MAX_RENDER_ATTEMPTS) {
+      this.logger.warn("\u{1F6AB} Nombre maximum de tentatives de rendu atteint", {
+        attempts: this.renderAttempts,
+        sectionName: this.section.name
+      });
+      this.renderPermanentFallback();
       return;
     }
+    this.renderAttempts++;
     try {
-      const { MarkdownRenderer, Component } = require("obsidian");
+      this.validateRenderState();
+      this.previewContainer.empty();
+      if (!this.content.trim()) {
+        this.renderEmptyState();
+        this.resetRenderAttempts();
+        return;
+      }
+      await this.attemptObsidianRender();
+      this.resetRenderAttempts();
+      this.isInErrorState = false;
+      this.logger.info("\u2705 Contenu rendu avec succ\xE8s", {
+        engine: "obsidian",
+        contentLength: this.content.length,
+        attempt: this.renderAttempts
+      });
+    } catch (error) {
+      this.logger.error("\u274C Erreur lors du rendu du contenu", {
+        error: error.message,
+        attempt: this.renderAttempts,
+        sectionName: this.section.name,
+        contentPreview: this.content.substring(0, 100) + "..."
+      });
+      await this.handleRenderError(error);
+    }
+  }
+  /**
+   * ✅ NOUVEAU : Validation de l'état avant rendu
+   */
+  validateRenderState() {
+    if (!this.previewContainer) {
+      throw new Error("previewContainer non initialis\xE9");
+    }
+    if (this.content === null || this.content === void 0) {
+      throw new Error("Contenu invalide");
+    }
+    if (!this.file || !this.file.path) {
+      throw new Error("Fichier invalide");
+    }
+  }
+  /**
+   * ✅ NOUVEAU : Tentative de rendu avec le moteur Obsidian
+   */
+  async attemptObsidianRender() {
+    try {
+      const obsidianModules = await this.safeRequireObsidian();
+      if (!obsidianModules) {
+        throw new Error("Modules Obsidian non disponibles");
+      }
+      const { MarkdownRenderer, Component } = obsidianModules;
       const component = new Component();
-      await MarkdownRenderer.renderMarkdown(
-        this.content,
-        // Contenu à rendre
-        this.previewContainer,
-        // Conteneur de destination
-        this.file.path,
-        // Contexte de fichier (pour liens relatifs)
-        component
-        // Composant pour cycle de vie
-      );
-      this.logger.info("\u2705 Contenu rendu avec le moteur Obsidian (plugins support\xE9s)");
+      await Promise.race([
+        MarkdownRenderer.renderMarkdown(
+          this.content,
+          this.previewContainer,
+          this.file.path,
+          component
+        ),
+        this.createTimeoutPromise(5e3)
+        // Timeout de 5 secondes
+      ]);
       this.setupInteractions();
     } catch (error) {
-      this.logger.warn("\u26A0\uFE0F Erreur rendu Obsidian, fallback vers rendu simple:", error);
-      this.previewContainer.innerHTML = this.renderSimpleMarkdown(this.content);
+      throw new Error(`Rendu Obsidian \xE9chou\xE9: ${error.message}`);
     }
   }
   /**
-   * Configure les interactions avec les éléments rendus
-   * * INTERACTIONS SUPPORTÉES :
-   * 1. Tâches cochables (Tasks plugin)
-   * 2. Liens internes Obsidian
-   * 3. Liens externes
-   * 4. Éléments Dataview
-   * * PATTERN EVENT DELEGATION :
-   * Ajoute des écouteurs sur les éléments spécifiques
-   * plutôt que sur le conteneur global.
-   * * PRÉVENTION DE PROPAGATION :
-   * Empêche les clics sur éléments interactifs de déclencher
-   * le mode édition.
+   * ✅ NOUVEAU : Import sécurisé des modules Obsidian
    */
-  setupInteractions() {
-    const taskCheckboxes = this.previewContainer.querySelectorAll('input[type="checkbox"].task-list-item-checkbox');
-    taskCheckboxes.forEach((checkbox) => {
-      checkbox.addEventListener("change", (event) => {
-        const target = event.target;
-        this.handleTaskToggle(target);
-      });
-    });
-    const internalLinks = this.previewContainer.querySelectorAll("a.internal-link");
-    internalLinks.forEach((link) => {
-      link.addEventListener("click", (event) => {
-        event.preventDefault();
-        const href = link.getAttribute("data-href") || link.getAttribute("href");
-        if (href) {
-          this.app.workspace.openLinkText(href, this.file.path);
-        }
-      });
-    });
-    const interactiveElements = this.previewContainer.querySelectorAll("input, button, a, .dataview, .task-list-item");
-    interactiveElements.forEach((element) => {
-      element.addEventListener("click", (event) => {
-        event.stopPropagation();
-      });
+  async safeRequireObsidian() {
+    try {
+      return require("obsidian");
+    } catch (error) {
+      this.logger.warn("\u26A0\uFE0F Modules Obsidian non disponibles via require", error);
+      if (this.app && this.app.MarkdownRenderer) {
+        return {
+          MarkdownRenderer: this.app.MarkdownRenderer,
+          Component: this.app.Component || class Component {
+          }
+        };
+      }
+      return null;
+    }
+  }
+  /**
+   * ✅ NOUVEAU : Crée une promesse de timeout
+   */
+  createTimeoutPromise(ms) {
+    return new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(`Timeout apr\xE8s ${ms}ms`)), ms);
     });
   }
   /**
-   * Gère le cochage/décochage des tâches
-   * * ALGORITHME :
-   * 1. Identifier la tâche modifiée dans le DOM
-   * 2. Trouver la ligne correspondante dans le markdown
-   * 3. Mettre à jour la syntaxe de tâche ([ ] ↔ [x])
-   * 4. Déclencher la sauvegarde automatique
-   * * SYNCHRONISATION :
-   * Maintient la cohérence entre affichage et source markdown.
-   * * @param checkbox - Élément checkbox qui a été modifié
-   * * @example
-   * // Utilisateur coche une tâche dans l'affichage
-   * // handleTaskToggle() met à jour le markdown :
-   * // "- [ ] Tâche" → "- [x] Tâche"
+   * ✅ NOUVEAU : Gestion intelligente des erreurs de rendu
+   */
+  async handleRenderError(error) {
+    const errorMessage = error.message.toLowerCase();
+    if (errorMessage.includes("timeout")) {
+      this.logger.warn("\u23F1\uFE0F Timeout de rendu - Passage en mode simple");
+      this.renderSimpleFallback();
+    } else if (errorMessage.includes("module") || errorMessage.includes("require")) {
+      this.logger.warn("\u{1F4E6} Erreur de module - Passage en rendu de base");
+      this.renderBasicMarkdown();
+    } else if (this.renderAttempts < this.MAX_RENDER_ATTEMPTS) {
+      this.logger.warn("\u{1F504} Nouvelle tentative de rendu dans 1 seconde");
+      setTimeout(() => this.renderContent(), 1e3);
+    } else {
+      this.logger.error("\u{1F4A5} \xC9chec d\xE9finitif du rendu - Mode texte brut");
+      this.renderPermanentFallback();
+    }
+  }
+  /**
+   * ✅ NOUVEAU : Fallback simple avec markdown de base
+   */
+  renderSimpleFallback() {
+    try {
+      this.previewContainer.empty();
+      this.previewContainer.innerHTML = this.renderSimpleMarkdown(this.content);
+      const indicator = this.previewContainer.createDiv("fallback-indicator");
+      indicator.style.cssText = `
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        background: var(--background-modifier-warning);
+        color: var(--text-warning);
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.7em;
+        opacity: 0.7;
+      `;
+      indicator.textContent = "\u26A0\uFE0F Mode simplifi\xE9";
+    } catch (error) {
+      this.logger.error("\u274C Erreur dans renderSimpleFallback", error);
+      this.renderPermanentFallback();
+    }
+  }
+  /**
+   * ✅ NOUVEAU : Fallback avec markdown basique
+   */
+  renderBasicMarkdown() {
+    try {
+      this.previewContainer.empty();
+      const lines = this.content.split("\n");
+      for (const line of lines) {
+        const lineEl = this.previewContainer.createDiv("basic-line");
+        lineEl.style.marginBottom = "0.5em";
+        lineEl.textContent = line || " ";
+      }
+    } catch (error) {
+      this.logger.error("\u274C Erreur dans renderBasicMarkdown", error);
+      this.renderPermanentFallback();
+    }
+  }
+  /**
+   * ✅ NOUVEAU : Fallback permanent en cas d'échec total
+   */
+  renderPermanentFallback() {
+    try {
+      this.isInErrorState = true;
+      this.previewContainer.empty();
+      const errorContainer = this.previewContainer.createDiv("permanent-fallback");
+      errorContainer.innerHTML = `
+        <div style="
+          color: var(--text-error);
+          background: var(--background-secondary);
+          border: 1px dashed var(--background-modifier-border);
+          border-radius: 4px;
+          padding: 1rem;
+          margin-bottom: 1rem;
+        ">
+          <div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
+            <span style="margin-right: 0.5rem;">\u26A0\uFE0F</span>
+            <strong>Erreur de rendu</strong>
+          </div>
+          <p style="margin: 0; opacity: 0.8;">
+            Affichage du contenu en mode texte brut. 
+            <button onclick="location.reload()" style="
+              background: none; 
+              border: none; 
+              color: var(--text-accent); 
+              text-decoration: underline; 
+              cursor: pointer;
+            ">Recharger</button>
+          </p>
+        </div>
+      `;
+      const contentEl = errorContainer.createEl("pre");
+      contentEl.style.cssText = `
+        white-space: pre-wrap;
+        font-family: var(--font-text);
+        font-size: var(--font-size-normal);
+        color: var(--text-normal);
+        background: var(--background-primary);
+        padding: 1rem;
+        border-radius: 4px;
+        overflow: auto;
+      `;
+      contentEl.textContent = this.content;
+    } catch (finalError) {
+      this.logger.error("\u274C Erreur critique dans renderPermanentFallback", finalError);
+      this.previewContainer.textContent = `\u26A0\uFE0F ERREUR CRITIQUE
+
+${this.content}`;
+    }
+  }
+  /**
+   * ✅ AMÉLIORATION : Reset sécurisé du compteur de tentatives
+   */
+  resetRenderAttempts() {
+    this.renderAttempts = 0;
+  }
+  /**
+   * Configure les interactions avec les éléments rendus (avec gestion d'erreurs)
+   */
+  setupInteractions() {
+    try {
+      const taskCheckboxes = this.previewContainer.querySelectorAll('input[type="checkbox"].task-list-item-checkbox');
+      taskCheckboxes.forEach((checkbox) => {
+        try {
+          checkbox.addEventListener("change", (event) => {
+            const target = event.target;
+            this.handleTaskToggle(target);
+          });
+        } catch (error) {
+          this.logger.warn("\u26A0\uFE0F Erreur configuration t\xE2che", error);
+        }
+      });
+      const internalLinks = this.previewContainer.querySelectorAll("a.internal-link");
+      internalLinks.forEach((link) => {
+        try {
+          link.addEventListener("click", (event) => {
+            event.preventDefault();
+            const href = link.getAttribute("data-href") || link.getAttribute("href");
+            if (href && this.app.workspace) {
+              this.app.workspace.openLinkText(href, this.file.path);
+            }
+          });
+        } catch (error) {
+          this.logger.warn("\u26A0\uFE0F Erreur configuration lien", error);
+        }
+      });
+      const interactiveElements = this.previewContainer.querySelectorAll("input, button, a, .dataview, .task-list-item");
+      interactiveElements.forEach((element) => {
+        try {
+          element.addEventListener("click", (event) => {
+            event.stopPropagation();
+          });
+        } catch (error) {
+          this.logger.warn("\u26A0\uFE0F Erreur configuration interaction", error);
+        }
+      });
+    } catch (error) {
+      this.logger.error("\u274C Erreur globale setupInteractions", error);
+    }
+  }
+  /**
+   * Gère le cochage/décochage des tâches (avec validation)
    */
   handleTaskToggle(checkbox) {
-    const isChecked = checkbox.checked;
-    const listItem = checkbox.closest("li");
-    if (!listItem)
-      return;
-    const taskText = this.getTaskTextFromListItem(listItem);
-    if (!taskText)
-      return;
-    const lines = this.content.split("\n");
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (this.isTaskLine(line) && this.getTaskTextFromLine(line) === taskText) {
-        const newCheckState = isChecked ? "[x]" : "[ ]";
-        lines[i] = line.replace(/\[[ x]\]/, newCheckState);
+    try {
+      if (!checkbox) {
+        throw new Error("Checkbox invalide");
+      }
+      const isChecked = checkbox.checked;
+      const listItem = checkbox.closest("li");
+      if (!listItem) {
+        throw new Error("\xC9l\xE9ment de liste parent non trouv\xE9");
+      }
+      const taskText = this.getTaskTextFromListItem(listItem);
+      if (!taskText) {
+        throw new Error("Texte de t\xE2che non trouv\xE9");
+      }
+      const lines = this.content.split("\n");
+      let updated = false;
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (this.isTaskLine(line) && this.getTaskTextFromLine(line) === taskText) {
+          const newCheckState = isChecked ? "[x]" : "[ ]";
+          lines[i] = line.replace(/\[[ x]\]/, newCheckState);
+          updated = true;
+          break;
+        }
+      }
+      if (updated) {
         this.content = lines.join("\n");
         clearTimeout(this.changeTimeout);
         this.changeTimeout = setTimeout(() => {
-          this.onChange(this.content);
+          try {
+            this.onChange(this.content);
+          } catch (error) {
+            this.logger.error("\u274C Erreur callback onChange", error);
+          }
         }, 500);
-        this.logger.info(`\u2705 T\xE2che ${isChecked ? "coch\xE9e" : "d\xE9coch\xE9e"}: ${taskText}`);
-        break;
+        this.logger.info(`\u2705 T\xE2che ${isChecked ? "coch\xE9e" : "d\xE9coch\xE9e"}`, { taskText });
       }
+    } catch (error) {
+      this.logger.error("\u274C Erreur handleTaskToggle", error);
+      checkbox.checked = !checkbox.checked;
     }
   }
   /**
    * Extrait le texte d'une tâche depuis un élément de liste DOM
-   * * @param listItem - Élément <li> contenant la tâche
-   * @returns string | null - Texte de la tâche ou null si non trouvé
    */
   getTaskTextFromListItem(listItem) {
     var _a;
-    const textNode = listItem.childNodes[listItem.childNodes.length - 1];
-    return ((_a = textNode == null ? void 0 : textNode.textContent) == null ? void 0 : _a.trim()) || null;
+    try {
+      const textNode = listItem.childNodes[listItem.childNodes.length - 1];
+      return ((_a = textNode == null ? void 0 : textNode.textContent) == null ? void 0 : _a.trim()) || null;
+    } catch (error) {
+      this.logger.warn("\u26A0\uFE0F Erreur extraction texte t\xE2che", error);
+      return null;
+    }
   }
   /**
    * Vérifie si une ligne markdown est une tâche
-   * * @param line - Ligne de texte à vérifier
-   * @returns boolean - true si c'est une ligne de tâche
-   * * @example
-   * isTaskLine("- [x] Tâche terminée");  // true
-   * isTaskLine("- [ ] Tâche à faire");   // true
-   * isTaskLine("- Simple liste");        // false
    */
   isTaskLine(line) {
-    return /^[\s]*[-*+] \[[ x]\]/.test(line);
+    try {
+      return /^[\s]*[-*+] \[[ x]\]/.test(line);
+    } catch (error) {
+      this.logger.warn("\u26A0\uFE0F Erreur v\xE9rification ligne t\xE2che", error);
+      return false;
+    }
   }
   /**
    * Extrait le texte d'une tâche depuis une ligne markdown
-   * * @param line - Ligne markdown contenant une tâche
-   * @returns string - Texte de la tâche (sans la syntaxe de liste/checkbox)
    */
   getTaskTextFromLine(line) {
-    const match = line.match(/^[\s]*[-*+] \[[ x]\] (.+)$/);
-    return match ? match[1].trim() : "";
+    try {
+      const match = line.match(/^[\s]*[-*+] \[[ x]\] (.+)$/);
+      return match ? match[1].trim() : "";
+    } catch (error) {
+      this.logger.warn("\u26A0\uFE0F Erreur extraction texte ligne", error);
+      return "";
+    }
   }
   /**
-   * Moteur de rendu markdown simple (fallback)
-   * * UTILISATION :
-   * Quand le moteur Obsidian n'est pas disponible ou échoue.
-   * Supporte la syntaxe markdown de base.
-   * * FONCTIONNALITÉS :
-   * - Liens internes [[...]]
-   * - Gras **texte**
-   * - Italique *texte*
-   * - Listes simples
-   * * @param content - Contenu markdown à rendre
-   * @returns string - HTML généré
+   * Moteur de rendu markdown simple (fallback) - Version sécurisée
    */
   renderSimpleMarkdown(content) {
-    let html = content;
-    html = html.replace(/\[\[([^\]]+)\]\]/g, '<span class="internal-link">$1</span>');
-    html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-    html = html.replace(/\*(.*?)\*/g, "<em>$1</em>");
-    html = html.replace(/^[\s]*[-*+] (.+)$/gm, "<li>$1</li>");
-    const lines = html.split("\n");
-    let result = "";
-    let inList = false;
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed.includes("<li>")) {
-        if (!inList) {
-          result += "<ul>\n";
-          inList = true;
-        }
-        result += line + "\n";
-      } else {
-        if (inList) {
-          result += "</ul>\n";
-          inList = false;
-        }
-        if (trimmed === "") {
-          result += "<br>\n";
+    try {
+      let html = content;
+      html = html.replace(/\[\[([^\]]+)\]\]/g, '<span class="internal-link">$1</span>');
+      html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+      html = html.replace(/\*(.*?)\*/g, "<em>$1</em>");
+      html = html.replace(/^[\s]*[-*+] (.+)$/gm, "<li>$1</li>");
+      const lines = html.split("\n");
+      let result = "";
+      let inList = false;
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.includes("<li>")) {
+          if (!inList) {
+            result += "<ul>\n";
+            inList = true;
+          }
+          result += line + "\n";
         } else {
-          result += `<p>${trimmed}</p>
+          if (inList) {
+            result += "</ul>\n";
+            inList = false;
+          }
+          if (trimmed === "") {
+            result += "<br>\n";
+          } else {
+            result += `<p>${trimmed}</p>
 `;
+          }
         }
       }
+      if (inList) {
+        result += "</ul>\n";
+      }
+      return result;
+    } catch (error) {
+      this.logger.error("\u274C Erreur renderSimpleMarkdown", error);
+      return `<pre>${content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`;
     }
-    if (inList) {
-      result += "</ul>\n";
-    }
-    return result;
   }
   /**
    * Affiche un état vide engageant pour inciter à l'édition
-   * * DESIGN UX :
-   * Message clair et incitatif plutôt qu'un vide intimidant.
-   * Style cohérent avec l'interface Obsidian.
    */
   renderEmptyState() {
-    const placeholder = this.previewContainer.createDiv("empty-placeholder");
-    placeholder.style.cssText = `
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      min-height: 80px;
-      color: var(--text-muted);
-      font-style: italic;
-      cursor: text;
-    `;
-    placeholder.textContent = "Cliquez pour commencer \xE0 \xE9crire...";
+    try {
+      const placeholder = this.previewContainer.createDiv("empty-placeholder");
+      placeholder.style.cssText = `
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        min-height: 80px;
+        color: var(--text-muted);
+        font-style: italic;
+        cursor: text;
+      `;
+      placeholder.textContent = "Cliquez pour commencer \xE0 \xE9crire...";
+    } catch (error) {
+      this.logger.error("\u274C Erreur renderEmptyState", error);
+      this.previewContainer.textContent = "Cliquez pour \xE9crire...";
+    }
   }
   // ===========================================================================
-  // GESTION DES ÉVÉNEMENTS ET INTERACTIONS
+  // GESTION DES ÉVÉNEMENTS ET INTERACTIONS (avec protection d'erreurs)
   // ===========================================================================
   /**
-   * Configure les événements du mode preview
-   * * DÉTECTION INTELLIGENTE :
-   * Distingue les clics sur éléments interactifs des clics d'édition.
-   * Évite le basculement involontaire vers l'édition.
+   * Configure les événements du mode preview avec gestion d'erreurs
    */
   setupPreviewEvents() {
-    this.previewContainer.addEventListener("click", (event) => {
-      const target = event.target;
-      if (this.isInteractiveElement(target)) {
-        this.logger.info("\u{1F3AF} Clic sur \xE9l\xE9ment interactif, pas de mode \xE9dition");
-        return;
-      }
-      this.logger.info("\u{1F5B1}\uFE0F Clic sur preview \u2192 mode \xE9dition");
-      this.enterEditMode();
-    });
+    try {
+      this.previewContainer.addEventListener("click", (event) => {
+        try {
+          const target = event.target;
+          if (this.isInteractiveElement(target)) {
+            this.logger.info("\u{1F3AF} Clic sur \xE9l\xE9ment interactif, pas de mode \xE9dition");
+            return;
+          }
+          this.logger.info("\u{1F5B1}\uFE0F Clic sur preview \u2192 mode \xE9dition");
+          this.enterEditMode();
+        } catch (error) {
+          this.logger.error("\u274C Erreur dans gestionnaire clic preview", error);
+        }
+      });
+    } catch (error) {
+      this.logger.error("\u274C Erreur setupPreviewEvents", error);
+    }
   }
   /**
-   * Détecte si un élément est interactif (ne doit pas déclencher l'édition)
-   * * ÉLÉMENTS INTERACTIFS :
-   * - Éléments HTML standard : input, button, a, select
-   * - Éléments Obsidian : liens internes, tags
-   * - Éléments de plugins : dataview, tasks
-   * - Éléments avec attributs spéciaux
-   * * ALGORITHME :
-   * Remonte la hiérarchie DOM pour vérifier tous les parents.
-   * Un élément est interactif si lui ou un parent l'est.
-   * * @param element - Élément à vérifier
-   * @returns boolean - true si interactif
+   * Détecte si un élément est interactif avec validation
    */
   isInteractiveElement(element) {
-    let current = element;
-    while (current && current !== this.previewContainer) {
-      const tagName = current.tagName.toLowerCase();
-      const classList = Array.from(current.classList);
-      if (["input", "button", "a", "select", "textarea"].includes(tagName)) {
-        return true;
+    var _a;
+    try {
+      if (!element)
+        return false;
+      let current = element;
+      while (current && current !== this.previewContainer) {
+        const tagName = ((_a = current.tagName) == null ? void 0 : _a.toLowerCase()) || "";
+        const classList = Array.from(current.classList || []);
+        if (["input", "button", "a", "select", "textarea"].includes(tagName)) {
+          return true;
+        }
+        const interactiveClasses = [
+          "internal-link",
+          "external-link",
+          "tag",
+          "dataview",
+          "task-list-item-checkbox",
+          "task-list-item",
+          "cm-hmd-codeblock",
+          "block-language-dataview",
+          "block-language-tasks"
+        ];
+        if (interactiveClasses.some((cls) => classList.includes(cls))) {
+          return true;
+        }
+        if (current.hasAttribute("href") || current.hasAttribute("data-href") || current.hasAttribute("data-task") || current.hasAttribute("contenteditable")) {
+          return true;
+        }
+        current = current.parentElement;
       }
-      const interactiveClasses = [
-        "internal-link",
-        "external-link",
-        "tag",
-        "dataview",
-        "task-list-item-checkbox",
-        "task-list-item",
-        "cm-hmd-codeblock",
-        "block-language-dataview",
-        "block-language-tasks"
-      ];
-      if (interactiveClasses.some((cls) => classList.includes(cls))) {
-        return true;
-      }
-      if (current.hasAttribute("href") || current.hasAttribute("data-href") || current.hasAttribute("data-task") || current.hasAttribute("contenteditable")) {
-        return true;
-      }
-      current = current.parentElement;
+      return false;
+    } catch (error) {
+      this.logger.warn("\u26A0\uFE0F Erreur isInteractiveElement", error);
+      return false;
     }
-    return false;
   }
   /**
-   * Configure les événements du mode édition
-   * * ÉVÉNEMENTS GÉRÉS :
-   * - input : Sauvegarde différée des modifications
-   * - blur : Retour automatique au mode preview
-   * - keydown : Raccourcis clavier (Escape)
+   * Configure les événements du mode édition avec gestion d'erreurs
    */
   setupEditorEvents() {
-    this.textArea.addEventListener("input", () => {
-      this.content = this.textArea.value;
-      clearTimeout(this.changeTimeout);
-      this.changeTimeout = setTimeout(() => {
-        this.onChange(this.content);
-      }, 1e3);
-    });
-    this.textArea.addEventListener("blur", () => {
-      this.logger.info("\u{1F4DD} Blur sur textarea \u2192 mode preview");
-      this.exitEditMode();
-    });
-    this.textArea.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") {
-        this.logger.info("\u2328\uFE0F Escape \u2192 mode preview");
-        this.exitEditMode();
-      }
-    });
+    try {
+      this.textArea.addEventListener("input", () => {
+        try {
+          this.content = this.textArea.value;
+          clearTimeout(this.changeTimeout);
+          this.changeTimeout = setTimeout(() => {
+            try {
+              this.onChange(this.content);
+            } catch (error) {
+              this.logger.error("\u274C Erreur callback onChange dans input", error);
+            }
+          }, 1e3);
+        } catch (error) {
+          this.logger.error("\u274C Erreur dans gestionnaire input", error);
+        }
+      });
+      this.textArea.addEventListener("blur", () => {
+        try {
+          this.logger.info("\u{1F4DD} Blur sur textarea \u2192 mode preview");
+          this.exitEditMode();
+        } catch (error) {
+          this.logger.error("\u274C Erreur dans gestionnaire blur", error);
+        }
+      });
+      this.textArea.addEventListener("keydown", (event) => {
+        try {
+          if (event.key === "Escape") {
+            this.logger.info("\u2328\uFE0F Escape \u2192 mode preview");
+            this.exitEditMode();
+          }
+        } catch (error) {
+          this.logger.error("\u274C Erreur dans gestionnaire keydown", error);
+        }
+      });
+    } catch (error) {
+      this.logger.error("\u274C Erreur setupEditorEvents", error);
+    }
   }
   // ===========================================================================
-  // GESTION DES MODES (PREVIEW ↔ ÉDITION)
+  // GESTION DES MODES (PREVIEW ↔ ÉDITION) avec recovery
   // ===========================================================================
   /**
-   * Bascule vers le mode édition
-   * * PROCESSUS :
-   * 1. Marquer l'état comme "en édition"
-   * 2. Cacher le preview
-   * 3. Afficher l'éditeur
-   * 4. Synchroniser le contenu
-   * 5. Donner le focus au textarea
+   * Bascule vers le mode édition avec gestion d'erreurs
    */
   enterEditMode() {
-    this.isEditing = true;
-    this.previewContainer.style.display = "none";
-    this.editorContainer.style.display = "block";
-    this.textArea.value = this.content;
-    this.textArea.focus();
-    this.logger.info("\u270F\uFE0F Mode \xE9dition activ\xE9");
+    try {
+      if (this.isInErrorState) {
+        this.logger.warn("\u26A0\uFE0F Impossible de passer en mode \xE9dition - \xE9tat d'erreur");
+        return;
+      }
+      if (!this.textArea || !this.editorContainer) {
+        throw new Error("Composants d'\xE9dition non initialis\xE9s");
+      }
+      this.isEditing = true;
+      this.previewContainer.style.display = "none";
+      this.editorContainer.style.display = "block";
+      this.textArea.value = this.content;
+      setTimeout(() => {
+        try {
+          if (this.textArea && this.isEditing) {
+            this.textArea.focus();
+          }
+        } catch (error) {
+          this.logger.warn("\u26A0\uFE0F Erreur focus textarea", error);
+        }
+      }, 10);
+      this.logger.info("\u270F\uFE0F Mode \xE9dition activ\xE9");
+    } catch (error) {
+      this.logger.error("\u274C Erreur enterEditMode", error);
+      this.forcePreviewMode();
+    }
   }
   /**
-   * Bascule vers le mode preview
-   * * PROCESSUS :
-   * 1. Vérifier qu'on est bien en édition
-   * 2. Récupérer le contenu du textarea
-   * 3. Cacher l'éditeur
-   * 4. Afficher le preview
-   * 5. Re-rendre le contenu
+   * Bascule vers le mode preview avec gestion d'erreurs
    */
   exitEditMode() {
-    if (!this.isEditing)
-      return;
-    this.isEditing = false;
-    this.content = this.textArea.value;
-    this.editorContainer.style.display = "none";
-    this.previewContainer.style.display = "block";
-    this.renderContent();
-    this.logger.info("\u{1F441}\uFE0F Mode preview activ\xE9");
+    try {
+      if (!this.isEditing)
+        return;
+      if (!this.previewContainer || !this.editorContainer) {
+        throw new Error("Composants de preview non initialis\xE9s");
+      }
+      this.isEditing = false;
+      this.content = this.textArea.value;
+      this.editorContainer.style.display = "none";
+      this.previewContainer.style.display = "block";
+      this.renderContent().catch((error) => {
+        this.logger.error("\u274C Erreur re-rendu apr\xE8s \xE9dition", error);
+      });
+      this.logger.info("\u{1F441}\uFE0F Mode preview activ\xE9");
+    } catch (error) {
+      this.logger.error("\u274C Erreur exitEditMode", error);
+      this.forcePreviewMode();
+    }
+  }
+  /**
+   * ✅ NOUVEAU : Force le mode preview en cas d'erreur
+   */
+  forcePreviewMode() {
+    try {
+      this.isEditing = false;
+      if (this.editorContainer) {
+        this.editorContainer.style.display = "none";
+      }
+      if (this.previewContainer) {
+        this.previewContainer.style.display = "block";
+      }
+      this.logger.info("\u{1F527} Mode preview forc\xE9 apr\xE8s erreur");
+    } catch (error) {
+      this.logger.error("\u274C Erreur critique dans forcePreviewMode", error);
+      this.initializeErrorState();
+    }
   }
   /**
    * Force l'affichage du mode preview
-   * * UTILISATION :
-   * Initialisation du composant et réinitialisations.
    */
   showPreview() {
-    this.previewContainer.style.display = "block";
-    this.editorContainer.style.display = "none";
-    this.isEditing = false;
+    try {
+      if (this.previewContainer && this.editorContainer) {
+        this.previewContainer.style.display = "block";
+        this.editorContainer.style.display = "none";
+        this.isEditing = false;
+      }
+    } catch (error) {
+      this.logger.error("\u274C Erreur showPreview", error);
+    }
   }
   // ===========================================================================
-  // API PUBLIQUE DU COMPOSANT
+  // API PUBLIQUE DU COMPOSANT (avec validation)
   // ===========================================================================
   /**
-   * Met à jour le contenu de la section
-   * * UTILISATION :
-   * Quand le fichier source est modifié externement.
-   * Maintient la synchronisation avec la source de vérité.
-   * * @param section - Nouvelles données de section
+   * Met à jour le contenu de la section avec validation
    */
   updateContent(section) {
-    this.section = section;
-    this.content = section.lines.join("\n");
-    if (this.isEditing) {
-      this.textArea.value = this.content;
-    } else {
-      this.renderContent();
+    try {
+      if (!section) {
+        throw new Error("Section requise pour updateContent");
+      }
+      if (!section.lines || !Array.isArray(section.lines)) {
+        throw new Error("Section.lines requis et doit \xEAtre un tableau");
+      }
+      this.section = section;
+      this.content = section.lines.join("\n");
+      if (this.isEditing) {
+        if (this.textArea) {
+          this.textArea.value = this.content;
+        }
+      } else {
+        this.renderContent().catch((error) => {
+          this.logger.error("\u274C Erreur re-rendu dans updateContent", error);
+        });
+      }
+      this.logger.info("\u2705 Contenu mis \xE0 jour", {
+        sectionName: section.name,
+        contentLength: this.content.length
+      });
+    } catch (error) {
+      this.logger.error("\u274C Erreur updateContent", error);
     }
   }
   /**
-   * Obtient le contenu actuel de la section
-   * * @returns string - Contenu markdown actuel
+   * Obtient le contenu actuel de la section de manière sécurisée
    */
   getContent() {
-    return this.isEditing ? this.textArea.value : this.content;
+    try {
+      if (this.isEditing && this.textArea) {
+        return this.textArea.value;
+      }
+      return this.content || "";
+    } catch (error) {
+      this.logger.error("\u274C Erreur getContent", error);
+      return this.content || "";
+    }
   }
   /**
-   * Détruit proprement le composant
-   * * NETTOYAGE :
-   * - Vide le conteneur DOM
-   * - Annule les timers en cours
-   * - Libère les références
-   * * UTILISATION :
-   * Appelée lors du nettoyage de la BoardView.
+   * ✅ NOUVEAU : Obtient l'état du composant pour debugging
+   */
+  getState() {
+    var _a, _b;
+    try {
+      return {
+        isEditing: this.isEditing,
+        isInErrorState: this.isInErrorState,
+        renderAttempts: this.renderAttempts,
+        contentLength: ((_a = this.content) == null ? void 0 : _a.length) || 0,
+        hasPreviewContainer: !!this.previewContainer,
+        hasEditorContainer: !!this.editorContainer,
+        hasTextArea: !!this.textArea,
+        sectionName: ((_b = this.section) == null ? void 0 : _b.name) || "unknown"
+      };
+    } catch (error) {
+      this.logger.error("\u274C Erreur getState", error);
+      return { error: "Unable to get state" };
+    }
+  }
+  /**
+   * ✅ NOUVEAU : Tente une récupération en cas d'état incohérent
+   */
+  recover() {
+    try {
+      this.logger.info("\u{1F527} Tentative de r\xE9cup\xE9ration du composant");
+      this.isInErrorState = false;
+      this.renderAttempts = 0;
+      this.container.empty();
+      this.initializeFrame();
+      this.logger.info("\u2705 R\xE9cup\xE9ration r\xE9ussie");
+    } catch (error) {
+      this.logger.error("\u274C \xC9chec de la r\xE9cup\xE9ration", error);
+      this.initializeErrorState();
+    }
+  }
+  /**
+   * Détruit proprement le composant avec nettoyage complet
    */
   destroy() {
-    this.container.empty();
-    this.logger.info("\u{1F5D1}\uFE0F MarkdownFrame d\xE9truite");
+    try {
+      if (this.changeTimeout) {
+        clearTimeout(this.changeTimeout);
+        this.changeTimeout = null;
+      }
+      if (this.container) {
+        this.container.empty();
+      }
+      this.previewContainer = null;
+      this.editorContainer = null;
+      this.textArea = null;
+      this.isEditing = false;
+      this.isInErrorState = false;
+      this.renderAttempts = 0;
+      this.logger.info("\u{1F5D1}\uFE0F MarkdownFrame d\xE9truite proprement");
+    } catch (error) {
+      this.logger.error("\u274C Erreur lors de la destruction", error);
+      try {
+        if (this.container) {
+          this.container.innerHTML = "";
+        }
+      } catch (finalError) {
+        console.error("Erreur critique destruction MarkdownFrame:", finalError);
+      }
+    }
   }
 };
 
@@ -2759,7 +3155,8 @@ var BoardView = class extends import_obsidian2.FileView {
     this.logger.debug("\u{1F7E6} gridContainer cr\xE9\xE9:", this.gridContainer);
     this.logger.debug("\u{1F7E6} gridContainer cr\xE9\xE9 (HTML):", this.gridContainer.outerHTML);
     for (const block of layout) {
-      const section = sections.find((s) => s.name === block.title);
+      const normalize = (str) => str.trim().toLowerCase();
+      const section = sections.find((s) => normalize(s.name) === normalize(block.title));
       if (section) {
         await this.createFrame(block, section);
       } else {
@@ -2898,6 +3295,10 @@ var ViewSwitcher = class {
     // Délai pour éviter les appels multiples
     this.lastProcessedFile = null;
     this.lastViewType = null;
+    /**
+     * Programme une mise à jour avec debouncing intelligent
+     */
+    this.isUpdating = false;
     this.logger = plugin.logger;
     this.addSwitchButton();
     this.updateSwitchButton();
@@ -3015,20 +3416,23 @@ var ViewSwitcher = class {
     );
     this.scheduleButtonUpdate(null, "initialization");
   }
-  /**
-   * Programme une mise à jour avec debouncing intelligent
-   */
-  scheduleButtonUpdate(file = null, trigger) {
+  async scheduleButtonUpdate(file = null, trigger) {
+    if (this.isUpdating)
+      return;
     if (this.updateTimer) {
       clearTimeout(this.updateTimer);
     }
-    this.updateTimer = window.setTimeout(() => {
-      const targetFile = file || this.plugin.app.workspace.getActiveFile();
-      if (targetFile) {
-        this.logger.info(`\u{1F504} Mise \xE0 jour boutons d\xE9clench\xE9e par: ${trigger}`);
-        this.updateSwitchButtonForFile(targetFile);
+    this.updateTimer = window.setTimeout(async () => {
+      this.isUpdating = true;
+      try {
+        const targetFile = file || this.plugin.app.workspace.getActiveFile();
+        if (targetFile) {
+          await this.updateSwitchButtonForFile(targetFile);
+        }
+      } finally {
+        this.isUpdating = false;
+        this.updateTimer = null;
       }
-      this.updateTimer = null;
     }, this.DEBOUNCE_DELAY);
   }
   /**
@@ -3630,6 +4034,11 @@ var AgileBoardSettingsTab = class extends import_obsidian4.PluginSettingTab {
       this.plugin.settings.debug.logFileName = value || "agile-board-debug.log";
       await this.plugin.saveSettings();
     }));
+    new import_obsidian4.Setting(containerEl).setName("Intervalle de sauvegarde auto").setDesc("Intervalle en minutes pour sauvegarder automatiquement les logs").addSlider((slider) => slider.setLimits(1, 60, 1).setValue(this.plugin.settings.debug.autoSaveInterval).setDynamicTooltip().onChange(async (value) => {
+      this.plugin.settings.debug.autoSaveInterval = value;
+      await this.plugin.saveSettings();
+      this.plugin.logger.info(`Intervalle de sauvegarde des logs mis \xE0 jour: ${value} minute(s)`);
+    }));
     new import_obsidian4.Setting(containerEl).setName("Taille maximale du fichier").setDesc("Taille maximale en KB avant rotation automatique").addSlider((slider) => slider.setLimits(100, 1e4, 100).setValue(this.plugin.settings.debug.maxLogFileSize).setDynamicTooltip().onChange(async (value) => {
       this.plugin.settings.debug.maxLogFileSize = value;
       await this.plugin.saveSettings();
@@ -3710,15 +4119,21 @@ var AgileBoardSettingsTab = class extends import_obsidian4.PluginSettingTab {
 
 // src/main.ts
 var AgileBoardPlugin = class extends import_obsidian5.Plugin {
+  constructor() {
+    super(...arguments);
+    // autres propertés
+    this.logSaveInterval = null;
+  }
   async onload() {
-    this.logger.info("\u{1F680} Chargement Agile Board Plugin v0.8.1");
     try {
       await this.initializeCore();
+      this.logger.startup("\u{1F680} Chargement Agile Board Plugin v0.8.1");
       await this.initializeServices();
       await this.initializeUI();
+      this.setupLogAutoSave();
       this.logger.info("\u2705 Agile Board Plugin charg\xE9 avec succ\xE8s");
     } catch (error) {
-      this.logger.error("\u274C Erreur chargement plugin:", error);
+      console.error("\u274C Erreur chargement plugin:", error);
       new import_obsidian5.Notice("\u274C Erreur lors du chargement du plugin Agile Board");
     }
   }
@@ -3817,6 +4232,24 @@ var AgileBoardPlugin = class extends import_obsidian5.Plugin {
       this.logger.error("Erreur cr\xE9ation sections", error);
     }
   }
+  /**
+   * Configure un intervalle pour sauvegarder les logs
+   */
+  setupLogAutoSave() {
+    if (this.logSaveInterval) {
+      clearInterval(this.logSaveInterval);
+    }
+    if (this.settings.debug.enabled && this.settings.debug.logToFile) {
+      const intervalInMinutes = this.settings.debug.autoSaveInterval;
+      const intervalInMs = intervalInMinutes * 60 * 1e3;
+      this.logSaveInterval = this.registerInterval(
+        window.setInterval(() => {
+          this.logger.saveLogsToFile();
+        }, intervalInMs)
+      );
+      this.logger.info("\u{1F4DD} Intervalle de sauvegarde des logs configur\xE9 toutes les 5 minutes");
+    }
+  }
   // ===================================================================
   // GETTERS DE COMPATIBILITÉ (pour BoardView qui attend les anciens services)
   // ===================================================================
@@ -3853,6 +4286,7 @@ var AgileBoardPlugin = class extends import_obsidian5.Plugin {
     await this.saveData(this.settings);
     (_a = this.services) == null ? void 0 : _a.updateSettings(this.settings);
     (_b = this.logger) == null ? void 0 : _b.updateSettings(this.settings.debug);
+    this.setupLogAutoSave();
   }
   // ===================================================================
   // API PUBLIQUE

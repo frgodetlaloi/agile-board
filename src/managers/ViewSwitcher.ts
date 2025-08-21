@@ -170,22 +170,28 @@ export class ViewSwitcher {
   /**
    * Programme une mise à jour avec debouncing intelligent
    */
-  private scheduleButtonUpdate(file: any = null, trigger: string): void {
-    // Annuler la mise à jour précédente
-    if (this.updateTimer) {
-      clearTimeout(this.updateTimer);
-    }
+  private isUpdating = false;
 
-    this.updateTimer = window.setTimeout(() => {
-      const targetFile = file || this.plugin.app.workspace.getActiveFile();
-      if (targetFile) {
-        this.logger.info(`🔄 Mise à jour boutons déclenchée par: ${trigger}`);
-        this.updateSwitchButtonForFile(targetFile);
+  private async scheduleButtonUpdate(file: any = null, trigger: string): Promise<void> {
+      if (this.isUpdating) return; // Protection contre la réentrance
+      
+      if (this.updateTimer) {
+          clearTimeout(this.updateTimer);
       }
-      this.updateTimer = null;
-    }, this.DEBOUNCE_DELAY);
+      
+      this.updateTimer = window.setTimeout(async () => {
+          this.isUpdating = true;
+          try {
+              const targetFile = file || this.plugin.app.workspace.getActiveFile();
+              if (targetFile) {
+                  await this.updateSwitchButtonForFile(targetFile);
+              }
+          } finally {
+              this.isUpdating = false;
+              this.updateTimer = null;
+          }
+      }, this.DEBOUNCE_DELAY);
   }
-
   /**
    * Met à jour les boutons pour un fichier spécifique (logique corrigée)
    */

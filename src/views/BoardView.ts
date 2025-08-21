@@ -174,7 +174,8 @@ export class BoardView extends FileView {
 
     // Créer les frames pour chaque section
     for (const block of layout) {
-      const section = sections.find(s => s.name === block.title);
+      const normalize = (str: string) => str.trim().toLowerCase();
+      const section = sections.find(s => normalize(s.name) === normalize(block.title));
       if (section) {
         await this.createFrame(block, section);
       } else {

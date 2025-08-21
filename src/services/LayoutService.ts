@@ -37,6 +37,8 @@ import { BoardLayout, LayoutInfo } from '../types';
 
 // Import des layouts et métadonnées prédéfinis
 import { BUILT_IN_LAYOUTS, LAYOUT_INFO } from '../constants/layouts';
+import AgileBoardPlugin from '../main';
+import { LoggerService } from './LoggerService';
 
 // =============================================================================
 // CLASSE PRINCIPALE DU SERVICE
@@ -90,7 +92,12 @@ export class LayoutService {
    * MODIFICATEUR private :
    * Le plugin est stocké pour usage interne uniquement
    */
-  constructor(private plugin: Plugin) {}
+  private logger: LoggerService;
+
+
+  constructor(private plugin: AgileBoardPlugin) {
+    this.logger = plugin.logger; // Logger du plugin pour les logs
+  }
 
   // ===========================================================================
   // MÉTHODES DE CHARGEMENT ET INITIALISATION
@@ -122,7 +129,7 @@ export class LayoutService {
    * // Log: "📋 Layouts disponibles: layout_eisenhower, layout_kanban, ..."
    */
   load(): void {
-    console.log('📐 Chargement des layouts intégrés...');
+    this.logger.info('📐 Chargement des layouts intégrés...');
     
     // ÉTAPE 1 : Nettoyer le cache existant
     // Important pour les rechargements du plugin
@@ -260,11 +267,12 @@ export class LayoutService {
    * // false car x(20) + w(5) = 25 > 24 (déborde à droite)
    */
   private isBlockInBounds(block: BoardLayout): boolean {
+    const MIN_SIZE = 2; // Taille minimale viable
     return (
       block.x >= 0 &&                    // Position X positive
       block.y >= 0 &&                    // Position Y positive
-      block.w > 0 &&                     // Largeur positive
-      block.h > 0 &&                     // Hauteur positive
+      block.w > MIN_SIZE &&              // Largeur positive
+      block.h > MIN_SIZE &&              // Hauteur positive
       block.x + block.w <= 24 &&         // Pas de débordement horizontal
       block.y + block.h <= 100           // Pas de débordement vertical
     );

@@ -10,6 +10,7 @@ export class FileCache {
     private cleanupTimer?: number;
 
     constructor() {
+        this.dispose(); // Nettoyer d'abord
         this.startCleanupTimer();
     }
 

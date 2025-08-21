@@ -26,6 +26,19 @@ export class LoggerService {
         this.settings = settings;
     }
 
+    private safeStringify(data: any, maxLength: number = 500): string {
+    if (!data) return '';
+    
+    try {
+        let result = JSON.stringify(data);
+        if (result.length > maxLength) {
+            result = result.substring(0, maxLength) + '...[truncated]';
+        }
+        return result;
+    } catch (error) {
+        return '[unstringifiable object]';
+    }
+}
     /**
      * Ajoute un message au buffer
      */
@@ -35,7 +48,7 @@ export class LoggerService {
         const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ` +
                         `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
         const levelStr = LogLevel[level];
-        const dataStr = data ? ` | Data: ${JSON.stringify(data)}` : '';
+        const dataStr = data ? ` | Data: ${this.safeStringify(data)}` : '';
         const sourceStr = source ? ` | Source: ${source}` : '';
         
         const logEntry = `[${timestamp}] ${levelStr}: ${message}${dataStr}${sourceStr}`;
