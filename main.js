@@ -1964,16 +1964,43 @@ var PluginIntegrationManager = class {
   }
   /**
    * Configure le support universel des plugins pour un container
-   * @param container - Container où surveiller les plugins
-   * @param onContentChange - Callback lors de changement de contenu
-   * @param sourcePath - Chemin du fichier source pour le contexte
    */
   setupUniversalPluginSupport(container, onContentChange, sourcePath) {
-    this.logger.info("\u{1F50C} Configuration support universel plugins");
+    this.logger.info("\u{1F50C} Configuration support universel plugins avec support Tasks am\xE9lior\xE9");
     this.setupMutationObserver(container, sourcePath);
     this.setupEventDelegation(container, onContentChange, sourcePath);
+    this.setupTasksSpecificSupport(container, onContentChange, sourcePath);
     this.setupContextCorrection(container, sourcePath);
     this.applyPluginFallbacks(container);
+  }
+  /**
+   * ✅ NOUVEAU : Support spécialisé pour le plugin Tasks
+   */
+  setupTasksSpecificSupport(container, onContentChange, sourcePath) {
+    this.logger.debug("\u2705 Configuration support sp\xE9cialis\xE9 Tasks");
+    const taskHandler = (event) => {
+      const target = event.target;
+      if (target.matches('input[type="checkbox"]') && target.closest(".task-list-item, li")) {
+        this.logger.debug("\u2705 Clic sur checkbox de t\xE2che d\xE9tect\xE9");
+        setTimeout(() => {
+          try {
+            const updatedContent = this.extractCurrentContent(container);
+            if (updatedContent !== null) {
+              this.logger.debug("\u{1F504} Contenu Tasks mis \xE0 jour");
+              onContentChange(updatedContent);
+            }
+          } catch (error) {
+            this.logger.warn("\u26A0\uFE0F Erreur extraction contenu Tasks", error);
+          }
+        }, 100);
+      }
+    };
+    container.addEventListener("change", taskHandler, true);
+    container.addEventListener("click", taskHandler, true);
+    this.eventCleanupFunctions.push(() => {
+      container.removeEventListener("change", taskHandler, true);
+      container.removeEventListener("click", taskHandler, true);
+    });
   }
   /**
    * Surveille les changements DOM pour détecter les nouveaux plugins
@@ -2009,7 +2036,7 @@ var PluginIntegrationManager = class {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ["class", "data-task", "data-plugin", "data-dataview"]
+      attributeFilter: ["class", "data-task", "data-plugin", "data-dataview", "checked"]
     });
     this.observers.push(observer);
   }
@@ -2039,6 +2066,10 @@ var PluginIntegrationManager = class {
     }
     if (this.isContentModificationEvent(event, target)) {
       this.logger.debug("\u270F\uFE0F Modification d\xE9tect\xE9e:", event.type, target.tagName);
+      let delay = 150;
+      if (target.matches('input[type="checkbox"]')) {
+        delay = 200;
+      }
       setTimeout(() => {
         try {
           const newContent = this.extractCurrentContent(event.currentTarget);
@@ -2049,11 +2080,11 @@ var PluginIntegrationManager = class {
         } catch (error) {
           this.logger.warn("\u26A0\uFE0F Erreur extraction contenu apr\xE8s modification", error);
         }
-      }, 150);
+      }, delay);
     }
   }
   /**
-   * Détermine si un événement est de navigation (ne doit pas déclencher l'édition)
+   * Détermine si un événement est de navigation
    */
   isNavigationEvent(event, target) {
     if (target.matches("a, a *, .internal-link, .internal-link *, .external-link, .external-link *")) {
@@ -2078,6 +2109,11 @@ var PluginIntegrationManager = class {
    */
   isContentModificationEvent(event, target) {
     if (target.matches('input[type="checkbox"]') && event.type === "change") {
+      const taskContext = target.closest(".task-list-item, li, .contains-task-list");
+      if (taskContext) {
+        this.logger.debug("\u2705 Modification de t\xE2che d\xE9tect\xE9e");
+        return true;
+      }
       return true;
     }
     if (target.matches('[contenteditable="true"]') && ["input", "blur"].includes(event.type)) {
@@ -2149,13 +2185,13 @@ var PluginIntegrationManager = class {
     });
   }
   /**
-   * Convertit un élément HTML spécifique en Markdown
+   * ✅ AMÉLIORATION : Convertit un élément HTML spécifique en Markdown avec meilleur support Tasks
    */
   convertElementToMarkdown(element) {
     if (element.matches(".sr-only, .screen-reader-text, script, style")) {
       return "";
     }
-    if (element.matches('.task-list-item, li:has(input[type="checkbox"])')) {
+    if (this.isTaskElement(element)) {
       return this.convertTaskToMarkdown(element);
     }
     if (element.matches("ul, ol")) {
@@ -2186,15 +2222,44 @@ ${code}
     return this.getTextContent(element);
   }
   /**
-   * Convertit une tâche en Markdown (compatible tous plugins)
+   * ✅ NOUVEAU : Détection améliorée des éléments de tâche
+   */
+  isTaskElement(element) {
+    return element.matches(".task-list-item") || element.matches('li:has(input[type="checkbox"])') || element.matches("li") && element.querySelector('input[type="checkbox"]') !== null || element.matches(".contains-task-list li") || element.querySelector('input[type="checkbox"]') !== null;
+  }
+  /**
+   * ✅ AMÉLIORATION : Convertit une tâche en Markdown avec support complet Tasks
    */
   convertTaskToMarkdown(element) {
     const checkbox = element.querySelector('input[type="checkbox"]');
-    const isChecked = checkbox ? checkbox.checked : false;
-    const checkState = isChecked ? "[x]" : "[ ]";
+    if (!checkbox) {
+      return this.getTextContent(element);
+    }
+    const isChecked = checkbox.checked;
+    let checkState = "[ ]";
+    if (isChecked) {
+      const taskData = element.getAttribute("data-task") || element.getAttribute("data-task-status") || checkbox.getAttribute("data-task");
+      if (taskData) {
+        if (taskData.includes("completed") || taskData.includes("done")) {
+          checkState = "[x]";
+        } else if (taskData.includes("cancelled")) {
+          checkState = "[-]";
+        } else if (taskData.includes("forwarded")) {
+          checkState = "[>]";
+        } else if (taskData.includes("scheduled")) {
+          checkState = "[<]";
+        } else if (taskData.includes("important")) {
+          checkState = "[!]";
+        } else {
+          checkState = "[x]";
+        }
+      } else {
+        checkState = "[x]";
+      }
+    }
     let taskText = "";
-    const dataTask = element.getAttribute("data-task");
-    if (dataTask) {
+    const dataTask = element.getAttribute("data-task") || element.getAttribute("data-task-text");
+    if (dataTask && !dataTask.includes("completed") && !dataTask.includes("done")) {
       taskText = dataTask;
     } else {
       const clonedElement = element.cloneNode(true);
@@ -2202,9 +2267,54 @@ ${code}
       if (clonedCheckbox) {
         clonedCheckbox.remove();
       }
+      const controlElements = clonedElement.querySelectorAll(".task-controls, .task-metadata");
+      controlElements.forEach((el) => el.remove());
       taskText = this.getTextContent(clonedElement).trim();
     }
+    const taskMetadata = this.extractTasksMetadata(element);
+    if (taskMetadata) {
+      taskText = taskText + " " + taskMetadata;
+    }
     return `- ${checkState} ${taskText}`;
+  }
+  /**
+   * ✅ NOUVEAU : Extrait les métadonnées du plugin Tasks
+   */
+  extractTasksMetadata(element) {
+    var _a, _b, _c;
+    const metadata = [];
+    const dueDateElement = element.querySelector(".task-due-date, [data-task-due]");
+    if (dueDateElement) {
+      const dueDate = ((_a = dueDateElement.textContent) == null ? void 0 : _a.trim()) || dueDateElement.getAttribute("data-task-due");
+      if (dueDate) {
+        metadata.push(`\u{1F4C5} ${dueDate}`);
+      }
+    }
+    const startDateElement = element.querySelector(".task-start-date, [data-task-start]");
+    if (startDateElement) {
+      const startDate = ((_b = startDateElement.textContent) == null ? void 0 : _b.trim()) || startDateElement.getAttribute("data-task-start");
+      if (startDate) {
+        metadata.push(`\u{1F6EB} ${startDate}`);
+      }
+    }
+    const priorityElement = element.querySelector(".task-priority, [data-task-priority]");
+    if (priorityElement) {
+      const priority = ((_c = priorityElement.textContent) == null ? void 0 : _c.trim()) || priorityElement.getAttribute("data-task-priority");
+      if (priority) {
+        metadata.push(`\u23EB ${priority}`);
+      }
+    }
+    const tagElements = element.querySelectorAll(".tag, .task-tag");
+    tagElements.forEach((tagEl) => {
+      var _a2;
+      const tag = (_a2 = tagEl.textContent) == null ? void 0 : _a2.trim();
+      if (tag && !tag.startsWith("#")) {
+        metadata.push(`#${tag}`);
+      } else if (tag) {
+        metadata.push(tag);
+      }
+    });
+    return metadata.length > 0 ? metadata.join(" ") : "";
   }
   /**
    * Convertit une liste en Markdown
@@ -2277,7 +2387,7 @@ ${code}
     return content;
   }
   /**
-   * Reconstruit le markdown Tasks
+   * ✅ AMÉLIORATION : Reconstruit le markdown Tasks avec meilleur support
    */
   reconstructTasksMarkdown(element) {
     var _a;
@@ -2286,8 +2396,20 @@ ${code}
       return "```tasks\n" + query + "\n```";
     }
     const content = this.getTextContent(element);
-    if (content.includes("not done") || content.includes("done") || content.includes("due")) {
+    const tasksKeywords = ["not done", "done", "due", "starts", "scheduled", "happens", "path", "heading", "group by", "sort by"];
+    if (tasksKeywords.some((keyword) => content.includes(keyword))) {
       return "```tasks\n" + content + "\n```";
+    }
+    const taskItems = element.querySelectorAll('.task-list-item, li:has(input[type="checkbox"])');
+    if (taskItems.length > 0) {
+      const tasks = [];
+      taskItems.forEach((item) => {
+        const taskMarkdown = this.convertTaskToMarkdown(item);
+        if (taskMarkdown) {
+          tasks.push(taskMarkdown);
+        }
+      });
+      return tasks.join("\n");
     }
     return content;
   }
@@ -2320,7 +2442,7 @@ ${code}
     return /^\s*$/.test(text);
   }
   /**
-   * Détermine si un élément appartient à un plugin
+   * ✅ AMÉLIORATION : Détermine si un élément appartient à un plugin avec meilleure détection Tasks
    */
   isPluginElement(element) {
     const pluginIndicators = [
@@ -2332,11 +2454,22 @@ ${code}
       ".calendar-plugin",
       ".templater-plugin",
       ".quickadd-plugin",
+      // ✅ NOUVEAU : Indicateurs spécifiques au plugin Tasks
+      ".task-list-item",
+      ".contains-task-list",
+      ".tasks-widget",
+      ".task-controls",
+      ".task-metadata",
+      ".task-due-date",
+      ".task-priority",
       // Attributs de données
       "[data-plugin]",
       "[data-task]",
       "[data-dataview]",
       "[data-kanban]",
+      "[data-task-status]",
+      "[data-task-due]",
+      "[data-task-start]",
       // Blocs de code de plugins
       ".block-language-dataview",
       ".block-language-tasks",
@@ -2347,7 +2480,6 @@ ${code}
       ".widget-",
       ".obsidian-",
       // Éléments interactifs de plugins
-      ".task-list-item",
       ".dataview-table",
       ".dataview-list",
       ".tasks-widget",
@@ -2371,17 +2503,19 @@ ${code}
   refreshPluginSupport(container, sourcePath) {
     this.logger.debug("\u{1F504} Rafra\xEEchissement support plugins");
     const pluginElements = container.querySelectorAll(
-      ".dataview, .tasks-plugin, .pomodoro-timer, [data-plugin], .plugin-"
+      ".dataview, .tasks-plugin, .pomodoro-timer, [data-plugin], .plugin-, .task-list-item"
     );
     this.logger.debug(`\u{1F50C} ${pluginElements.length} \xE9l\xE9ments de plugins d\xE9tect\xE9s apr\xE8s rafra\xEEchissement`);
     this.setupContextCorrection(container, sourcePath);
   }
   /**
-   * Configure la correction de contexte pour les plugins
+   * ✅ AMÉLIORATION : Configure la correction de contexte avec support Tasks
    */
   setupContextCorrection(container, sourcePath) {
     setTimeout(() => {
-      const pluginElements = container.querySelectorAll("[data-plugin], .plugin-content, .dataview, .tasks-plugin");
+      const pluginElements = container.querySelectorAll(
+        "[data-plugin], .plugin-content, .dataview, .tasks-plugin, .task-list-item"
+      );
       pluginElements.forEach((element) => {
         try {
           if (!element.getAttribute("data-source-path")) {
@@ -2390,6 +2524,9 @@ ${code}
           if (!element.getAttribute("data-app-context")) {
             element.setAttribute("data-app-context", "agile-board");
           }
+          if (element.matches(".task-list-item, .tasks-plugin")) {
+            element.setAttribute("data-tasks-context", "agile-board");
+          }
         } catch (error) {
           this.logger.warn("\u26A0\uFE0F Erreur ajout contexte plugin", error);
         }
@@ -2397,7 +2534,7 @@ ${code}
     }, 200);
   }
   /**
-   * Applique des fallbacks pour plugins problématiques
+   * ✅ AMÉLIORATION : Applique des fallbacks avec support Tasks
    */
   applyPluginFallbacks(container) {
     setTimeout(() => {
@@ -2419,6 +2556,15 @@ ${code}
       });
     }, 2e3);
     setTimeout(() => {
+      const taskItems = container.querySelectorAll(".task-list-item");
+      taskItems.forEach((item) => {
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        if (!checkbox) {
+          this.logger.warn("\u26A0\uFE0F T\xE2che d\xE9tect\xE9e sans checkbox, tentative de correction");
+        }
+      });
+    }, 1e3);
+    setTimeout(() => {
       try {
         const event = new CustomEvent("obsidian:plugin-reload", {
           detail: { container, timestamp: Date.now() }
@@ -2428,6 +2574,42 @@ ${code}
         this.logger.warn("\u26A0\uFE0F Erreur dispatch \xE9v\xE9nement plugin-reload", error);
       }
     }, 3e3);
+    setTimeout(() => {
+      try {
+        const tasks = container.querySelectorAll('.task-list-item input[type="checkbox"]');
+        tasks.forEach((checkbox) => {
+          if (!checkbox.dataset.tasksHandlerAttached) {
+            this.logger.debug("\u{1F527} Ajout gestionnaire de fallback pour t\xE2che");
+            const fallbackHandler = (event) => {
+              this.logger.debug("\u2705 Gestionnaire fallback Tasks d\xE9clench\xE9");
+              setTimeout(() => {
+                try {
+                  const content = this.extractCurrentContent(container);
+                  if (content) {
+                    const changeEvent = new CustomEvent("agile-board:task-changed", {
+                      detail: { content, timestamp: Date.now() }
+                    });
+                    container.dispatchEvent(changeEvent);
+                  }
+                } catch (error) {
+                  this.logger.warn("\u26A0\uFE0F Erreur dans gestionnaire fallback Tasks", error);
+                }
+              }, 250);
+            };
+            checkbox.addEventListener("change", fallbackHandler);
+            checkbox.dataset.tasksHandlerAttached = "true";
+          }
+        });
+      } catch (error) {
+        this.logger.warn("\u26A0\uFE0F Erreur setup fallback Tasks", error);
+      }
+    }, 1500);
+  }
+  /**
+   * ✅ NOUVEAU : Méthode publique pour extraire le contenu (utilisée par MarkdownFrame)
+   */
+  extractCurrentContentPublic(container) {
+    return this.extractCurrentContent(container);
   }
   /**
    * Nettoie les ressources
@@ -2849,7 +3031,7 @@ var MarkdownFrame = class {
       this.content = section.lines.join("\n");
       this.pluginManager = new PluginIntegrationManager(this.app, this.logger);
       this.initializeFrame();
-      this.logger.info("\u2705 MarkdownFrame initialis\xE9 avec support universel plugins", {
+      this.logger.info("\u2705 MarkdownFrame initialis\xE9 avec support universel plugins et Tasks sp\xE9cialis\xE9", {
         sectionName: section.name,
         contentLength: this.content.length
       });
@@ -3094,7 +3276,7 @@ var MarkdownFrame = class {
     }
   }
   /**
-   * ✅ NOUVEAU : Attend les plugins et configure le support universel
+   * ✅ NOUVEAU : Attend les plugins et configure le support universel avec Tasks spécialisé
    */
   async waitForPluginsAndSetupSupport() {
     return new Promise((resolve) => {
@@ -3107,6 +3289,7 @@ var MarkdownFrame = class {
             },
             this.file.path
           );
+          this.setupTasksSpecificSupport();
           const pluginElements = this.previewContainer.querySelectorAll(
             ".dataview, .tasks-plugin, .task-list-item, [data-plugin], .plugin-"
           );
@@ -3118,6 +3301,112 @@ var MarkdownFrame = class {
         }
       }, 600);
     });
+  }
+  /**
+   * ✅ NOUVEAU : Configuration spécialisée pour le plugin Tasks
+   */
+  setupTasksSpecificSupport() {
+    try {
+      this.tasksEventHandler = (event) => {
+        try {
+          this.logger.debug("\u2705 \xC9v\xE9nement Tasks personnalis\xE9 re\xE7u", event.detail);
+          if (event.detail.content && event.detail.content !== this.content) {
+            this.handleContentChangeFromPlugin(event.detail.content);
+          }
+        } catch (error) {
+          this.logger.error("\u274C Erreur dans gestionnaire \xE9v\xE9nement Tasks", error);
+        }
+      };
+      this.previewContainer.addEventListener("agile-board:task-changed", this.tasksEventHandler);
+      this.setupTaskCheckboxMonitoring();
+      this.logger.debug("\u2705 Support sp\xE9cialis\xE9 Tasks configur\xE9");
+    } catch (error) {
+      this.logger.warn("\u26A0\uFE0F Erreur configuration support Tasks sp\xE9cialis\xE9", error);
+    }
+  }
+  /**
+   * ✅ NOUVEAU : Surveillance spécifique des checkboxes de tâches
+   */
+  setupTaskCheckboxMonitoring() {
+    try {
+      const taskObserver = new MutationObserver((mutations) => {
+        let hasTaskChanges = false;
+        mutations.forEach((mutation) => {
+          if (mutation.type === "attributes" && mutation.attributeName === "checked" && mutation.target instanceof HTMLInputElement && mutation.target.type === "checkbox") {
+            const checkbox = mutation.target;
+            const taskItem = checkbox.closest(".task-list-item, li");
+            if (taskItem) {
+              this.logger.debug("\u2705 Changement d'\xE9tat de t\xE2che d\xE9tect\xE9 via MutationObserver");
+              hasTaskChanges = true;
+            }
+          }
+        });
+        if (hasTaskChanges) {
+          setTimeout(() => {
+            try {
+              const newContent = this.extractCurrentContent();
+              if (newContent && newContent !== this.content) {
+                this.logger.debug("\u{1F504} Contenu Tasks mis \xE0 jour via MutationObserver");
+                this.handleContentChangeFromPlugin(newContent);
+              }
+            } catch (error) {
+              this.logger.warn("\u26A0\uFE0F Erreur extraction contenu apr\xE8s changement t\xE2che", error);
+            }
+          }, 150);
+        }
+      });
+      taskObserver.observe(this.previewContainer, {
+        attributes: true,
+        attributeFilter: ["checked"],
+        subtree: true
+      });
+      this.taskObserver = taskObserver;
+    } catch (error) {
+      this.logger.warn("\u26A0\uFE0F Erreur setup surveillance checkboxes Tasks", error);
+    }
+  }
+  /**
+   * ✅ NOUVEAU : Extrait le contenu actuel via le gestionnaire de plugins
+   */
+  extractCurrentContent() {
+    try {
+      return this.pluginManager.extractCurrentContentPublic ? this.pluginManager.extractCurrentContentPublic(this.previewContainer) : this.fallbackContentExtraction();
+    } catch (error) {
+      this.logger.warn("\u26A0\uFE0F Erreur extraction contenu, utilisation fallback", error);
+      return this.fallbackContentExtraction();
+    }
+  }
+  /**
+   * ✅ NOUVEAU : Extraction de contenu de fallback
+   */
+  fallbackContentExtraction() {
+    try {
+      const textContent = this.previewContainer.textContent || "";
+      const lines = [];
+      const elements = this.previewContainer.querySelectorAll("p, li, h1, h2, h3, h4, h5, h6, .task-list-item");
+      elements.forEach((element) => {
+        var _a, _b, _c;
+        if (element.matches(".task-list-item")) {
+          const checkbox = element.querySelector('input[type="checkbox"]');
+          const isChecked = checkbox ? checkbox.checked : false;
+          const text = ((_a = element.textContent) == null ? void 0 : _a.replace(/^\s*/, "").trim()) || "";
+          lines.push(`- [${isChecked ? "x" : " "}] ${text}`);
+        } else if (element.matches("h1, h2, h3, h4, h5, h6")) {
+          const level = parseInt(element.tagName.substring(1));
+          const text = ((_b = element.textContent) == null ? void 0 : _b.trim()) || "";
+          lines.push(`${"#".repeat(level)} ${text}`);
+        } else {
+          const text = ((_c = element.textContent) == null ? void 0 : _c.trim()) || "";
+          if (text) {
+            lines.push(text);
+          }
+        }
+      });
+      return lines.join("\n");
+    } catch (error) {
+      this.logger.error("\u274C Erreur extraction fallback", error);
+      return this.content;
+    }
   }
   /**
    * ✅ NOUVEAU : Gère les changements de contenu provenant des plugins
@@ -3371,6 +3660,12 @@ ${this.content}`;
             event.stopPropagation();
             return;
           }
+          if (this.isTaskElement(target)) {
+            this.logger.debug("\u2705 Clic sur t\xE2che, gestion sp\xE9cialis\xE9e");
+            event.stopPropagation();
+            this.handleTaskClick(target, event);
+            return;
+          }
           if (this.isBasicInteractiveElement(target)) {
             this.logger.debug("\u{1F3AF} Clic sur \xE9l\xE9ment interactif basique");
             event.stopPropagation();
@@ -3384,6 +3679,46 @@ ${this.content}`;
       });
     } catch (error) {
       this.logger.error("\u274C Erreur setupPreviewEvents", error);
+    }
+  }
+  /**
+   * ✅ NOUVEAU : Détermine si un élément est une tâche
+   */
+  isTaskElement(element) {
+    try {
+      if (element.matches('input[type="checkbox"]')) {
+        const taskContext = element.closest(".task-list-item, li, .contains-task-list");
+        return !!taskContext;
+      }
+      return element.matches(".task-list-item") || element.closest(".task-list-item") !== null || element.matches("li") && element.querySelector('input[type="checkbox"]') !== null;
+    } catch (error) {
+      this.logger.warn("\u26A0\uFE0F Erreur isTaskElement", error);
+      return false;
+    }
+  }
+  /**
+   * ✅ NOUVEAU : Gère les clics sur les tâches
+   */
+  handleTaskClick(target, event) {
+    try {
+      if (target.matches('input[type="checkbox"]')) {
+        this.logger.debug("\u2705 Clic sur checkbox de t\xE2che - d\xE9l\xE9gation au plugin Tasks");
+        setTimeout(() => {
+          try {
+            const newContent = this.extractCurrentContent();
+            if (newContent && newContent !== this.content) {
+              this.logger.debug("\u{1F504} Contenu modifi\xE9 apr\xE8s clic checkbox");
+              this.handleContentChangeFromPlugin(newContent);
+            }
+          } catch (error) {
+            this.logger.warn("\u26A0\uFE0F Erreur v\xE9rification apr\xE8s clic checkbox", error);
+          }
+        }, 200);
+        return;
+      }
+      this.logger.debug("\u2705 Clic sur \xE9l\xE9ment de t\xE2che (non-checkbox)");
+    } catch (error) {
+      this.logger.error("\u274C Erreur handleTaskClick", error);
     }
   }
   /**
@@ -3610,6 +3945,7 @@ ${this.content}`;
         sectionName: ((_c = this.section) == null ? void 0 : _c.name) || "unknown",
         pluginSupport: {
           enabled: !!this.pluginManager,
+          tasksSupport: !!this.tasksEventHandler,
           ...pluginStats
         }
       };
@@ -3635,13 +3971,25 @@ ${this.content}`;
     }
   }
   /**
-   * Détruit proprement le composant
+   * ✅ AMÉLIORATION : Détruit proprement le composant avec nettoyage Tasks
    */
   destroy() {
     try {
       if (this.changeTimeout) {
         clearTimeout(this.changeTimeout);
         this.changeTimeout = null;
+      }
+      if (this.tasksEventHandler && this.previewContainer) {
+        this.previewContainer.removeEventListener("agile-board:task-changed", this.tasksEventHandler);
+        this.tasksEventHandler = void 0;
+      }
+      if (this.taskObserver) {
+        try {
+          this.taskObserver.disconnect();
+          this.taskObserver = void 0;
+        } catch (error) {
+          this.logger.warn("\u26A0\uFE0F Erreur nettoyage taskObserver", error);
+        }
       }
       if (this.pluginManager) {
         this.pluginManager.dispose();
@@ -3655,7 +4003,7 @@ ${this.content}`;
       this.isEditing = false;
       this.isInErrorState = false;
       this.renderAttempts = 0;
-      this.logger.info("\u{1F5D1}\uFE0F MarkdownFrame d\xE9truite proprement avec support universel");
+      this.logger.info("\u{1F5D1}\uFE0F MarkdownFrame d\xE9truite proprement avec support universel et Tasks sp\xE9cialis\xE9");
     } catch (error) {
       this.logger.error("\u274C Erreur lors de la destruction", error);
       try {

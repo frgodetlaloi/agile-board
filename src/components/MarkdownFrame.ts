@@ -1,12 +1,11 @@
 /**
  * =============================================================================
- * COMPOSANT D'ÉDITION MARKDOWN INTERACTIF - VERSION UNIVERSELLE
+ * COMPOSANT D'ÉDITION MARKDOWN INTERACTIF - VERSION AVEC SUPPORT TASKS AMÉLIORÉ
  * =============================================================================
  * 
- * Fichier : src/components/MarkdownFrame.ts (VERSION MODIFIÉE)
+ * Fichier : src/components/MarkdownFrame.ts (VERSION CORRIGÉE POUR TASKS)
  * 
- * Cette version intègre le support universel des plugins Obsidian
- * via le PluginIntegrationManager.
+ * Cette version intègre un support spécialisé pour le plugin Tasks.
  */
 
 import { App, TFile } from 'obsidian';
@@ -36,6 +35,9 @@ export class MarkdownFrame {
   private renderAttempts = 0;
   private readonly MAX_RENDER_ATTEMPTS = 3;
 
+  // ✅ NOUVEAU : Gestionnaire d'événements Tasks
+  private tasksEventHandler?: (event: CustomEvent) => void;
+
   // ===========================================================================
   // CONSTRUCTEUR ET INITIALISATION
   // ===========================================================================
@@ -59,7 +61,7 @@ export class MarkdownFrame {
       
       this.initializeFrame();
       
-      this.logger.info('✅ MarkdownFrame initialisé avec support universel plugins', {
+      this.logger.info('✅ MarkdownFrame initialisé avec support universel plugins et Tasks spécialisé', {
         sectionName: section.name,
         contentLength: this.content.length
       });
@@ -343,7 +345,7 @@ export class MarkdownFrame {
   }
 
   /**
-   * ✅ NOUVEAU : Attend les plugins et configure le support universel
+   * ✅ NOUVEAU : Attend les plugins et configure le support universel avec Tasks spécialisé
    */
   private async waitForPluginsAndSetupSupport(): Promise<void> {
     return new Promise((resolve) => {
@@ -357,6 +359,9 @@ export class MarkdownFrame {
             },
             this.file.path
           );
+          
+          // ✅ NOUVEAU : Support spécialisé pour Tasks
+          this.setupTasksSpecificSupport();
           
           // Statistiques pour debugging
           const pluginElements = this.previewContainer.querySelectorAll(
@@ -372,6 +377,145 @@ export class MarkdownFrame {
         }
       }, 600); // Délai plus long pour le chargement complet des plugins
     });
+  }
+
+  /**
+   * ✅ NOUVEAU : Configuration spécialisée pour le plugin Tasks
+   */
+  private setupTasksSpecificSupport(): void {
+    try {
+      // Écouter les événements personnalisés du gestionnaire Tasks
+      this.tasksEventHandler = (event: CustomEvent) => {
+        try {
+          this.logger.debug('✅ Événement Tasks personnalisé reçu', event.detail);
+          
+          if (event.detail.content && event.detail.content !== this.content) {
+            this.handleContentChangeFromPlugin(event.detail.content);
+          }
+        } catch (error) {
+          this.logger.error('❌ Erreur dans gestionnaire événement Tasks', error);
+        }
+      };
+      
+      // Écouter sur le container preview
+      this.previewContainer.addEventListener('agile-board:task-changed', this.tasksEventHandler as EventListener);
+      
+      // ✅ NOUVEAU : Surveillance spécifique des checkboxes de tâches
+      this.setupTaskCheckboxMonitoring();
+      
+      this.logger.debug('✅ Support spécialisé Tasks configuré');
+      
+    } catch (error) {
+      this.logger.warn('⚠️ Erreur configuration support Tasks spécialisé', error);
+    }
+  }
+
+  /**
+   * ✅ NOUVEAU : Surveillance spécifique des checkboxes de tâches
+   */
+  private setupTaskCheckboxMonitoring(): void {
+    try {
+      // Utiliser un MutationObserver pour détecter les changements d'état des tâches
+      const taskObserver = new MutationObserver((mutations) => {
+        let hasTaskChanges = false;
+        
+        mutations.forEach((mutation) => {
+          if (mutation.type === 'attributes' && 
+              mutation.attributeName === 'checked' &&
+              mutation.target instanceof HTMLInputElement &&
+              mutation.target.type === 'checkbox') {
+            
+            const checkbox = mutation.target;
+            const taskItem = checkbox.closest('.task-list-item, li');
+            
+            if (taskItem) {
+              this.logger.debug('✅ Changement d\'état de tâche détecté via MutationObserver');
+              hasTaskChanges = true;
+            }
+          }
+        });
+        
+        if (hasTaskChanges) {
+          // Délai pour laisser le plugin Tasks traiter le changement
+          setTimeout(() => {
+            try {
+              const newContent = this.extractCurrentContent();
+              if (newContent && newContent !== this.content) {
+                this.logger.debug('🔄 Contenu Tasks mis à jour via MutationObserver');
+                this.handleContentChangeFromPlugin(newContent);
+              }
+            } catch (error) {
+              this.logger.warn('⚠️ Erreur extraction contenu après changement tâche', error);
+            }
+          }, 150);
+        }
+      });
+      
+      // Observer les changements d'attributs sur les checkboxes
+      taskObserver.observe(this.previewContainer, {
+        attributes: true,
+        attributeFilter: ['checked'],
+        subtree: true
+      });
+      
+      // Stocker l'observer pour le nettoyage
+      (this as any).taskObserver = taskObserver;
+      
+    } catch (error) {
+      this.logger.warn('⚠️ Erreur setup surveillance checkboxes Tasks', error);
+    }
+  }
+
+  /**
+   * ✅ NOUVEAU : Extrait le contenu actuel via le gestionnaire de plugins
+   */
+  private extractCurrentContent(): string | null {
+    try {
+      // Utiliser le gestionnaire de plugins pour extraire le contenu
+      return this.pluginManager.extractCurrentContentPublic ? 
+             this.pluginManager.extractCurrentContentPublic(this.previewContainer) :
+             this.fallbackContentExtraction();
+    } catch (error) {
+      this.logger.warn('⚠️ Erreur extraction contenu, utilisation fallback', error);
+      return this.fallbackContentExtraction();
+    }
+  }
+
+  /**
+   * ✅ NOUVEAU : Extraction de contenu de fallback
+   */
+  private fallbackContentExtraction(): string {
+    try {
+      // Méthode de fallback simple pour extraire le contenu
+      const textContent = this.previewContainer.textContent || '';
+      
+      // Tenter de reconstruire un markdown basique
+      const lines: string[] = [];
+      const elements = this.previewContainer.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, .task-list-item');
+      
+      elements.forEach(element => {
+        if (element.matches('.task-list-item')) {
+          const checkbox = element.querySelector('input[type="checkbox"]') as HTMLInputElement;
+          const isChecked = checkbox ? checkbox.checked : false;
+          const text = element.textContent?.replace(/^\s*/, '').trim() || '';
+          lines.push(`- [${isChecked ? 'x' : ' '}] ${text}`);
+        } else if (element.matches('h1, h2, h3, h4, h5, h6')) {
+          const level = parseInt(element.tagName.substring(1));
+          const text = element.textContent?.trim() || '';
+          lines.push(`${'#'.repeat(level)} ${text}`);
+        } else {
+          const text = element.textContent?.trim() || '';
+          if (text) {
+            lines.push(text);
+          }
+        }
+      });
+      
+      return lines.join('\n');
+    } catch (error) {
+      this.logger.error('❌ Erreur extraction fallback', error);
+      return this.content; // Retourner le contenu original en dernier recours
+    }
   }
 
   /**
@@ -663,6 +807,14 @@ export class MarkdownFrame {
             return;
           }
           
+          // ✅ NOUVEAU : Gestion spéciale pour les tâches
+          if (this.isTaskElement(target)) {
+            this.logger.debug('✅ Clic sur tâche, gestion spécialisée');
+            event.stopPropagation();
+            this.handleTaskClick(target, event);
+            return;
+          }
+          
           // Vérifier d'autres éléments interactifs
           if (this.isBasicInteractiveElement(target)) {
             this.logger.debug('🎯 Clic sur élément interactif basique');
@@ -681,6 +833,60 @@ export class MarkdownFrame {
       
     } catch (error) {
       this.logger.error('❌ Erreur setupPreviewEvents', error);
+    }
+  }
+
+  /**
+   * ✅ NOUVEAU : Détermine si un élément est une tâche
+   */
+  private isTaskElement(element: HTMLElement): boolean {
+    try {
+      // Vérifier si c'est une checkbox dans un contexte de tâche
+      if (element.matches('input[type="checkbox"]')) {
+        const taskContext = element.closest('.task-list-item, li, .contains-task-list');
+        return !!taskContext;
+      }
+      
+      // Vérifier si c'est un élément de tâche
+      return element.matches('.task-list-item') ||
+             element.closest('.task-list-item') !== null ||
+             element.matches('li') && element.querySelector('input[type="checkbox"]') !== null;
+    } catch (error) {
+      this.logger.warn('⚠️ Erreur isTaskElement', error);
+      return false;
+    }
+  }
+
+  /**
+   * ✅ NOUVEAU : Gère les clics sur les tâches
+   */
+  private handleTaskClick(target: HTMLElement, event: Event): void {
+    try {
+      // Si c'est un clic sur la checkbox, laisser l'événement se propager normalement
+      if (target.matches('input[type="checkbox"]')) {
+        this.logger.debug('✅ Clic sur checkbox de tâche - délégation au plugin Tasks');
+        
+        // Programmer une vérification après que le plugin Tasks ait traité l'événement
+        setTimeout(() => {
+          try {
+            const newContent = this.extractCurrentContent();
+            if (newContent && newContent !== this.content) {
+              this.logger.debug('🔄 Contenu modifié après clic checkbox');
+              this.handleContentChangeFromPlugin(newContent);
+            }
+          } catch (error) {
+            this.logger.warn('⚠️ Erreur vérification après clic checkbox', error);
+          }
+        }, 200);
+        
+        return; // Laisser l'événement continuer
+      }
+      
+      // Pour les autres parties de la tâche, ne pas entrer en mode édition
+      this.logger.debug('✅ Clic sur élément de tâche (non-checkbox)');
+      
+    } catch (error) {
+      this.logger.error('❌ Erreur handleTaskClick', error);
     }
   }
 
@@ -951,6 +1157,7 @@ export class MarkdownFrame {
         sectionName: this.section?.name || 'unknown',
         pluginSupport: {
           enabled: !!this.pluginManager,
+          tasksSupport: !!this.tasksEventHandler,
           ...pluginStats
         }
       };
@@ -982,7 +1189,7 @@ export class MarkdownFrame {
   }
 
   /**
-   * Détruit proprement le composant
+   * ✅ AMÉLIORATION : Détruit proprement le composant avec nettoyage Tasks
    */
   destroy(): void {
     try {
@@ -990,6 +1197,22 @@ export class MarkdownFrame {
       if (this.changeTimeout) {
         clearTimeout(this.changeTimeout);
         this.changeTimeout = null;
+      }
+
+      // ✅ NOUVEAU : Nettoyer les gestionnaires Tasks spécifiques
+      if (this.tasksEventHandler && this.previewContainer) {
+        this.previewContainer.removeEventListener('agile-board:task-changed', this.tasksEventHandler as EventListener);
+        this.tasksEventHandler = undefined;
+      }
+
+      // ✅ NOUVEAU : Nettoyer l'observer des tâches
+      if ((this as any).taskObserver) {
+        try {
+          (this as any).taskObserver.disconnect();
+          (this as any).taskObserver = undefined;
+        } catch (error) {
+          this.logger.warn('⚠️ Erreur nettoyage taskObserver', error);
+        }
       }
 
       // ✅ NOUVEAU : Nettoyer le gestionnaire de plugins
@@ -1012,7 +1235,7 @@ export class MarkdownFrame {
       this.isInErrorState = false;
       this.renderAttempts = 0;
       
-      this.logger.info('🗑️ MarkdownFrame détruite proprement avec support universel');
+      this.logger.info('🗑️ MarkdownFrame détruite proprement avec support universel et Tasks spécialisé');
       
     } catch (error) {
       this.logger.error('❌ Erreur lors de la destruction', error);

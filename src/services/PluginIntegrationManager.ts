@@ -1,14 +1,11 @@
 /**
  * =============================================================================
- * GESTIONNAIRE D'INTÉGRATION UNIVERSELLE AVEC LES PLUGINS OBSIDIAN
+ * GESTIONNAIRE D'INTÉGRATION UNIVERSELLE AVEC LES PLUGINS OBSIDIAN - VERSION AMÉLIORÉE
  * =============================================================================
  * 
- * Fichier : src/services/PluginIntegrationManager.ts
+ * Fichier : src/services/PluginIntegrationManager.ts (VERSION CORRIGÉE)
  * 
- * Ce service permet le support automatique de tous les plugins Obsidian
- * (Tasks, Dataview, Pomodoro Timer, etc.) sans modification de code spécifique.
- * 
- * PRINCIPE : Délégation d'événements + conversion intelligente HTML→Markdown
+ * CORRECTION MAJEURE : Support complet du plugin Tasks avec gestion des états
  */
 
 import { App } from 'obsidian';
@@ -27,28 +24,72 @@ export class PluginIntegrationManager {
 
     /**
      * Configure le support universel des plugins pour un container
-     * @param container - Container où surveiller les plugins
-     * @param onContentChange - Callback lors de changement de contenu
-     * @param sourcePath - Chemin du fichier source pour le contexte
      */
     setupUniversalPluginSupport(
         container: HTMLElement,
         onContentChange: (newContent: string) => void,
         sourcePath: string
     ): void {
-        this.logger.info('🔌 Configuration support universel plugins');
+        this.logger.info('🔌 Configuration support universel plugins avec support Tasks amélioré');
         
-        // 1. Surveiller les mutations DOM (plugins qui se chargent après)
+        // 1. Surveiller les mutations DOM
         this.setupMutationObserver(container, sourcePath);
         
         // 2. Déléguer tous les événements aux plugins originaux
         this.setupEventDelegation(container, onContentChange, sourcePath);
         
-        // 3. Détecter et corriger les problèmes de contexte
+        // 3. ✅ NOUVEAU : Support spécialisé pour Tasks
+        this.setupTasksSpecificSupport(container, onContentChange, sourcePath);
+        
+        // 4. Détecter et corriger les problèmes de contexte
         this.setupContextCorrection(container, sourcePath);
         
-        // 4. Appliquer les fallbacks pour plugins problématiques
+        // 5. Appliquer les fallbacks pour plugins problématiques
         this.applyPluginFallbacks(container);
+    }
+    
+    /**
+     * ✅ NOUVEAU : Support spécialisé pour le plugin Tasks
+     */
+    private setupTasksSpecificSupport(
+        container: HTMLElement,
+        onContentChange: (newContent: string) => void,
+        sourcePath: string
+    ): void {
+        this.logger.debug('✅ Configuration support spécialisé Tasks');
+        
+        // Délégation spécifique pour les tâches
+        const taskHandler = (event: Event) => {
+            const target = event.target as HTMLElement;
+            
+            // Vérifier si c'est une checkbox de tâche
+            if (target.matches('input[type="checkbox"]') && 
+                target.closest('.task-list-item, li')) {
+                
+                this.logger.debug('✅ Clic sur checkbox de tâche détecté');
+                
+                // Délai pour laisser le plugin Tasks traiter l'événement
+                setTimeout(() => {
+                    try {
+                        const updatedContent = this.extractCurrentContent(container);
+                        if (updatedContent !== null) {
+                            this.logger.debug('🔄 Contenu Tasks mis à jour');
+                            onContentChange(updatedContent);
+                        }
+                    } catch (error) {
+                        this.logger.warn('⚠️ Erreur extraction contenu Tasks', error);
+                    }
+                }, 100); // Délai court pour Tasks
+            }
+        };
+        
+        container.addEventListener('change', taskHandler, true);
+        container.addEventListener('click', taskHandler, true);
+        
+        this.eventCleanupFunctions.push(() => {
+            container.removeEventListener('change', taskHandler, true);
+            container.removeEventListener('click', taskHandler, true);
+        });
     }
     
     /**
@@ -59,7 +100,6 @@ export class PluginIntegrationManager {
             let hasPluginChanges = false;
             
             mutations.forEach((mutation) => {
-                // Détecter l'ajout de nouveaux éléments de plugins
                 if (mutation.type === 'childList') {
                     mutation.addedNodes.forEach((node) => {
                         if (node.nodeType === Node.ELEMENT_NODE) {
@@ -72,7 +112,6 @@ export class PluginIntegrationManager {
                     });
                 }
                 
-                // Détecter les changements d'attributs des plugins
                 if (mutation.type === 'attributes') {
                     const element = mutation.target as HTMLElement;
                     if (this.isPluginElement(element)) {
@@ -82,7 +121,6 @@ export class PluginIntegrationManager {
                 }
             });
             
-            // Reconfigurer si nécessaire
             if (hasPluginChanges) {
                 setTimeout(() => this.refreshPluginSupport(container, sourcePath), 100);
             }
@@ -92,7 +130,7 @@ export class PluginIntegrationManager {
             childList: true,
             subtree: true,
             attributes: true,
-            attributeFilter: ['class', 'data-task', 'data-plugin', 'data-dataview']
+            attributeFilter: ['class', 'data-task', 'data-plugin', 'data-dataview', 'checked']
         });
         
         this.observers.push(observer);
@@ -106,7 +144,6 @@ export class PluginIntegrationManager {
         onContentChange: (content: string) => void,
         sourcePath: string
     ): void {
-        // Délégation pour tous les événements possibles
         const eventTypes = ['click', 'change', 'input', 'keyup', 'blur', 'focus'];
         
         eventTypes.forEach(eventType => {
@@ -114,9 +151,8 @@ export class PluginIntegrationManager {
                 this.handleUniversalEvent(event, onContentChange, sourcePath);
             };
             
-            container.addEventListener(eventType, handler, true); // useCapture = true
+            container.addEventListener(eventType, handler, true);
             
-            // Stocker pour nettoyage
             this.eventCleanupFunctions.push(() => {
                 container.removeEventListener(eventType, handler, true);
             });
@@ -133,7 +169,7 @@ export class PluginIntegrationManager {
     ): void {
         const target = event.target as HTMLElement;
         
-        // Ignorer les événements de navigation (ne pas éditer)
+        // Ignorer les événements de navigation
         if (this.isNavigationEvent(event, target)) {
             this.logger.debug('🧭 Événement de navigation ignoré:', event.type);
             return;
@@ -143,7 +179,12 @@ export class PluginIntegrationManager {
         if (this.isContentModificationEvent(event, target)) {
             this.logger.debug('✏️ Modification détectée:', event.type, target.tagName);
             
-            // Délai pour laisser le plugin traiter l'événement
+            // Délai adaptatif selon le type d'élément
+            let delay = 150;
+            if (target.matches('input[type="checkbox"]')) {
+                delay = 200; // Plus de temps pour les tâches
+            }
+            
             setTimeout(() => {
                 try {
                     const newContent = this.extractCurrentContent(event.currentTarget as HTMLElement);
@@ -154,12 +195,12 @@ export class PluginIntegrationManager {
                 } catch (error) {
                     this.logger.warn('⚠️ Erreur extraction contenu après modification', error);
                 }
-            }, 150);
+            }, delay);
         }
     }
     
     /**
-     * Détermine si un événement est de navigation (ne doit pas déclencher l'édition)
+     * Détermine si un événement est de navigation
      */
     private isNavigationEvent(event: Event, target: HTMLElement): boolean {
         // Liens internes et externes
@@ -194,9 +235,15 @@ export class PluginIntegrationManager {
      * Détermine si un événement modifie le contenu
      */
     private isContentModificationEvent(event: Event, target: HTMLElement): boolean {
-        // Checkboxes (Tasks, etc.)
+        // ✅ AMÉLIORATION : Détection plus précise pour les tâches
         if (target.matches('input[type="checkbox"]') && event.type === 'change') {
-            return true;
+            // Vérifier si c'est dans un contexte de tâche
+            const taskContext = target.closest('.task-list-item, li, .contains-task-list');
+            if (taskContext) {
+                this.logger.debug('✅ Modification de tâche détectée');
+                return true;
+            }
+            return true; // Autres checkboxes
         }
         
         // Éléments éditables
@@ -250,7 +297,6 @@ export class PluginIntegrationManager {
     private smartHtmlToMarkdownConversion(container: HTMLElement): string {
         const lines: string[] = [];
         
-        // Parcourir tous les éléments de premier niveau
         this.walkNodes(container, (node) => {
             if (node.nodeType === Node.ELEMENT_NODE) {
                 const element = node as HTMLElement;
@@ -266,20 +312,17 @@ export class PluginIntegrationManager {
             }
         });
         
-        // Nettoyer et joindre
         return lines
             .filter(line => line.trim().length > 0)
             .join('\n')
-            .replace(/\n\n+/g, '\n\n'); // Normaliser les retours à la ligne
+            .replace(/\n\n+/g, '\n\n');
     }
     
     /**
      * Parcourt les nœuds de manière intelligente
      */
     private walkNodes(container: HTMLElement, callback: (node: Node) => void): void {
-        // Traiter les enfants directs qui sont des éléments de contenu
         Array.from(container.childNodes).forEach(node => {
-            // Ignorer les scripts et styles
             if (node.nodeType === Node.ELEMENT_NODE) {
                 const element = node as HTMLElement;
                 if (!element.matches('script, style, .hover-popover')) {
@@ -292,7 +335,7 @@ export class PluginIntegrationManager {
     }
     
     /**
-     * Convertit un élément HTML spécifique en Markdown
+     * ✅ AMÉLIORATION : Convertit un élément HTML spécifique en Markdown avec meilleur support Tasks
      */
     private convertElementToMarkdown(element: HTMLElement): string {
         // Ignorer les éléments cachés ou techniques
@@ -300,8 +343,8 @@ export class PluginIntegrationManager {
             return '';
         }
         
-        // Tâches (Tasks plugin et autres)
-        if (element.matches('.task-list-item, li:has(input[type="checkbox"])')) {
+        // ✅ AMÉLIORATION : Détection plus robuste des tâches
+        if (this.isTaskElement(element)) {
             return this.convertTaskToMarkdown(element);
         }
         
@@ -343,19 +386,65 @@ export class PluginIntegrationManager {
     }
     
     /**
-     * Convertit une tâche en Markdown (compatible tous plugins)
+     * ✅ NOUVEAU : Détection améliorée des éléments de tâche
+     */
+    private isTaskElement(element: HTMLElement): boolean {
+        // Vérifications multiples pour couvrir tous les cas
+        return element.matches('.task-list-item') ||
+               element.matches('li:has(input[type="checkbox"])') ||
+               element.matches('li') && element.querySelector('input[type="checkbox"]') !== null ||
+               element.matches('.contains-task-list li') ||
+               element.querySelector('input[type="checkbox"]') !== null;
+    }
+    
+    /**
+     * ✅ AMÉLIORATION : Convertit une tâche en Markdown avec support complet Tasks
      */
     private convertTaskToMarkdown(element: HTMLElement): string {
-        const checkbox = element.querySelector('input[type="checkbox"]');
-        const isChecked = checkbox ? (checkbox as HTMLInputElement).checked : false;
-        const checkState = isChecked ? '[x]' : '[ ]';
+        const checkbox = element.querySelector('input[type="checkbox"]') as HTMLInputElement;
+        if (!checkbox) {
+            // Fallback si pas de checkbox trouvée
+            return this.getTextContent(element);
+        }
         
-        // Récupérer le texte en préservant les attributs des plugins
+        const isChecked = checkbox.checked;
+        
+        // ✅ NOUVEAU : Support des différents états de tâches du plugin Tasks
+        let checkState = '[ ]'; // Par défaut
+        
+        if (isChecked) {
+            // Vérifier s'il y a des attributs spécifiques au plugin Tasks
+            const taskData = element.getAttribute('data-task') || 
+                           element.getAttribute('data-task-status') ||
+                           checkbox.getAttribute('data-task');
+            
+            if (taskData) {
+                // Le plugin Tasks peut avoir des états spéciaux
+                if (taskData.includes('completed') || taskData.includes('done')) {
+                    checkState = '[x]';
+                } else if (taskData.includes('cancelled')) {
+                    checkState = '[-]';
+                } else if (taskData.includes('forwarded')) {
+                    checkState = '[>]';
+                } else if (taskData.includes('scheduled')) {
+                    checkState = '[<]';
+                } else if (taskData.includes('important')) {
+                    checkState = '[!]';
+                } else {
+                    checkState = '[x]'; // Par défaut pour coché
+                }
+            } else {
+                checkState = '[x]'; // Standard coché
+            }
+        }
+        
+        // Extraire le texte de la tâche en préservant les métadonnées Tasks
         let taskText = '';
         
         // Méthode 1 : Attributs de données des plugins
-        const dataTask = element.getAttribute('data-task');
-        if (dataTask) {
+        const dataTask = element.getAttribute('data-task') || 
+                         element.getAttribute('data-task-text');
+        if (dataTask && !dataTask.includes('completed') && !dataTask.includes('done')) {
             taskText = dataTask;
         } else {
             // Méthode 2 : Texte après la checkbox
@@ -364,10 +453,71 @@ export class PluginIntegrationManager {
             if (clonedCheckbox) {
                 clonedCheckbox.remove();
             }
+            
+            // Nettoyer les éléments de contrôle du plugin
+            const controlElements = clonedElement.querySelectorAll('.task-controls, .task-metadata');
+            controlElements.forEach(el => el.remove());
+            
             taskText = this.getTextContent(clonedElement).trim();
         }
         
+        // ✅ NOUVEAU : Préserver les métadonnées du plugin Tasks
+        const taskMetadata = this.extractTasksMetadata(element);
+        if (taskMetadata) {
+            taskText = taskText + ' ' + taskMetadata;
+        }
+        
         return `- ${checkState} ${taskText}`;
+    }
+    
+    /**
+     * ✅ NOUVEAU : Extrait les métadonnées du plugin Tasks
+     */
+    private extractTasksMetadata(element: HTMLElement): string {
+        const metadata: string[] = [];
+        
+        // Rechercher les dates d'échéance
+        const dueDateElement = element.querySelector('.task-due-date, [data-task-due]');
+        if (dueDateElement) {
+            const dueDate = dueDateElement.textContent?.trim() || 
+                           dueDateElement.getAttribute('data-task-due');
+            if (dueDate) {
+                metadata.push(`📅 ${dueDate}`);
+            }
+        }
+        
+        // Rechercher les dates de début
+        const startDateElement = element.querySelector('.task-start-date, [data-task-start]');
+        if (startDateElement) {
+            const startDate = startDateElement.textContent?.trim() || 
+                             startDateElement.getAttribute('data-task-start');
+            if (startDate) {
+                metadata.push(`🛫 ${startDate}`);
+            }
+        }
+        
+        // Rechercher les priorités
+        const priorityElement = element.querySelector('.task-priority, [data-task-priority]');
+        if (priorityElement) {
+            const priority = priorityElement.textContent?.trim() || 
+                           priorityElement.getAttribute('data-task-priority');
+            if (priority) {
+                metadata.push(`⏫ ${priority}`);
+            }
+        }
+        
+        // Rechercher les tags
+        const tagElements = element.querySelectorAll('.tag, .task-tag');
+        tagElements.forEach(tagEl => {
+            const tag = tagEl.textContent?.trim();
+            if (tag && !tag.startsWith('#')) {
+                metadata.push(`#${tag}`);
+            } else if (tag) {
+                metadata.push(tag);
+            }
+        });
+        
+        return metadata.length > 0 ? metadata.join(' ') : '';
     }
     
     /**
@@ -396,7 +546,6 @@ export class PluginIntegrationManager {
      * Détecte le langage d'un bloc de code
      */
     private detectCodeLanguage(element: HTMLElement): string {
-        // Rechercher dans les classes
         const classList = Array.from(element.classList);
         for (const className of classList) {
             if (className.startsWith('language-')) {
@@ -407,7 +556,6 @@ export class PluginIntegrationManager {
             }
         }
         
-        // Rechercher dans les attributs
         const lang = element.getAttribute('data-language') || 
                     element.getAttribute('data-lang');
         if (lang) return lang;
@@ -419,13 +567,11 @@ export class PluginIntegrationManager {
      * Préserve le contenu d'un élément de plugin
      */
     private preservePluginContent(element: HTMLElement): string {
-        // Pour les plugins, on essaie de préserver le markdown original
         const originalMarkdown = element.getAttribute('data-original-markdown');
         if (originalMarkdown) {
             return originalMarkdown;
         }
         
-        // Fallback : essayer de reconstruire le markdown selon le plugin
         if (element.matches('.dataview, .block-language-dataview')) {
             return this.reconstructDataviewMarkdown(element);
         }
@@ -438,7 +584,6 @@ export class PluginIntegrationManager {
             return this.reconstructKanbanMarkdown(element);
         }
         
-        // Autres plugins : contenu textuel avec préservation de structure
         return this.getTextContent(element);
     }
     
@@ -446,7 +591,6 @@ export class PluginIntegrationManager {
      * Reconstruit le markdown Dataview
      */
     private reconstructDataviewMarkdown(element: HTMLElement): string {
-        // Essayer de récupérer la requête originale
         const query = element.getAttribute('data-query') || 
                      element.querySelector('.dataview-query')?.textContent ||
                      element.getAttribute('data-dv-query');
@@ -455,7 +599,6 @@ export class PluginIntegrationManager {
             return '```dataview\n' + query + '\n```';
         }
         
-        // Fallback : observer le contenu pour deviner la requête
         const content = this.getTextContent(element);
         if (content.includes('TABLE') || content.includes('LIST') || content.includes('TASK')) {
             return '```dataview\n' + content + '\n```';
@@ -465,7 +608,7 @@ export class PluginIntegrationManager {
     }
     
     /**
-     * Reconstruit le markdown Tasks
+     * ✅ AMÉLIORATION : Reconstruit le markdown Tasks avec meilleur support
      */
     private reconstructTasksMarkdown(element: HTMLElement): string {
         // Essayer de récupérer la requête Tasks originale
@@ -477,10 +620,25 @@ export class PluginIntegrationManager {
             return '```tasks\n' + query + '\n```';
         }
         
-        // Fallback : regarder le contenu pour des patterns Tasks
+        // ✅ NOUVEAU : Détecter si c'est un bloc de requête Tasks
         const content = this.getTextContent(element);
-        if (content.includes('not done') || content.includes('done') || content.includes('due')) {
+        const tasksKeywords = ['not done', 'done', 'due', 'starts', 'scheduled', 'happens', 'path', 'heading', 'group by', 'sort by'];
+        
+        if (tasksKeywords.some(keyword => content.includes(keyword))) {
             return '```tasks\n' + content + '\n```';
+        }
+        
+        // ✅ NOUVEAU : Si c'est une liste de tâches, la reconstruire
+        const taskItems = element.querySelectorAll('.task-list-item, li:has(input[type="checkbox"])');
+        if (taskItems.length > 0) {
+            const tasks: string[] = [];
+            taskItems.forEach(item => {
+                const taskMarkdown = this.convertTaskToMarkdown(item as HTMLElement);
+                if (taskMarkdown) {
+                    tasks.push(taskMarkdown);
+                }
+            });
+            return tasks.join('\n');
         }
         
         return content;
@@ -490,7 +648,6 @@ export class PluginIntegrationManager {
      * Reconstruit le markdown Kanban
      */
     private reconstructKanbanMarkdown(element: HTMLElement): string {
-        // Pour Kanban, c'est généralement une configuration JSON
         const config = element.getAttribute('data-kanban-config');
         if (config) {
             return '```kanban\n' + config + '\n```';
@@ -519,7 +676,7 @@ export class PluginIntegrationManager {
     }
     
     /**
-     * Détermine si un élément appartient à un plugin
+     * ✅ AMÉLIORATION : Détermine si un élément appartient à un plugin avec meilleure détection Tasks
      */
     isPluginElement(element: HTMLElement): boolean {
         const pluginIndicators = [
@@ -527,8 +684,13 @@ export class PluginIntegrationManager {
             '.dataview', '.tasks-plugin', '.pomodoro-timer', '.kanban-plugin',
             '.calendar-plugin', '.templater-plugin', '.quickadd-plugin',
             
+            // ✅ NOUVEAU : Indicateurs spécifiques au plugin Tasks
+            '.task-list-item', '.contains-task-list', '.tasks-widget',
+            '.task-controls', '.task-metadata', '.task-due-date', '.task-priority',
+            
             // Attributs de données
             '[data-plugin]', '[data-task]', '[data-dataview]', '[data-kanban]',
+            '[data-task-status]', '[data-task-due]', '[data-task-start]',
             
             // Blocs de code de plugins
             '.block-language-dataview', '.block-language-tasks', 
@@ -538,7 +700,7 @@ export class PluginIntegrationManager {
             '.plugin-', '.widget-', '.obsidian-',
             
             // Éléments interactifs de plugins
-            '.task-list-item', '.dataview-table', '.dataview-list',
+            '.dataview-table', '.dataview-list',
             '.tasks-widget', '.calendar-widget',
             
             // Conteneurs de plugins
@@ -560,35 +722,37 @@ export class PluginIntegrationManager {
     private refreshPluginSupport(container: HTMLElement, sourcePath: string): void {
         this.logger.debug('🔄 Rafraîchissement support plugins');
         
-        // Re-scanner les nouveaux éléments
         const pluginElements = container.querySelectorAll(
-            '.dataview, .tasks-plugin, .pomodoro-timer, [data-plugin], .plugin-'
+            '.dataview, .tasks-plugin, .pomodoro-timer, [data-plugin], .plugin-, .task-list-item'
         );
         
         this.logger.debug(`🔌 ${pluginElements.length} éléments de plugins détectés après rafraîchissement`);
         
-        // Réappliquer le contexte pour les nouveaux éléments
         this.setupContextCorrection(container, sourcePath);
     }
     
     /**
-     * Configure la correction de contexte pour les plugins
+     * ✅ AMÉLIORATION : Configure la correction de contexte avec support Tasks
      */
     private setupContextCorrection(container: HTMLElement, sourcePath: string): void {
-        // Certains plugins ont besoin du contexte de fichier
         setTimeout(() => {
-            const pluginElements = container.querySelectorAll('[data-plugin], .plugin-content, .dataview, .tasks-plugin');
+            const pluginElements = container.querySelectorAll(
+                '[data-plugin], .plugin-content, .dataview, .tasks-plugin, .task-list-item'
+            );
             
             pluginElements.forEach(element => {
                 try {
-                    // Ajouter le contexte de fichier si manquant
                     if (!element.getAttribute('data-source-path')) {
                         element.setAttribute('data-source-path', sourcePath);
                     }
                     
-                    // Ajouter le contexte de l'app si nécessaire
                     if (!element.getAttribute('data-app-context')) {
                         element.setAttribute('data-app-context', 'agile-board');
+                    }
+                    
+                    // ✅ NOUVEAU : Contexte spécifique pour Tasks
+                    if (element.matches('.task-list-item, .tasks-plugin')) {
+                        element.setAttribute('data-tasks-context', 'agile-board');
                     }
                 } catch (error) {
                     this.logger.warn('⚠️ Erreur ajout contexte plugin', error);
@@ -598,7 +762,7 @@ export class PluginIntegrationManager {
     }
     
     /**
-     * Applique des fallbacks pour plugins problématiques
+     * ✅ AMÉLIORATION : Applique des fallbacks avec support Tasks
      */
     private applyPluginFallbacks(container: HTMLElement): void {
         // Fallback 1 : Dataview qui ne se charge pas
@@ -621,7 +785,19 @@ export class PluginIntegrationManager {
             });
         }, 2000);
         
-        // Fallback 3 : Forcer le rechargement des plugins récalcitrants
+        // ✅ NOUVEAU : Fallback 3 : Vérification des tâches sans checkbox
+        setTimeout(() => {
+            const taskItems = container.querySelectorAll('.task-list-item');
+            taskItems.forEach(item => {
+                const checkbox = item.querySelector('input[type="checkbox"]');
+                if (!checkbox) {
+                    this.logger.warn('⚠️ Tâche détectée sans checkbox, tentative de correction');
+                    // Possibilité d'ajouter une correction ici si nécessaire
+                }
+            });
+        }, 1000);
+        
+        // Fallback 4 : Forcer le rechargement des plugins récalcitrants
         setTimeout(() => {
             try {
                 const event = new CustomEvent('obsidian:plugin-reload', {
@@ -632,15 +808,58 @@ export class PluginIntegrationManager {
                 this.logger.warn('⚠️ Erreur dispatch événement plugin-reload', error);
             }
         }, 3000);
+        
+        // ✅ NOUVEAU : Fallback 5 : Support spécial pour les tâches qui ne répondent pas
+        setTimeout(() => {
+            try {
+                const tasks = container.querySelectorAll('.task-list-item input[type="checkbox"]');
+                tasks.forEach((checkbox: HTMLInputElement) => {
+                    // Vérifier si l'événement change est bien écouté
+                    if (!checkbox.dataset.tasksHandlerAttached) {
+                        this.logger.debug('🔧 Ajout gestionnaire de fallback pour tâche');
+                        
+                        const fallbackHandler = (event: Event) => {
+                            this.logger.debug('✅ Gestionnaire fallback Tasks déclenché');
+                            // Forcer une mise à jour après un délai
+                            setTimeout(() => {
+                                try {
+                                    const content = this.extractCurrentContent(container);
+                                    if (content) {
+                                        // Déclencher un événement personnalisé pour notifier le changement
+                                        const changeEvent = new CustomEvent('agile-board:task-changed', {
+                                            detail: { content, timestamp: Date.now() }
+                                        });
+                                        container.dispatchEvent(changeEvent);
+                                    }
+                                } catch (error) {
+                                    this.logger.warn('⚠️ Erreur dans gestionnaire fallback Tasks', error);
+                                }
+                            }, 250);
+                        };
+                        
+                        checkbox.addEventListener('change', fallbackHandler);
+                        checkbox.dataset.tasksHandlerAttached = 'true';
+                    }
+                });
+            } catch (error) {
+                this.logger.warn('⚠️ Erreur setup fallback Tasks', error);
+            }
+        }, 1500);
     }
     
+    /**
+     * ✅ NOUVEAU : Méthode publique pour extraire le contenu (utilisée par MarkdownFrame)
+     */
+    public extractCurrentContentPublic(container: HTMLElement): string | null {
+        return this.extractCurrentContent(container);
+    }
+
     /**
      * Nettoie les ressources
      */
     dispose(): void {
         this.logger.debug('🧹 Nettoyage PluginIntegrationManager');
         
-        // Nettoyer les observers
         this.observers.forEach(observer => {
             try {
                 observer.disconnect();
@@ -650,7 +869,6 @@ export class PluginIntegrationManager {
         });
         this.observers = [];
         
-        // Nettoyer les event listeners
         this.eventCleanupFunctions.forEach(cleanup => {
             try {
                 cleanup();
