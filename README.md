@@ -1,6 +1,28 @@
-# Agile Board Plugin pour Obsidian
+# Agile Board Plugin pour Obsidian v0.9.0
 
-Un plugin Obsidian permettant de créer des tableaux de bord personnalisés à partir de notes markdown avec des layouts prédéfinis.
+Un plugin Obsidian avancé permettant de créer des tableaux de bord personnalisés à partir de notes markdown avec des layouts prédéfinis et un support universel des plugins.
+
+## ✨ Nouvelles Fonctionnalités v0.9.0
+
+### 🔌 Support Universel des Plugins
+- **Intégration native** avec le plugin Tasks d'Obsidian
+- **Support Dataview** pour les requêtes et tableaux
+- **Rendu natif** utilisant le moteur d'Obsidian
+- **Détection automatique** des plugins installés
+- **Gestion des états de tâches** avancée (Tasks plugin)
+
+### 📊 Système de Logging Optimisé
+- **Logs centralisés** avec sauvegarde automatique
+- **Buffer intelligent** avec gestion de la mémoire
+- **Niveaux de log** configurables
+- **Export vers fichier** avec rotation automatique
+- **Diagnostics intégrés** pour le débogage
+
+### 🏗️ Architecture Améliorée
+- **ServiceContainer** avec injection de dépendances
+- **PluginIntegrationManager** pour l'intégration universelle
+- **Optimisation environnement** automatique
+- **Gestion d'erreurs** robuste
 
 ## 🏗️ Architecture du Plugin
 
@@ -8,204 +30,237 @@ Un plugin Obsidian permettant de créer des tableaux de bord personnalisés à p
 
 ```
 src/
-├── main.ts                    # Point d'entrée principal du plugin
-├── types/                     # Définitions TypeScript
-│   └── index.ts              # Types principaux (BoardSettings, BoardLayout, etc.)
-├── services/                  # Services métier
-│   ├── LayoutService.ts      # Gestion des layouts et modèles
-│   └── FileService.ts        # Opérations sur les fichiers
-├── views/                     # Vues personnalisées
-│   └── BoardView.ts          # Vue principale du tableau de bord
-├── managers/                  # Gestionnaires de fonctionnalités
-│   ├── ViewSwitcher.ts       # Commutateur entre vue markdown et board
-│   └── ModelDetector.ts      # Détection automatique des modèles
-├── components/                # Composants réutilisables
-│   └── MarkdownFrame.ts      # Frame éditable pour chaque section
-├── utils/                     # Utilitaires
-│   └── settings.ts           # Configuration par défaut
-└── constants/                 # Constantes
-    └── layouts.ts            # Définitions des layouts intégrés
+├── main.ts                         # Point d'entrée principal v0.9.0
+├── types/                          # Définitions TypeScript
+│   └── index.ts                   # Types principaux (BoardSettings, LogStats, etc.)
+├── services/                       # Services métier
+│   ├── ServiceContainer.ts        # Container d'injection de dépendances
+│   ├── LoggerService.ts           # Service de logging centralisé
+│   ├── PluginIntegrationManager.ts # Gestionnaire universel des plugins
+│   ├── LayoutService.ts           # Gestion des layouts et modèles
+│   └── FileService.ts             # Opérations sur les fichiers
+├── views/                          # Vues personnalisées
+│   └── BoardView.ts               # Vue principale du tableau de bord
+├── managers/                       # Gestionnaires de fonctionnalités
+│   ├── ViewSwitcher.ts            # Commutateur entre vue markdown et board
+│   └── ModelDetector.ts           # Détection automatique des modèles
+├── components/                     # Composants réutilisables
+│   ├── MarkdownFrame.ts           # Frame éditable pour chaque section
+│   └── SettingsTab.ts             # Interface de configuration
+├── utils/                          # Utilitaires
+│   ├── settings.ts                # Configuration avec support plugins
+│   ├── validation.ts              # Validation des données
+│   └── errorHandler.ts            # Gestionnaire d'erreurs
+├── cache/                          # Système de cache
+│   └── FileCache.ts               # Cache intelligent des fichiers
+├── constants/                      # Constantes
+│   ├── layouts.ts                 # Définitions des layouts intégrés
+│   └── parsing.ts                 # Constantes de parsing
+└── errors/                         # Gestion d'erreurs
+    └── AgileBoardError.ts         # Classes d'erreur personnalisées
 ```
 
 ## 🔧 Composants Principaux
 
-### 1. **main.ts** - Plugin Principal
+### 1. **main.ts** - Plugin Principal v0.9.0
 
-**Responsabilités :**
-- Initialisation et configuration du plugin
-- Orchestration des services et managers
-- Enregistrement des commandes et vues
-- Gestion du cycle de vie du plugin
+**Nouvelles responsabilités :**
+- Initialisation avec support universel des plugins
+- Optimisation automatique selon l'environnement
+- Gestion des diagnostics et debug des plugins
+- Nettoyage avancé des vues lors du rechargement
 
 **Points clés :**
-- Hérite de la classe `Plugin` d'Obsidian
-- Initialise tous les services dans `initializeServices()`
-- Enregistre la vue custom `BoardView`
-- Fournit des commandes pour créer différents types de boards
+- Support universel activé par défaut
+- Détection automatique des plugins Obsidian
+- Commandes avancées pour le debug
+- API publique étendue pour l'intégration
 
-### 2. **BoardView.ts** - Vue Principale
-
-**Responsabilités :**
-- Affichage en mode "board" des notes markdown
-- Création d'une grille CSS adaptative (24 colonnes)
-- Gestion des frames éditables pour chaque section
-- Interface utilisateur pour les erreurs (sections manquantes, etc.)
-
-**Fonctionnalités :**
-- Parsing automatique du frontmatter pour détecter le layout
-- Création dynamique de frames basées sur le layout
-- Édition en temps réel avec sauvegarde automatique
-- Messages d'erreur interactifs avec boutons d'action
-
-### 3. **LayoutService.ts** - Gestion des Layouts
+### 2. **ServiceContainer.ts** - Conteneur de Services
 
 **Responsabilités :**
-- Chargement et gestion des layouts prédéfinis
-- Fourniture d'API pour accéder aux modèles
-- Mapping entre noms de layouts et configurations
+- Injection de dépendances centralisée
+- Gestion du cycle de vie des services
+- Initialisation du PluginIntegrationManager
+- Statistiques et monitoring
 
-**Layouts Intégrés :**
-- **Eisenhower Matrix** : Gestion des priorités (4 quadrants)
-- **Kanban Board** : Flux de travail (À faire, En cours, Terminé)
-- **GTD Board** : Getting Things Done
-- **Weekly/Daily Planner** : Planification temporelle
-- **Project Board** : Gestion de projet
-- **Cornell Notes** : Prise de notes structurée
-- **Tasks Dashboard** : Tableau de bord des tâches
-
-### 4. **FileService.ts** - Opérations Fichiers
+### 3. **PluginIntegrationManager.ts** - Intégration Universelle
 
 **Responsabilités :**
-- Parsing des sections markdown
-- Création automatique de sections manquantes
-- Manipulation du contenu des fichiers
-- Validation de la structure des notes
+- Support natif du plugin Tasks avec états avancés
+- Conversion intelligente HTML → Markdown
+- Gestion des événements de plugins tiers
+- Fallbacks pour plugins récalcitrants
+- Préservation des métadonnées (dates, priorités, tags)
 
-**Fonctions principales :**
-- `parseSections()` : Extrait les sections H1 d'un fichier
-- `createMissingSections()` : Ajoute les sections requises par un layout
-- `getMissingSections()` : Identifie les sections manquantes
+**Plugins supportés :**
+- **Tasks** : Gestion complète des états de tâches
+- **Dataview** : Requêtes et tableaux
+- **Kanban** : Tableaux kanban
+- **Calendar** : Événements et dates
+- **Templater** : Templates avancés
 
-### 5. **ViewSwitcher.ts** - Commutateur de Vues
-
-**Responsabilités :**
-- Ajout d'un bouton de basculement dans l'interface
-- Détection du contexte (note avec layout agile-board)
-- Basculement fluide entre vue markdown et board
-
-### 6. **ModelDetector.ts** - Détection Automatique
+### 4. **LoggerService.ts** - Logging Centralisé
 
 **Responsabilités :**
-- Surveillance des changements de fichiers actifs
-- Mise à jour automatique de l'interface
-- Gestion des événements Obsidian
+- Buffer intelligent avec limitation mémoire
+- Sauvegarde automatique avec rotation
+- Niveaux de log configurables (ERROR, WARN, INFO, DEBUG, VERBOSE)
+- Formatage intelligent des objets complexes
+- Statistiques détaillées
 
-### 7. **MarkdownFrame.ts** - Composant Éditable
+### 5. **BoardView.ts** - Vue Principale
 
-**Responsabilités :**
-- Affichage et édition d'une section markdown
-- Synchronisation avec le fichier source
-- Interface utilisateur pour l'édition inline
+**Améliorations :**
+- Rendu natif utilisant le moteur d'Obsidian
+- Intégration transparente avec les plugins
+- Gestion des erreurs améliorée
+- Support des liens et références natives
 
-## 🎯 Flux de Données
+### 6. **MarkdownFrame.ts** - Composant Éditable
 
-### Initialisation
+**Nouvelles fonctionnalités :**
+- Support universel des plugins dans les frames
+- Extraction intelligente du contenu modifié
+- Synchronisation bidirectionnelle avec les plugins
+- Gestion des métadonnées de plugins tiers
+
+## 🎯 Flux de Données v0.9.0
+
+### Initialisation Avancée
 ```
 Plugin.onload() 
-  → loadSettings() 
-  → initializeServices() 
-  → registerView(BoardView) 
-  → initializeManagers()
+  → initializeCore()
+    → optimizeSettingsForEnvironment()
+    → LoggerService + ServiceContainer
+  → initializeServices()
+    → PluginIntegrationManager
+    → ViewSwitcher + ModelDetector
+  → initializeUI()
+    → registerView avec nettoyage intelligent
+    → commandes avancées
 ```
 
-### Affichage d'un Board
+### Support Universel des Plugins
 ```
-BoardView.onLoadFile() 
-  → renderBoardLayout() 
-  → FileService.parseSections() 
-  → LayoutService.getModel() 
-  → createFrames() 
-  → MarkdownFrame instances
+PluginIntegrationManager.setupUniversalPluginSupport()
+  → setupMutationObserver() (surveillance DOM)
+  → setupEventDelegation() (délégation d'événements)
+  → setupTasksSpecificSupport() (support Tasks)
+  → setupContextCorrection() (correction contexte)
+  → applyPluginFallbacks() (fallbacks intelligents)
 ```
 
-### Édition de Contenu
+### Édition avec Plugins
 ```
-MarkdownFrame.onChange() 
-  → BoardView.onFrameContentChanged() 
-  → FileService update 
-  → Vault.modify()
+User interaction → Plugin traite nativement
+  → MutationObserver détecte changements
+  → PluginIntegrationManager extrait contenu
+  → Conversion HTML → Markdown intelligente
+  → BoardView met à jour le fichier
+  → Synchronisation avec Vault
 ```
 
 ## 🔌 API Principales
 
-### LayoutService
+### ServiceContainer
 ```typescript
-class LayoutService {
-  getModel(layoutName: string): BoardLayout[] | null
-  getAllModelNames(): string[]
-  getAllModelsInfo(): LayoutInfo[]
-  getLayoutDisplayName(layoutName: string): string
+class ServiceContainer {
+  initialize(): Promise<void>
+  updateSettings(settings: BoardSettings): void
+  dispose(): void
+  getStats(): Record<string, unknown>
 }
 ```
 
-### FileService
+### PluginIntegrationManager
 ```typescript
-class FileService {
-  parseSections(file: TFile): Promise<SectionMap>
-  createMissingSections(file: TFile, layout: BoardLayout[]): Promise<boolean>
-  getMissingSections(existing: string[], required: string[]): string[]
+class PluginIntegrationManager {
+  setupUniversalPluginSupport(container: HTMLElement, 
+    onContentChange: (content: string) => void, 
+    sourcePath: string): void
+  extractCurrentContentPublic(container: HTMLElement): string | null
+  isPluginElement(element: HTMLElement): boolean
+  dispose(): void
+  getStats(): { observers: number; eventListeners: number }
 }
 ```
 
-### BoardView
+### LoggerService
 ```typescript
-class BoardView extends FileView {
-  renderBoardLayout(): Promise<void>
-  getViewType(): string // 'agile-board-view'
-  getDisplayText(): string
+class LoggerService {
+  error(message: string, error?: any, source?: string): void
+  warn(message: string, data?: any, source?: string): void
+  info(message: string, data?: any, source?: string): void
+  debug(message: string, data?: any, source?: string): void
+  verbose(message: string, data?: any, source?: string): void
+  
+  // Méthodes spécialisées
+  startup(message: string, data?: any): void
+  success(message: string, data?: any, source?: string): void
+  config(message: string, data?: any): void
+  navigation(message: string, data?: any): void
+  fileOperation(message: string, data?: any): void
+  
+  // Gestion
+  saveLogsToFile(): Promise<void>
+  getStats(): LogStats
+  clearBuffer(): void
 }
 ```
 
 ## 📋 Types Principaux
 
-### BoardLayout
-```typescript
-interface BoardLayout {
-  title: string;    // Nom de la section
-  x: number;        // Position X dans la grille (0-23)
-  y: number;        // Position Y dans la grille
-  w: number;        // Largeur en colonnes
-  h: number;        // Hauteur en lignes
-}
-```
-
-### BoardSettings
+### BoardSettings (Étendu)
 ```typescript
 interface BoardSettings {
   defaultLayouts: string[];
   autoCreateSections: boolean;
-  // ... autres paramètres
+  debug: DebugSettings;
+  // ✅ NOUVEAU : Support des plugins
+  pluginSupport: {
+    enabled: boolean;
+    debugMode: boolean;
+    supportedPlugins: string[];
+    loadTimeout: number;
+    fallbackDelay: number;
+  };
+}
+```
+
+### LogStats
+```typescript
+interface LogStats {
+  totalLogs: number;
+  errorCount: number;
+  warningCount: number;
+  debugCount: number;
+  lastLogTime: string;
+  bufferSize: number;
+  isEnabled: boolean;
+  currentLevel: string;
+  fileLoggingEnabled: boolean;
 }
 ```
 
 ## 🚀 Commandes Disponibles
 
-### Commandes de Création
+### Commandes de Création (Inchangées)
 - `create-eisenhower-note` : Crée une note Matrice d'Eisenhower
 - `create-kanban-note` : Crée une note Kanban
 - `create-gtd-note` : Crée une note GTD
-- `create-weekly-note` : Crée un planificateur hebdomadaire
-- `create-daily-note` : Crée un planificateur quotidien
-- `create-project-note` : Crée un tableau de projet
-- Et plus...
+- Etc.
+
+### ✅ Nouvelles Commandes v0.9.0
+- `refresh-plugin-support` : Actualise le support des plugins
+- `toggle-plugin-debug` : Bascule le debug des plugins
+- `show-plugin-diagnostics` : Affiche les diagnostics détaillés
 
 ### Commandes Utilitaires
 - `switch-to-board-view` : Bascule vers la vue board
-- `list-layouts` : Affiche les layouts disponibles
 - `create-missing-sections` : Crée les sections manquantes
-- `force-update-buttons` : Met à jour les boutons manuellement
 
-## 📝 Format des Notes
+## 📝 Format des Notes avec Support Plugins
 
 ### Frontmatter Requis
 ```yaml
@@ -214,30 +269,41 @@ agile-board: layout_eisenhower
 ---
 ```
 
-### Structure Markdown
+### Structure avec Support Tasks
 ```markdown
 ---
 agile-board: layout_eisenhower
 ---
 
 # Urgent et Important
-Contenu de la section...
+- [x] Tâche terminée avec date ✅ 2024-12-20
+- [ ] Tâche en cours avec échéance 📅 2024-12-25
+- [!] Tâche importante ⏫ haute priorité
 
 # Urgent mais Pas Important
-Contenu de la section...
+```dataview
+TASK
+WHERE due < date(today)
+GROUP BY file.folder
+```
 
 # Important mais Pas Urgent
-Contenu de la section...
+```tasks
+not done
+due after today
+sort by due
+```
 
 # Ni Urgent ni Important
-Contenu de la section...
+- [ ] Lecture optionnelle #développement
+- [ ] Veille technologique 🛫 2024-12-30
 ```
 
 ## 🛠️ Développement
 
 ### Prérequis
 - Node.js 18+
-- TypeScript
+- TypeScript 4.7+
 - Obsidian pour les tests
 
 ### Installation
@@ -250,69 +316,147 @@ npm install
 # Développement avec watch
 npm run dev
 
-# Production
+# Production optimisée
 npm run build
 ```
 
-### Structure du Build
-- **Point d'entrée** : `src/main.ts`
-- **Sortie** : `main.js` (bundle unique)
-- **Bundler** : esbuild
-- **Target** : ES2018
+### Tests
+```bash
+# Tous les tests
+npm run test
+
+# Tests avec watch
+npm run test:watch
+
+# Coverage
+npm run test:coverage
+
+# Tests spécifiques
+npm run test:services
+npm run test:components
+```
 
 ## 🎨 Styles CSS
 
-Le plugin utilise les variables CSS natives d'Obsidian :
-- `--background-primary`
-- `--background-secondary`
-- `--text-normal`
-- `--text-muted`
-- `--interactive-accent`
-- `--background-modifier-border`
+Le plugin utilise les variables CSS natives d'Obsidian et ajoute :
 
-## 🐛 Debugging
+### Classes spécifiques aux plugins
+- `.agile-board-container` : Container principal
+- `.plugin-integration-active` : Indicateur d'intégration active
+- `.tasks-enhanced` : Support Tasks activé
+- `.dataview-enhanced` : Support Dataview activé
 
-### Logs Console
-Le plugin utilise un système de logging coloré :
-- 🚀 Initialisation
-- ✅ Succès
-- ❌ Erreurs
-- 🔧 Opérations de maintenance
-- 🎯 Navigation
-- 📂 Fichiers
+## 🐛 Debugging v0.9.0
 
-### Points de Debug Principaux
-1. **main.ts** : `onload()` et `initializeServices()`
-2. **BoardView.ts** : `renderBoardLayout()` et `createFrames()`
-3. **FileService.ts** : `parseSections()` et `createMissingSections()`
-
-## 🔄 Cycle de Vie
-
-1. **Installation** : Plugin installé dans Obsidian
-2. **Activation** : `onload()` appelé
-3. **Utilisation** : Création/ouverture de notes avec layouts
-4. **Basculement** : Entre vue markdown et board
-5. **Désactivation** : `onunload()` pour le nettoyage
-
-## 📚 Extensions Possibles
-
-### Nouveaux Layouts
-Ajouter dans `constants/layouts.ts` :
+### Système de Logs Avancé
 ```typescript
-export const CUSTOM_LAYOUT: BoardLayout[] = [
-  { title: "Section 1", x: 0, y: 0, w: 12, h: 6 },
-  { title: "Section 2", x: 12, y: 0, w: 12, h: 6 },
-];
+// Logs console colorés
+🚀 Démarrage    ✅ Succès      ❌ Erreurs
+⚠️ Avertissements  ℹ️ Info    🔧 Debug
+🔍 Verbose      ⚙️ Config     🧭 Navigation
+📁 Fichiers     📊 Stats      🔌 Plugins
 ```
 
-### Nouvelles Vues
-Hériter de `FileView` ou `ItemView` selon les besoins.
+### Commandes de Diagnostic
+1. **Palette de commandes** → "Agile Board: Afficher les diagnostics des plugins"
+2. **Console développeur** : F12 → Console
+3. **Fichier de logs** : `agile-board-debug.log` dans le vault
 
-### Nouveaux Services
-Suivre le pattern des services existants avec injection du plugin principal.
+### Configuration Debug
+```javascript
+// Dans les paramètres du plugin
+{
+  "debug": {
+    "enabled": true,
+    "logLevel": 4, // VERBOSE
+    "logToFile": true,
+    "logToConsole": true,
+    "autoSaveInterval": 5, // minutes
+    "maxLogFileSize": 5242880 // 5MB
+  },
+  "pluginSupport": {
+    "enabled": true,
+    "debugMode": true
+  }
+}
+```
+
+## 📈 Monitoring et Performance
+
+### Statistiques Disponibles
+- **Services** : État des services et cache
+- **Plugins** : Observers et event listeners actifs
+- **Logs** : Nombre de logs par type et niveau
+- **Performance** : Temps de chargement et mémoire utilisée
+
+### API de Monitoring
+```typescript
+const stats = plugin.getServices().getStats();
+const pluginStats = plugin.getPluginSupportStats();
+const logStats = plugin.getLogger().getStats();
+```
+
+## 🔄 Migration depuis v0.8.x
+
+### Changements Breaking
+- Aucun pour les utilisateurs finaux
+- Les développeurs doivent utiliser `ServiceContainer` pour accéder aux services
+
+### Nouvelles Fonctionnalités
+- Support universel des plugins activé automatiquement
+- Logs sauvegardés automatiquement si activés
+- Diagnostics disponibles via les commandes
+
+### Configuration Automatique
+Le plugin optimise automatiquement ses paramètres selon :
+- Plugins installés détectés
+- Performance de l'environnement
+- Utilisation mémoire disponible
+
+## 📚 Extensions et API
+
+### Ajouter un Nouveau Plugin Supporté
+```typescript
+// Dans PluginIntegrationManager.ts
+private isPluginElement(element: HTMLElement): boolean {
+  return element.matches('.your-plugin-class') ||
+         element.hasAttribute('data-your-plugin');
+}
+```
+
+### Nouveau Service
+```typescript
+// Hériter du pattern ServiceContainer
+export class YourService {
+  constructor(
+    private app: App,
+    private logger: LoggerService
+  ) {}
+}
+
+// Ajouter au ServiceContainer
+this.yourService = new YourService(app, logger);
+```
+
+## 📄 Compatibilité
+
+- **Obsidian** : Version 1.0.0+
+- **Node.js** : 18+
+- **TypeScript** : 4.7+
+- **Plugins supportés** : Tasks, Dataview, Kanban, Calendar, etc.
+
+## 🔐 Sécurité et Confidentialité
+
+- Aucune donnée n'est envoyée vers des serveurs externes
+- Les logs restent locaux dans votre vault
+- Support des plugins sans interception des données sensibles
+- Code source ouvert et auditable
 
 ---
 
-## 📄 Licence
+## 📄 Licence et Contribution
 
-Ce plugin est développé pour Obsidian et suit les guidelines de développement de plugins Obsidian.
+Ce plugin suit les guidelines de développement de plugins Obsidian. Contributions bienvenues via GitHub issues et pull requests.
+
+**Version actuelle** : 0.9.0 - Support Universel des Plugins
+**Dernière mise à jour** : Décembre 2024

@@ -42,6 +42,23 @@ export default class AgileBoardPlugin extends Plugin {
     async onunload(): Promise<void> {
         this.logger?.info('Arrêt du plugin Agile Board');
         
+        // ✅ NOUVEAU : Nettoyer les vues enregistrées AVANT les autres nettoyages
+        try {
+            // Fermer toutes les vues BoardView ouvertes
+            const boardViews = this.app.workspace.getLeavesOfType(BOARD_VIEW_TYPE);
+            for (const leaf of boardViews) {
+                leaf.detach();
+            }
+            
+            // Désenregistrer le type de vue pour éviter l'erreur lors du prochain chargement
+            if ((this.app as any).viewRegistry?.unregisterView) {
+                (this.app as any).viewRegistry.unregisterView(BOARD_VIEW_TYPE);
+            }
+            
+        } catch (error) {
+            this.logger?.warn('⚠️ Erreur nettoyage vues', error);
+        }
+        
         // Nettoyer les managers
         this.modelDetector?.onUnload();
         this.viewSwitcher?.stop();
@@ -49,7 +66,13 @@ export default class AgileBoardPlugin extends Plugin {
         // Nettoyer les services (inclut maintenant PluginIntegrationManager)
         this.services?.dispose();
         
-        this.logger.info('🛑 Agile Board Plugin arrêté');
+        // Nettoyer l'intervalle de logs
+        if (this.logSaveInterval) {
+            clearInterval(this.logSaveInterval);
+            this.logSaveInterval = null;
+        }
+        
+        this.logger?.info('🛑 Agile Board Plugin arrêté proprement');
     }
 
     /**
@@ -108,16 +131,39 @@ export default class AgileBoardPlugin extends Plugin {
      * Initialise l'interface utilisateur
      */
     private async initializeUI(): Promise<void> {
-        // Enregistrer la vue avec le plugin (pas ServiceContainer)
-        this.registerView(BOARD_VIEW_TYPE, (leaf) => 
-            new BoardView(leaf, this)
-        );
-        
-        // Enregistrer les commandes
-        this.registerCommands();
-        
-        // Ajouter l'onglet de configuration
-        this.addSettingTab(new AgileBoardSettingsTab(this.app, this));
+        try {
+            // ✅ NOUVEAU : Vérifier si la vue n'est pas déjà enregistrée
+            const existingViewConstructors = (this.app as any).viewRegistry?.viewByType;
+            if (existingViewConstructors && existingViewConstructors[BOARD_VIEW_TYPE]) {
+                this.logger.warn('⚠️ Vue BoardView déjà enregistrée, nettoyage...');
+                
+                // Fermer les vues existantes
+                const boardViews = this.app.workspace.getLeavesOfType(BOARD_VIEW_TYPE);
+                for (const leaf of boardViews) {
+                    leaf.detach();
+                }
+                
+                // Désenregistrer l'ancienne vue
+                if ((this.app as any).viewRegistry?.unregisterView) {
+                    (this.app as any).viewRegistry.unregisterView(BOARD_VIEW_TYPE);
+                }
+            }
+            
+            // Enregistrer la vue avec le plugin
+            this.registerView(BOARD_VIEW_TYPE, (leaf) => 
+                new BoardView(leaf, this)
+            );
+            
+            // Enregistrer les commandes
+            this.registerCommands();
+            
+            // Ajouter l'onglet de configuration
+            this.addSettingTab(new AgileBoardSettingsTab(this.app, this));
+            
+        } catch (error) {
+            this.logger.error('❌ Erreur initialisation UI', error);
+            throw error;
+        }
     }
 
     /**

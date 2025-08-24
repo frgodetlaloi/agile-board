@@ -96,7 +96,11 @@ export class LoggerService {
         this.addToBuffer(LogLevel.INFO, message, data, source);
         
         if (this.settings.logToConsole) {
-            console.info(`ℹ️ [Agile-Board] ${message}`, data);
+            if (data) {
+                console.info(`ℹ️ [Agile-Board] ${message}`, this.safeStringify(data, 200));
+            } else {
+                console.info(`ℹ️ [Agile-Board] ${message}`);
+            }
         }
     }
 
@@ -143,7 +147,11 @@ export class LoggerService {
         this.addToBuffer(LogLevel.INFO, `SUCCESS: ${message}`, data, source);
         
         if (this.settings.logToConsole) {
-            console.log(`✅ [Agile-Board] ${message}`, data);
+            if (data) {
+                console.log(`✅ [Agile-Board] ${message}`, this.safeStringify(data, 200));
+            } else {
+                console.log(`✅ [Agile-Board] ${message}`);
+            }
         }
     }
 

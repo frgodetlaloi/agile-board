@@ -53,11 +53,13 @@ export class ServiceContainer {
             // Charger les layouts
             this.layout.load();
             
-            this.logger.success('Container de services initialisé avec support universel', {
+            const stats = {
                 layoutsCount: this.layout.getAllModelNames().length,
                 cacheStats: this.cache.getStats(),
                 pluginSupportEnabled: true
-            });
+            };
+            
+            this.logger.success('Container de services initialisé avec support universel', stats);
             
         } catch (error) {
             this.logger.error('Erreur initialisation container', error);

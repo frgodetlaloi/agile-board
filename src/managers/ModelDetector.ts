@@ -238,7 +238,7 @@ export class ModelDetector {
    * // et afficher les boutons appropriés
    */
   private processAllOpenFiles(): void {
-    this.logger.info('🔍 Traitement initial de tous les fichiers ouverts...');
+    this.logger.info('🔍 Traitement initial de tous les fichiers ouverts...', {context: 'processAllOpenFiles'});
     
     // PARCOURS DE TOUS LES ONGLETS
     this.plugin.app.workspace.iterateAllLeaves((leaf) => {

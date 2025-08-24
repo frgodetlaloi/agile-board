@@ -37,7 +37,7 @@ export class ViewSwitcher {
     const activeLeaf = this.plugin.app.workspace.activeLeaf;
     
     if (activeLeaf) {
-      this.logger.info('🎯 Basculement vers Board View pour:', {file: file.basename});
+      this.logger.info('🎯 Basculement vers Board View pour:', {file: file?.basename || file?.path || 'fichier inconnu'});
       
       await activeLeaf.setViewState({
         type: BOARD_VIEW_TYPE,
@@ -198,7 +198,7 @@ export class ViewSwitcher {
   updateSwitchButtonForFile(file: any): void {
     try {
       if (!file) {
-        this.logger.info('⚠️ Pas de fichier pour mise à jour boutons');
+        this.logger.info('⚠️ Pas de fichier pour mise à jour boutons', {context: 'updateSwitchButtonForFile'});
         this.removeSwitchButtons();
         return;
       }

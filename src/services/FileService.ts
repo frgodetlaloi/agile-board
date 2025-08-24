@@ -279,16 +279,23 @@ export class FileService {
             const layoutInfo = this.layoutService.getModelInfo(options.layoutName);
             const displayName = layoutInfo?.displayName || options.layoutName;
             
-            const fileName = this.generateFileName(displayName, options);
+            const fileName = await this.generateFileName(displayName, options);
             const content = this.generateNoteContent(options, layout, layoutInfo);
             
+            // ✅ Créer ou ouvrir le fichier existant
             const file = await this.createFile(fileName, content, options.folder);
+            
+            // ✅ Vérifier si c'était un fichier existant
+            const isExistingFile = await this.checkIfFileExisted(fileName, options.folder);
+            if (isExistingFile) {
+                new Notice(`📄 Fichier "${displayName}" existe déjà, ouverture...`, 2000);
+            } else {
+                new Notice(`✅ Note "${displayName}" créée avec succès !`, 3000);
+            }
             
             if (options.autoOpen !== false) {
                 await this.openFile(file);
             }
-
-            new Notice(`✅ Note "${displayName}" créée avec succès !`, 3000);
 
             const result: NoteCreationResult = {
                 file,
@@ -328,7 +335,7 @@ export class FileService {
             '',
             ParsingConstants.formatSectionHeader(sectionName), // <-- dynamique !
             '',
-            ' contenu ici ',
+            '',
             ''
         ]).flat();
 
@@ -341,15 +348,36 @@ export class FileService {
         }
     }
 
-    private generateFileName(displayName: string, options: NoteCreationOptions): string {
+    private async generateFileName(displayName: string, options: NoteCreationOptions): Promise<string> {
         if (options.customFileName) {
             return options.customFileName.endsWith('.md') 
                 ? options.customFileName 
                 : `${options.customFileName}.md`;
         }
         
+        // ✅ Vérifier d'abord si un fichier simple existe
+        const baseFileName = `${displayName}.md`;
+        const baseFilePath = options.folder ? `${options.folder}/${baseFileName}` : baseFileName;
+        
+        try {
+            const baseExists = await this.app.vault.adapter.exists(baseFilePath);
+            if (!baseExists) {
+                // Le fichier de base n'existe pas, l'utiliser
+                this.logger?.debug('📁 Fichier de base disponible:', baseFileName);
+                return baseFileName;
+            }
+            
+            this.logger?.debug('📁 Fichier de base existe déjà, génération avec timestamp');
+        } catch (error) {
+            this.logger?.warn('⚠️ Erreur vérification existence fichier de base:', error);
+        }
+        
+        // ✅ Générer avec timestamp seulement si nécessaire
         const timestamp = new Date().toISOString().slice(0, 16).replace('T', '_');
-        return `${displayName}_${timestamp}.md`;
+        const timestampFileName = `${displayName}_${timestamp}.md`;
+        
+        this.logger?.debug('📁 Nom de fichier généré:', timestampFileName);
+        return timestampFileName;
     }
 
     private generateNoteContent(
@@ -362,7 +390,7 @@ export class FileService {
             return [
                 ParsingConstants.formatSectionHeader(block.title), // Utilisation dynamique du niveau
                 '',
-                customContent || ' contenu ici ',
+                customContent || '',
                 ''
             ].join('\n');
         });
@@ -376,14 +404,41 @@ export class FileService {
         ].join('\n');
     }
 
+    /**
+     * ✅ Vérifier si un fichier existait déjà (pour les messages utilisateur)
+     */
+    private async checkIfFileExisted(fileName: string, folder?: string): Promise<boolean> {
+        try {
+            const fullPath = folder ? `${folder}/${fileName}` : fileName;
+            const file = this.app.vault.getAbstractFileByPath(fullPath);
+            return file instanceof TFile;
+        } catch {
+            return false;
+        }
+    }
+
     private async createFile(fileName: string, content: string, folder?: string): Promise<TFile> {
         const safeFileName = ParsingConstants.sanitizeFileName(fileName);
         const fullPath = folder ? `${folder}/${safeFileName}` : safeFileName;
         
+        // ✅ Créer le dossier si nécessaire
         if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
+            this.logger?.debug('📁 Création du dossier:', folder);
             await this.app.vault.createFolder(folder);
         }
 
+        // ✅ Vérification finale avant création
+        const existingFile = this.app.vault.getAbstractFileByPath(fullPath);
+        if (existingFile) {
+            if (existingFile instanceof TFile) {
+                this.logger?.info('📄 Fichier existe déjà, ouverture du fichier existant:', fullPath);
+                return existingFile;
+            } else {
+                throw new AgileBoardError(`Le chemin "${fullPath}" existe déjà mais n'est pas un fichier`, 'FILE_PATH_ERROR', {fullPath});
+            }
+        }
+
+        this.logger?.debug('📄 Création du nouveau fichier:', fullPath);
         return await this.app.vault.create(fullPath, content);
     }
 

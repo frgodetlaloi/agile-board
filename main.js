@@ -27,7 +27,7 @@ __export(main_exports, {
   default: () => AgileBoardPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian5 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 
 // src/types.ts
 var LogLevel = /* @__PURE__ */ ((LogLevel2) => {
@@ -113,7 +113,11 @@ var LoggerService = class {
       return;
     this.addToBuffer(3 /* INFO */, message, data, source);
     if (this.settings.logToConsole) {
-      console.info(`\u2139\uFE0F [Agile-Board] ${message}`, data);
+      if (data) {
+        console.info(`\u2139\uFE0F [Agile-Board] ${message}`, this.safeStringify(data, 200));
+      } else {
+        console.info(`\u2139\uFE0F [Agile-Board] ${message}`);
+      }
     }
   }
   /**
@@ -153,7 +157,11 @@ var LoggerService = class {
       return;
     this.addToBuffer(3 /* INFO */, `SUCCESS: ${message}`, data, source);
     if (this.settings.logToConsole) {
-      console.log(`\u2705 [Agile-Board] ${message}`, data);
+      if (data) {
+        console.log(`\u2705 [Agile-Board] ${message}`, this.safeStringify(data, 200));
+      } else {
+        console.log(`\u2705 [Agile-Board] ${message}`);
+      }
     }
   }
   /**
@@ -1856,13 +1864,18 @@ var FileService = class {
       }
       const layoutInfo = this.layoutService.getModelInfo(options.layoutName);
       const displayName = (layoutInfo == null ? void 0 : layoutInfo.displayName) || options.layoutName;
-      const fileName = this.generateFileName(displayName, options);
+      const fileName = await this.generateFileName(displayName, options);
       const content = this.generateNoteContent(options, layout, layoutInfo);
       const file = await this.createFile(fileName, content, options.folder);
+      const isExistingFile = await this.checkIfFileExisted(fileName, options.folder);
+      if (isExistingFile) {
+        new import_obsidian.Notice(`\u{1F4C4} Fichier "${displayName}" existe d\xE9j\xE0, ouverture...`, 2e3);
+      } else {
+        new import_obsidian.Notice(`\u2705 Note "${displayName}" cr\xE9\xE9e avec succ\xE8s !`, 3e3);
+      }
       if (options.autoOpen !== false) {
         await this.openFile(file);
       }
-      new import_obsidian.Notice(`\u2705 Note "${displayName}" cr\xE9\xE9e avec succ\xE8s !`, 3e3);
       const result = {
         file,
         layoutName: options.layoutName,
@@ -1897,7 +1910,7 @@ var FileService = class {
       ParsingConstants.formatSectionHeader(sectionName),
       // <-- dynamique !
       "",
-      " contenu ici ",
+      "",
       ""
     ]).flat();
     return [...lines, ...newSections].join("\n");
@@ -1907,12 +1920,27 @@ var FileService = class {
       throw AgileBoardError.validationError("layoutName", options.layoutName);
     }
   }
-  generateFileName(displayName, options) {
+  async generateFileName(displayName, options) {
+    var _a, _b, _c, _d;
     if (options.customFileName) {
       return options.customFileName.endsWith(".md") ? options.customFileName : `${options.customFileName}.md`;
     }
+    const baseFileName = `${displayName}.md`;
+    const baseFilePath = options.folder ? `${options.folder}/${baseFileName}` : baseFileName;
+    try {
+      const baseExists = await this.app.vault.adapter.exists(baseFilePath);
+      if (!baseExists) {
+        (_a = this.logger) == null ? void 0 : _a.debug("\u{1F4C1} Fichier de base disponible:", baseFileName);
+        return baseFileName;
+      }
+      (_b = this.logger) == null ? void 0 : _b.debug("\u{1F4C1} Fichier de base existe d\xE9j\xE0, g\xE9n\xE9ration avec timestamp");
+    } catch (error) {
+      (_c = this.logger) == null ? void 0 : _c.warn("\u26A0\uFE0F Erreur v\xE9rification existence fichier de base:", error);
+    }
     const timestamp = new Date().toISOString().slice(0, 16).replace("T", "_");
-    return `${displayName}_${timestamp}.md`;
+    const timestampFileName = `${displayName}_${timestamp}.md`;
+    (_d = this.logger) == null ? void 0 : _d.debug("\u{1F4C1} Nom de fichier g\xE9n\xE9r\xE9:", timestampFileName);
+    return timestampFileName;
   }
   generateNoteContent(options, layout, layoutInfo) {
     const sections = layout.map((block) => {
@@ -1922,7 +1950,7 @@ var FileService = class {
         ParsingConstants.formatSectionHeader(block.title),
         // Utilisation dynamique du niveau
         "",
-        customContent || " contenu ici ",
+        customContent || "",
         ""
       ].join("\n");
     });
@@ -1934,12 +1962,36 @@ var FileService = class {
       ...sections
     ].join("\n");
   }
+  /**
+   * ✅ Vérifier si un fichier existait déjà (pour les messages utilisateur)
+   */
+  async checkIfFileExisted(fileName, folder) {
+    try {
+      const fullPath = folder ? `${folder}/${fileName}` : fileName;
+      const file = this.app.vault.getAbstractFileByPath(fullPath);
+      return file instanceof import_obsidian.TFile;
+    } catch (e) {
+      return false;
+    }
+  }
   async createFile(fileName, content, folder) {
+    var _a, _b, _c;
     const safeFileName = ParsingConstants.sanitizeFileName(fileName);
     const fullPath = folder ? `${folder}/${safeFileName}` : safeFileName;
     if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
+      (_a = this.logger) == null ? void 0 : _a.debug("\u{1F4C1} Cr\xE9ation du dossier:", folder);
       await this.app.vault.createFolder(folder);
     }
+    const existingFile = this.app.vault.getAbstractFileByPath(fullPath);
+    if (existingFile) {
+      if (existingFile instanceof import_obsidian.TFile) {
+        (_b = this.logger) == null ? void 0 : _b.info("\u{1F4C4} Fichier existe d\xE9j\xE0, ouverture du fichier existant:", fullPath);
+        return existingFile;
+      } else {
+        throw new AgileBoardError(`Le chemin "${fullPath}" existe d\xE9j\xE0 mais n'est pas un fichier`, "FILE_PATH_ERROR", { fullPath });
+      }
+    }
+    (_c = this.logger) == null ? void 0 : _c.debug("\u{1F4C4} Cr\xE9ation du nouveau fichier:", fullPath);
     return await this.app.vault.create(fullPath, content);
   }
   async openFile(file) {
@@ -2663,11 +2715,12 @@ var ServiceContainer = class {
     this.logger.info("Initialisation du container de services avec support universel plugins");
     try {
       this.layout.load();
-      this.logger.success("Container de services initialis\xE9 avec support universel", {
+      const stats = {
         layoutsCount: this.layout.getAllModelNames().length,
         cacheStats: this.cache.getStats(),
         pluginSupportEnabled: true
-      });
+      };
+      this.logger.success("Container de services initialis\xE9 avec support universel", stats);
     } catch (error) {
       this.logger.error("Erreur initialisation container", error);
       throw error;
@@ -2716,8 +2769,8 @@ var DEFAULT_SETTINGS = {
   debug: {
     enabled: false,
     // Debug désactivé par défaut (production)
-    logLevel: 3 /* INFO */,
-    // Niveau INFO par défaut
+    logLevel: 2 /* WARN */,
+    // Niveau WARN par défaut (moins de bruit)
     showTimestamps: true,
     // Affichage des timestamps
     showSourceLocation: true,
@@ -3004,9 +3057,10 @@ var SettingsUtils = class {
 };
 
 // src/views/BoardView.ts
-var import_obsidian2 = require("obsidian");
+var import_obsidian3 = require("obsidian");
 
 // src/components/MarkdownFrame.ts
+var import_obsidian2 = require("obsidian");
 var MarkdownFrame = class {
   // ===========================================================================
   // CONSTRUCTEUR ET INITIALISATION
@@ -3021,17 +3075,18 @@ var MarkdownFrame = class {
     // PROPRIÉTÉS D'ÉTAT DU COMPOSANT
     // ===========================================================================
     this.isEditing = false;
-    // ✅ NOUVEAU : États de rendu améliorés
+    // ✅ NOUVEAU : États de rendu simplifiés
     this.isInErrorState = false;
     this.renderAttempts = 0;
-    this.MAX_RENDER_ATTEMPTS = 3;
+    this.MAX_RENDER_ATTEMPTS = 2;
     this.logger = logger;
     try {
       this.validateConstructorParams();
       this.content = section.lines.join("\n");
-      this.pluginManager = new PluginIntegrationManager(this.app, this.logger);
+      this.obsidianComponent = new import_obsidian2.Component();
+      this.obsidianComponent.load();
       this.initializeFrame();
-      this.logger.info("\u2705 MarkdownFrame initialis\xE9 avec support universel plugins et Tasks sp\xE9cialis\xE9", {
+      this.logger.debug("\u2705 MarkdownFrame initialis\xE9 avec rendu natif Obsidian", {
         sectionName: section.name,
         contentLength: this.content.length
       });
@@ -3044,24 +3099,18 @@ var MarkdownFrame = class {
    * ✅ Validation des paramètres du constructeur
    */
   validateConstructorParams() {
-    if (!this.app) {
+    if (!this.app)
       throw new Error("App Obsidian requis");
-    }
-    if (!this.container) {
+    if (!this.container)
       throw new Error("Container DOM requis");
-    }
-    if (!this.file) {
+    if (!this.file)
       throw new Error("Fichier TFile requis");
-    }
-    if (!this.section) {
+    if (!this.section)
       throw new Error("Section FileSection requise");
-    }
-    if (!this.onChange || typeof this.onChange !== "function") {
+    if (!this.onChange || typeof this.onChange !== "function")
       throw new Error("Callback onChange requis");
-    }
-    if (!this.logger) {
+    if (!this.logger)
       throw new Error("Logger requis");
-    }
   }
   /**
    * ✅ Initialise un état d'erreur de base
@@ -3189,18 +3238,15 @@ var MarkdownFrame = class {
     }
   }
   // ===========================================================================
-  // MOTEUR DE RENDU MARKDOWN AVEC SUPPORT UNIVERSEL PLUGINS
+  // ✅ MOTEUR DE RENDU NATIF OBSIDIAN (SANS INTERCEPTION)
   // ===========================================================================
   /**
-   * ✅ NOUVEAU : Rend le contenu markdown avec support universel des plugins
+   * ✅ NOUVEAU : Rend le contenu avec le moteur natif Obsidian
    */
   async renderContent() {
     if (this.renderAttempts >= this.MAX_RENDER_ATTEMPTS) {
-      this.logger.warn("\u{1F6AB} Nombre maximum de tentatives de rendu atteint", {
-        attempts: this.renderAttempts,
-        sectionName: this.section.name
-      });
-      this.renderPermanentFallback();
+      this.logger.warn("\u{1F6AB} Nombre maximum de tentatives de rendu atteint");
+      this.renderFallback();
       return;
     }
     this.renderAttempts++;
@@ -3212,10 +3258,10 @@ var MarkdownFrame = class {
         this.resetRenderAttempts();
         return;
       }
-      await this.attemptUniversalRender();
+      await this.renderWithNativeObsidian();
       this.resetRenderAttempts();
       this.isInErrorState = false;
-      this.logger.info("\u2705 Contenu rendu avec support universel plugins", {
+      this.logger.debug("\u2705 Contenu rendu avec moteur natif Obsidian", {
         contentLength: this.content.length,
         attempt: this.renderAttempts
       });
@@ -3243,318 +3289,180 @@ var MarkdownFrame = class {
     }
   }
   /**
-   * ✅ NOUVEAU : Tentative de rendu avec support universel des plugins
+   * ✅ NOUVEAU : Rendu avec le moteur natif d'Obsidian (PAS D'INTERCEPTION)
    */
-  async attemptUniversalRender() {
-    var _a;
+  async renderWithNativeObsidian() {
     try {
-      const obsidianModules = await this.safeRequireObsidian();
-      if (!obsidianModules) {
-        throw new Error("Modules Obsidian non disponibles");
-      }
-      const { MarkdownRenderer, Component } = obsidianModules;
-      const component = new Component();
-      component.load();
-      const renderContext = {
-        sourcePath: this.file.path,
-        frontmatter: ((_a = this.app.metadataCache.getFileCache(this.file)) == null ? void 0 : _a.frontmatter) || {},
-        component
-      };
-      await Promise.race([
-        MarkdownRenderer.renderMarkdown(
-          this.content,
-          this.previewContainer,
-          this.file.path,
-          component
-        ),
-        this.createTimeoutPromise(1e4)
-        // 10 secondes pour les plugins
-      ]);
-      await this.waitForPluginsAndSetupSupport();
+      await import_obsidian2.MarkdownRenderer.renderMarkdown(
+        this.content,
+        this.previewContainer,
+        this.file.path,
+        this.obsidianComponent
+      );
+      await this.waitForPluginsToLoad();
+      this.logger.debug("\u2705 Rendu natif Obsidian termin\xE9 - plugins charg\xE9s naturellement");
     } catch (error) {
-      throw new Error(`Rendu universel \xE9chou\xE9: ${error.message}`);
+      throw new Error(`Rendu natif \xE9chou\xE9: ${error.message}`);
     }
   }
   /**
-   * ✅ NOUVEAU : Attend les plugins et configure le support universel avec Tasks spécialisé
+   * ✅ NOUVEAU : Attend que les plugins se chargent naturellement
    */
-  async waitForPluginsAndSetupSupport() {
+  async waitForPluginsToLoad() {
     return new Promise((resolve) => {
       setTimeout(() => {
         try {
-          this.pluginManager.setupUniversalPluginSupport(
-            this.previewContainer,
-            (newContent) => {
-              this.handleContentChangeFromPlugin(newContent);
-            },
-            this.file.path
-          );
-          this.setupTasksSpecificSupport();
           const pluginElements = this.previewContainer.querySelectorAll(
-            ".dataview, .tasks-plugin, .task-list-item, [data-plugin], .plugin-"
+            ".dataview, .block-language-dataview, .tasks-query, .block-language-tasks, .task-list-item, .kanban-plugin, [data-plugin]"
           );
-          this.logger.debug(`\u2705 Support universel configur\xE9 - ${pluginElements.length} \xE9l\xE9ments de plugins d\xE9tect\xE9s`);
+          this.logger.debug(`\u2705 ${pluginElements.length} \xE9l\xE9ments de plugins charg\xE9s naturellement`);
+          this.setupNativeEditingSupport();
           resolve();
         } catch (error) {
-          this.logger.warn("\u26A0\uFE0F Erreur configuration support universel", error);
+          this.logger.warn("\u26A0\uFE0F Erreur v\xE9rification plugins, continuation normale", error);
           resolve();
         }
-      }, 600);
+      }, 300);
     });
   }
   /**
-   * ✅ NOUVEAU : Configuration spécialisée pour le plugin Tasks
+   * ✅ NOUVEAU : Support d'édition natif (minimal, pas d'interception)
    */
-  setupTasksSpecificSupport() {
+  setupNativeEditingSupport() {
     try {
-      this.tasksEventHandler = (event) => {
+      this.previewContainer.addEventListener("input", this.debouncedSave.bind(this), true);
+      this.previewContainer.addEventListener("change", this.debouncedSave.bind(this), true);
+      this.logger.debug("\u2705 Support d'\xE9dition natif configur\xE9 (minimal)");
+    } catch (error) {
+      this.logger.warn("\u26A0\uFE0F Erreur configuration support \xE9dition natif", error);
+    }
+  }
+  /**
+   * ✅ NOUVEAU : Sauvegarde différée des modifications
+   */
+  debouncedSave() {
+    try {
+      clearTimeout(this.changeTimeout);
+      this.changeTimeout = setTimeout(() => {
         try {
-          this.logger.debug("\u2705 \xC9v\xE9nement Tasks personnalis\xE9 re\xE7u", event.detail);
-          if (event.detail.content && event.detail.content !== this.content) {
-            this.handleContentChangeFromPlugin(event.detail.content);
+          const newContent = this.extractContentFromNativeRender();
+          if (newContent !== this.content) {
+            this.content = newContent;
+            this.onChange(this.content);
+            this.logger.verbose("\u{1F504} Contenu sauvegard\xE9 depuis rendu natif");
           }
         } catch (error) {
-          this.logger.error("\u274C Erreur dans gestionnaire \xE9v\xE9nement Tasks", error);
+          this.logger.warn("\u26A0\uFE0F Erreur sauvegarde diff\xE9r\xE9e", error);
         }
-      };
-      this.previewContainer.addEventListener("agile-board:task-changed", this.tasksEventHandler);
-      this.setupTaskCheckboxMonitoring();
-      this.logger.debug("\u2705 Support sp\xE9cialis\xE9 Tasks configur\xE9");
+      }, 1e3);
     } catch (error) {
-      this.logger.warn("\u26A0\uFE0F Erreur configuration support Tasks sp\xE9cialis\xE9", error);
+      this.logger.error("\u274C Erreur debouncedSave", error);
     }
   }
   /**
-   * ✅ NOUVEAU : Surveillance spécifique des checkboxes de tâches
+   * ✅ NOUVEAU : Extraction du contenu depuis le rendu natif
    */
-  setupTaskCheckboxMonitoring() {
+  extractContentFromNativeRender() {
+    var _a, _b, _c, _d, _e;
     try {
-      const taskObserver = new MutationObserver((mutations) => {
-        let hasTaskChanges = false;
-        mutations.forEach((mutation) => {
-          if (mutation.type === "attributes" && mutation.attributeName === "checked" && mutation.target instanceof HTMLInputElement && mutation.target.type === "checkbox") {
-            const checkbox = mutation.target;
-            const taskItem = checkbox.closest(".task-list-item, li");
-            if (taskItem) {
-              this.logger.debug("\u2705 Changement d'\xE9tat de t\xE2che d\xE9tect\xE9 via MutationObserver");
-              hasTaskChanges = true;
-            }
-          }
-        });
-        if (hasTaskChanges) {
-          setTimeout(() => {
-            try {
-              const newContent = this.extractCurrentContent();
-              if (newContent && newContent !== this.content) {
-                this.logger.debug("\u{1F504} Contenu Tasks mis \xE0 jour via MutationObserver");
-                this.handleContentChangeFromPlugin(newContent);
-              }
-            } catch (error) {
-              this.logger.warn("\u26A0\uFE0F Erreur extraction contenu apr\xE8s changement t\xE2che", error);
-            }
-          }, 150);
-        }
-      });
-      taskObserver.observe(this.previewContainer, {
-        attributes: true,
-        attributeFilter: ["checked"],
-        subtree: true
-      });
-      this.taskObserver = taskObserver;
-    } catch (error) {
-      this.logger.warn("\u26A0\uFE0F Erreur setup surveillance checkboxes Tasks", error);
-    }
-  }
-  /**
-   * ✅ NOUVEAU : Extrait le contenu actuel via le gestionnaire de plugins
-   */
-  extractCurrentContent() {
-    try {
-      return this.pluginManager.extractCurrentContentPublic ? this.pluginManager.extractCurrentContentPublic(this.previewContainer) : this.fallbackContentExtraction();
-    } catch (error) {
-      this.logger.warn("\u26A0\uFE0F Erreur extraction contenu, utilisation fallback", error);
-      return this.fallbackContentExtraction();
-    }
-  }
-  /**
-   * ✅ NOUVEAU : Extraction de contenu de fallback
-   */
-  fallbackContentExtraction() {
-    try {
-      const textContent = this.previewContainer.textContent || "";
       const lines = [];
-      const elements = this.previewContainer.querySelectorAll("p, li, h1, h2, h3, h4, h5, h6, .task-list-item");
-      elements.forEach((element) => {
-        var _a, _b, _c;
-        if (element.matches(".task-list-item")) {
+      const walker = document.createTreeWalker(
+        this.previewContainer,
+        NodeFilter.SHOW_ELEMENT,
+        null
+      );
+      let node;
+      while (node = walker.nextNode()) {
+        const element = node;
+        if (element.matches("h1, h2, h3, h4, h5, h6")) {
+          const level = parseInt(element.tagName.substring(1));
+          const text = ((_a = element.textContent) == null ? void 0 : _a.trim()) || "";
+          if (text) {
+            lines.push(`${"#".repeat(level)} ${text}`);
+          }
+        } else if (element.matches(".task-list-item")) {
           const checkbox = element.querySelector('input[type="checkbox"]');
           const isChecked = checkbox ? checkbox.checked : false;
-          const text = ((_a = element.textContent) == null ? void 0 : _a.replace(/^\s*/, "").trim()) || "";
-          lines.push(`- [${isChecked ? "x" : " "}] ${text}`);
-        } else if (element.matches("h1, h2, h3, h4, h5, h6")) {
-          const level = parseInt(element.tagName.substring(1));
           const text = ((_b = element.textContent) == null ? void 0 : _b.trim()) || "";
-          lines.push(`${"#".repeat(level)} ${text}`);
-        } else {
+          if (text) {
+            lines.push(`- [${isChecked ? "x" : " "}] ${text}`);
+          }
+        } else if (element.matches("li") && !element.matches(".task-list-item")) {
           const text = ((_c = element.textContent) == null ? void 0 : _c.trim()) || "";
+          if (text) {
+            lines.push(`- ${text}`);
+          }
+        } else if (element.matches("p")) {
+          let text = ((_d = element.textContent) == null ? void 0 : _d.trim()) || "";
+          const internalLinks = element.querySelectorAll(".internal-link");
+          internalLinks.forEach((link) => {
+            const linkText = link.textContent || "";
+            const href = link.getAttribute("data-href") || linkText;
+            text = text.replace(linkText, `[[${href}]]`);
+          });
           if (text) {
             lines.push(text);
           }
+        } else if (element.matches("pre code")) {
+          const code = element.textContent || "";
+          const language = ((_e = element.className.match(/language-(\w+)/)) == null ? void 0 : _e[1]) || "";
+          if (code) {
+            lines.push("```" + language);
+            lines.push(code);
+            lines.push("```");
+          }
+        } else if (element.matches(".block-language-dataview, .block-language-tasks")) {
+          const originalContent = element.getAttribute("data-original-content") || element.textContent || "";
+          if (originalContent) {
+            const language = element.matches(".block-language-dataview") ? "dataview" : "tasks";
+            lines.push("```" + language);
+            lines.push(originalContent);
+            lines.push("```");
+          }
         }
-      });
-      return lines.join("\n");
+      }
+      return lines.filter((line) => line.trim().length > 0).join("\n").replace(/\n\n+/g, "\n\n");
     } catch (error) {
-      this.logger.error("\u274C Erreur extraction fallback", error);
+      this.logger.error("\u274C Erreur extraction contenu natif", error);
       return this.content;
     }
   }
   /**
-   * ✅ NOUVEAU : Gère les changements de contenu provenant des plugins
-   */
-  handleContentChangeFromPlugin(newContent) {
-    try {
-      if (newContent !== this.content) {
-        this.content = newContent;
-        if (this.isEditing && this.textArea) {
-          this.textArea.value = newContent;
-        }
-        clearTimeout(this.changeTimeout);
-        this.changeTimeout = setTimeout(() => {
-          try {
-            this.onChange(this.content);
-          } catch (error) {
-            this.logger.error("\u274C Erreur callback onChange depuis plugin", error);
-          }
-        }, 300);
-        this.logger.debug("\u{1F504} Contenu mis \xE0 jour depuis plugin");
-      }
-    } catch (error) {
-      this.logger.error("\u274C Erreur handleContentChangeFromPlugin", error);
-    }
-  }
-  /**
-   * ✅ Import sécurisé des modules Obsidian
-   */
-  async safeRequireObsidian() {
-    try {
-      return require("obsidian");
-    } catch (error) {
-      this.logger.warn("\u26A0\uFE0F Modules Obsidian non disponibles via require", error);
-      if (this.app && this.app.MarkdownRenderer) {
-        return {
-          MarkdownRenderer: this.app.MarkdownRenderer,
-          Component: this.app.Component || class Component {
-            load() {
-            }
-          }
-        };
-      }
-      return null;
-    }
-  }
-  /**
-   * ✅ Crée une promesse de timeout
-   */
-  createTimeoutPromise(ms) {
-    return new Promise((_, reject) => {
-      setTimeout(() => reject(new Error(`Timeout apr\xE8s ${ms}ms`)), ms);
-    });
-  }
-  /**
-   * ✅ Gestion intelligente des erreurs de rendu
+   * ✅ Gestion des erreurs de rendu
    */
   async handleRenderError(error) {
     const errorMessage = error.message.toLowerCase();
     if (errorMessage.includes("timeout")) {
-      this.logger.warn("\u23F1\uFE0F Timeout de rendu - Passage en mode simple");
-      this.renderSimpleFallback();
-    } else if (errorMessage.includes("module") || errorMessage.includes("require")) {
-      this.logger.warn("\u{1F4E6} Erreur de module - Passage en rendu de base");
-      this.renderBasicMarkdown();
+      this.logger.warn("\u23F1\uFE0F Timeout de rendu");
+      this.renderFallback();
     } else if (this.renderAttempts < this.MAX_RENDER_ATTEMPTS) {
-      this.logger.warn("\u{1F504} Nouvelle tentative de rendu dans 1 seconde");
+      this.logger.warn("\u{1F504} Nouvelle tentative de rendu");
       setTimeout(() => this.renderContent(), 1e3);
     } else {
-      this.logger.error("\u{1F4A5} \xC9chec d\xE9finitif du rendu - Mode texte brut");
-      this.renderPermanentFallback();
+      this.logger.error("\u{1F4A5} \xC9chec d\xE9finitif du rendu");
+      this.renderFallback();
     }
   }
   /**
-   * ✅ Fallback simple avec markdown de base
+   * ✅ Rendu de fallback simple
    */
-  renderSimpleFallback() {
+  renderFallback() {
     try {
       this.previewContainer.empty();
-      this.previewContainer.innerHTML = this.renderSimpleMarkdown(this.content);
-      const indicator = this.previewContainer.createDiv("fallback-indicator");
-      indicator.style.cssText = `
-        position: absolute;
-        top: 4px;
-        right: 4px;
-        background: var(--background-modifier-warning);
-        color: var(--text-warning);
-        padding: 2px 6px;
-        border-radius: 3px;
-        font-size: 0.7em;
-        opacity: 0.7;
-      `;
-      indicator.textContent = "\u26A0\uFE0F Mode simplifi\xE9";
-    } catch (error) {
-      this.logger.error("\u274C Erreur dans renderSimpleFallback", error);
-      this.renderPermanentFallback();
-    }
-  }
-  /**
-   * ✅ Fallback avec markdown basique
-   */
-  renderBasicMarkdown() {
-    try {
-      this.previewContainer.empty();
-      const lines = this.content.split("\n");
-      for (const line of lines) {
-        const lineEl = this.previewContainer.createDiv("basic-line");
-        lineEl.style.marginBottom = "0.5em";
-        lineEl.textContent = line || " ";
-      }
-    } catch (error) {
-      this.logger.error("\u274C Erreur dans renderBasicMarkdown", error);
-      this.renderPermanentFallback();
-    }
-  }
-  /**
-   * ✅ Fallback permanent en cas d'échec total
-   */
-  renderPermanentFallback() {
-    try {
-      this.isInErrorState = true;
-      this.previewContainer.empty();
-      const errorContainer = this.previewContainer.createDiv("permanent-fallback");
-      errorContainer.innerHTML = `
+      const fallbackDiv = this.previewContainer.createDiv("fallback-render");
+      fallbackDiv.innerHTML = `
         <div style="
-          color: var(--text-error);
+          color: var(--text-warning);
           background: var(--background-secondary);
           border: 1px dashed var(--background-modifier-border);
           border-radius: 4px;
           padding: 1rem;
           margin-bottom: 1rem;
         ">
-          <div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
-            <span style="margin-right: 0.5rem;">\u26A0\uFE0F</span>
-            <strong>Erreur de rendu</strong>
-          </div>
-          <p style="margin: 0; opacity: 0.8;">
-            Affichage du contenu en mode texte brut. 
-            <button onclick="location.reload()" style="
-              background: none; 
-              border: none; 
-              color: var(--text-accent); 
-              text-decoration: underline; 
-              cursor: pointer;
-            ">Recharger</button>
-          </p>
+          \u26A0\uFE0F Mode de fallback - Rendu simplifi\xE9
         </div>
       `;
-      const contentEl = errorContainer.createEl("pre");
+      const contentEl = fallbackDiv.createEl("pre");
       contentEl.style.cssText = `
         white-space: pre-wrap;
         font-family: var(--font-text);
@@ -3566,11 +3474,9 @@ var MarkdownFrame = class {
         overflow: auto;
       `;
       contentEl.textContent = this.content;
-    } catch (finalError) {
-      this.logger.error("\u274C Erreur critique dans renderPermanentFallback", finalError);
-      this.previewContainer.textContent = `\u26A0\uFE0F ERREUR CRITIQUE
-
-${this.content}`;
+    } catch (error) {
+      this.logger.error("\u274C Erreur renderFallback", error);
+      this.previewContainer.textContent = this.content;
     }
   }
   /**
@@ -3578,49 +3484,6 @@ ${this.content}`;
    */
   resetRenderAttempts() {
     this.renderAttempts = 0;
-  }
-  /**
-   * Moteur de rendu markdown simple (fallback)
-   */
-  renderSimpleMarkdown(content) {
-    try {
-      let html = content;
-      html = html.replace(/\[\[([^\]]+)\]\]/g, '<span class="internal-link">$1</span>');
-      html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-      html = html.replace(/\*(.*?)\*/g, "<em>$1</em>");
-      html = html.replace(/^[\s]*[-*+] (.+)$/gm, "<li>$1</li>");
-      const lines = html.split("\n");
-      let result = "";
-      let inList = false;
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed.includes("<li>")) {
-          if (!inList) {
-            result += "<ul>\n";
-            inList = true;
-          }
-          result += line + "\n";
-        } else {
-          if (inList) {
-            result += "</ul>\n";
-            inList = false;
-          }
-          if (trimmed === "") {
-            result += "<br>\n";
-          } else {
-            result += `<p>${trimmed}</p>
-`;
-          }
-        }
-      }
-      if (inList) {
-        result += "</ul>\n";
-      }
-      return result;
-    } catch (error) {
-      this.logger.error("\u274C Erreur renderSimpleMarkdown", error);
-      return `<pre>${content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`;
-    }
   }
   /**
    * Affiche un état vide engageant
@@ -3645,33 +3508,25 @@ ${this.content}`;
     }
   }
   // ===========================================================================
-  // GESTION DES ÉVÉNEMENTS SIMPLIFIÉE (VERSION UNIVERSELLE)
+  // ✅ GESTION DES ÉVÉNEMENTS NATIVE (PAS D'INTERCEPTION)
   // ===========================================================================
   /**
-   * ✅ NOUVEAU : Configuration des événements simplifiée avec support universel
+   * ✅ NOUVEAU : Événements natifs sans interception des plugins
    */
   setupPreviewEvents() {
     try {
       this.previewContainer.addEventListener("click", (event) => {
         try {
           const target = event.target;
-          if (this.pluginManager.isPluginElement(target)) {
-            this.logger.debug("\u{1F50C} Clic sur plugin, pas de mode \xE9dition");
-            event.stopPropagation();
+          if (this.isPluginElement(target)) {
+            this.logger.debug("\u{1F50C} Clic sur plugin - gestion native");
             return;
           }
-          if (this.isTaskElement(target)) {
-            this.logger.debug("\u2705 Clic sur t\xE2che, gestion sp\xE9cialis\xE9e");
-            event.stopPropagation();
-            this.handleTaskClick(target, event);
+          if (this.isObsidianInteractiveElement(target)) {
+            this.logger.debug("\u{1F517} Clic sur \xE9l\xE9ment interactif Obsidian - gestion native");
             return;
           }
-          if (this.isBasicInteractiveElement(target)) {
-            this.logger.debug("\u{1F3AF} Clic sur \xE9l\xE9ment interactif basique");
-            event.stopPropagation();
-            return;
-          }
-          this.logger.info("\u{1F5B1}\uFE0F Clic sur preview \u2192 mode \xE9dition");
+          this.logger.debug("\u{1F5B1}\uFE0F Clic sur contenu \u2192 mode \xE9dition");
           this.enterEditMode();
         } catch (error) {
           this.logger.error("\u274C Erreur dans gestionnaire clic preview", error);
@@ -3682,72 +3537,55 @@ ${this.content}`;
     }
   }
   /**
-   * ✅ NOUVEAU : Détermine si un élément est une tâche
+   * ✅ NOUVEAU : Détection d'éléments de plugins (non-interceptés)
    */
-  isTaskElement(element) {
-    try {
-      if (element.matches('input[type="checkbox"]')) {
-        const taskContext = element.closest(".task-list-item, li, .contains-task-list");
-        return !!taskContext;
-      }
-      return element.matches(".task-list-item") || element.closest(".task-list-item") !== null || element.matches("li") && element.querySelector('input[type="checkbox"]') !== null;
-    } catch (error) {
-      this.logger.warn("\u26A0\uFE0F Erreur isTaskElement", error);
+  isPluginElement(element) {
+    if (!element)
       return false;
-    }
-  }
-  /**
-   * ✅ NOUVEAU : Gère les clics sur les tâches
-   */
-  handleTaskClick(target, event) {
-    try {
-      if (target.matches('input[type="checkbox"]')) {
-        this.logger.debug("\u2705 Clic sur checkbox de t\xE2che - d\xE9l\xE9gation au plugin Tasks");
-        setTimeout(() => {
-          try {
-            const newContent = this.extractCurrentContent();
-            if (newContent && newContent !== this.content) {
-              this.logger.debug("\u{1F504} Contenu modifi\xE9 apr\xE8s clic checkbox");
-              this.handleContentChangeFromPlugin(newContent);
-            }
-          } catch (error) {
-            this.logger.warn("\u26A0\uFE0F Erreur v\xE9rification apr\xE8s clic checkbox", error);
-          }
-        }, 200);
-        return;
-      }
-      this.logger.debug("\u2705 Clic sur \xE9l\xE9ment de t\xE2che (non-checkbox)");
-    } catch (error) {
-      this.logger.error("\u274C Erreur handleTaskClick", error);
-    }
-  }
-  /**
-   * ✅ NOUVEAU : Détection d'éléments interactifs basiques (non-plugins)
-   */
-  isBasicInteractiveElement(element) {
-    var _a;
-    try {
-      if (!element)
+    const pluginSelectors = [
+      ".task-list-item",
+      ".dataview",
+      ".block-language-dataview",
+      ".block-language-tasks",
+      ".kanban-plugin",
+      ".pomodoro-timer",
+      "[data-plugin]",
+      'input[type="checkbox"]'
+      // Checkboxes gérées nativement
+    ];
+    return pluginSelectors.some((selector) => {
+      try {
+        return element.matches(selector) || element.closest(selector) !== null;
+      } catch (e) {
         return false;
-      let current = element;
-      while (current && current !== this.previewContainer) {
-        const tagName = ((_a = current.tagName) == null ? void 0 : _a.toLowerCase()) || "";
-        if (["input", "button", "a", "select", "textarea"].includes(tagName)) {
-          return true;
-        }
-        if (current.matches(".internal-link, .external-link, .tag, .cm-hashtag")) {
-          return true;
-        }
-        if (current.hasAttribute("href") || current.hasAttribute("data-href")) {
-          return true;
-        }
-        current = current.parentElement;
       }
+    });
+  }
+  /**
+   * ✅ NOUVEAU : Détection d'éléments interactifs Obsidian
+   */
+  isObsidianInteractiveElement(element) {
+    if (!element)
       return false;
-    } catch (error) {
-      this.logger.warn("\u26A0\uFE0F Erreur isBasicInteractiveElement", error);
-      return false;
-    }
+    const interactiveSelectors = [
+      ".internal-link",
+      ".external-link",
+      ".tag",
+      ".cm-hashtag",
+      "a[href]",
+      "[data-href]",
+      "button",
+      "input",
+      "select",
+      "textarea"
+    ];
+    return interactiveSelectors.some((selector) => {
+      try {
+        return element.matches(selector) || element.closest(selector) !== null;
+      } catch (e) {
+        return false;
+      }
+    });
   }
   /**
    * Configure les événements du mode édition
@@ -3764,14 +3602,14 @@ ${this.content}`;
             } catch (error) {
               this.logger.error("\u274C Erreur callback onChange dans input", error);
             }
-          }, 1e3);
+          }, 2e3);
         } catch (error) {
           this.logger.error("\u274C Erreur dans gestionnaire input", error);
         }
       });
       this.textArea.addEventListener("blur", () => {
         try {
-          this.logger.info("\u{1F4DD} Blur sur textarea \u2192 mode preview");
+          this.logger.debug("\u{1F4DD} Blur sur textarea \u2192 mode preview");
           this.exitEditMode();
         } catch (error) {
           this.logger.error("\u274C Erreur dans gestionnaire blur", error);
@@ -3780,7 +3618,7 @@ ${this.content}`;
       this.textArea.addEventListener("keydown", (event) => {
         try {
           if (event.key === "Escape") {
-            this.logger.info("\u2328\uFE0F Escape \u2192 mode preview");
+            this.logger.debug("\u2328\uFE0F Escape \u2192 mode preview");
             this.exitEditMode();
           }
         } catch (error) {
@@ -3819,7 +3657,7 @@ ${this.content}`;
           this.logger.warn("\u26A0\uFE0F Erreur focus textarea", error);
         }
       }, 10);
-      this.logger.info("\u270F\uFE0F Mode \xE9dition activ\xE9");
+      this.logger.debug("\u270F\uFE0F Mode \xE9dition activ\xE9");
     } catch (error) {
       this.logger.error("\u274C Erreur enterEditMode", error);
       this.forcePreviewMode();
@@ -3842,7 +3680,7 @@ ${this.content}`;
       this.renderContent().catch((error) => {
         this.logger.error("\u274C Erreur re-rendu apr\xE8s \xE9dition", error);
       });
-      this.logger.info("\u{1F441}\uFE0F Mode preview activ\xE9");
+      this.logger.debug("\u{1F441}\uFE0F Mode preview activ\xE9");
     } catch (error) {
       this.logger.error("\u274C Erreur exitEditMode", error);
       this.forcePreviewMode();
@@ -3860,7 +3698,7 @@ ${this.content}`;
       if (this.previewContainer) {
         this.previewContainer.style.display = "block";
       }
-      this.logger.info("\u{1F527} Mode preview forc\xE9 apr\xE8s erreur");
+      this.logger.debug("\u{1F527} Mode preview forc\xE9 apr\xE8s erreur");
     } catch (error) {
       this.logger.error("\u274C Erreur critique dans forcePreviewMode", error);
       this.initializeErrorState();
@@ -3931,22 +3769,20 @@ ${this.content}`;
    * Obtient l'état du composant pour debugging
    */
   getState() {
-    var _a, _b, _c;
+    var _a, _b;
     try {
-      const pluginStats = (_a = this.pluginManager) == null ? void 0 : _a.getStats();
       return {
         isEditing: this.isEditing,
         isInErrorState: this.isInErrorState,
         renderAttempts: this.renderAttempts,
-        contentLength: ((_b = this.content) == null ? void 0 : _b.length) || 0,
+        contentLength: ((_a = this.content) == null ? void 0 : _a.length) || 0,
         hasPreviewContainer: !!this.previewContainer,
         hasEditorContainer: !!this.editorContainer,
         hasTextArea: !!this.textArea,
-        sectionName: ((_c = this.section) == null ? void 0 : _c.name) || "unknown",
-        pluginSupport: {
-          enabled: !!this.pluginManager,
-          tasksSupport: !!this.tasksEventHandler,
-          ...pluginStats
+        sectionName: ((_b = this.section) == null ? void 0 : _b.name) || "unknown",
+        nativeRender: {
+          enabled: true,
+          componentActive: !!this.obsidianComponent
         }
       };
     } catch (error) {
@@ -3971,7 +3807,7 @@ ${this.content}`;
     }
   }
   /**
-   * ✅ AMÉLIORATION : Détruit proprement le composant avec nettoyage Tasks
+   * ✅ Détruit proprement le composant avec nettoyage natif
    */
   destroy() {
     try {
@@ -3979,20 +3815,8 @@ ${this.content}`;
         clearTimeout(this.changeTimeout);
         this.changeTimeout = null;
       }
-      if (this.tasksEventHandler && this.previewContainer) {
-        this.previewContainer.removeEventListener("agile-board:task-changed", this.tasksEventHandler);
-        this.tasksEventHandler = void 0;
-      }
-      if (this.taskObserver) {
-        try {
-          this.taskObserver.disconnect();
-          this.taskObserver = void 0;
-        } catch (error) {
-          this.logger.warn("\u26A0\uFE0F Erreur nettoyage taskObserver", error);
-        }
-      }
-      if (this.pluginManager) {
-        this.pluginManager.dispose();
+      if (this.obsidianComponent) {
+        this.obsidianComponent.unload();
       }
       if (this.container) {
         this.container.empty();
@@ -4003,7 +3827,7 @@ ${this.content}`;
       this.isEditing = false;
       this.isInErrorState = false;
       this.renderAttempts = 0;
-      this.logger.info("\u{1F5D1}\uFE0F MarkdownFrame d\xE9truite proprement avec support universel et Tasks sp\xE9cialis\xE9");
+      this.logger.info("\u{1F5D1}\uFE0F MarkdownFrame d\xE9truite proprement avec rendu natif");
     } catch (error) {
       this.logger.error("\u274C Erreur lors de la destruction", error);
       try {
@@ -4019,7 +3843,7 @@ ${this.content}`;
 
 // src/views/BoardView.ts
 var BOARD_VIEW_TYPE = "agile-board-view";
-var BoardView = class extends import_obsidian2.FileView {
+var BoardView = class extends import_obsidian3.FileView {
   constructor(leaf, plugin) {
     super(leaf);
     this.gridContainer = null;
@@ -4069,7 +3893,7 @@ var BoardView = class extends import_obsidian2.FileView {
    * Rendu avec ServiceContainer
    */
   async renderWithServices(services) {
-    var _a;
+    var _a, _b;
     try {
       const fileCache = this.app.metadataCache.getFileCache(this.file);
       const layoutName = (_a = fileCache == null ? void 0 : fileCache.frontmatter) == null ? void 0 : _a["agile-board"];
@@ -4083,32 +3907,29 @@ var BoardView = class extends import_obsidian2.FileView {
         return;
       }
       const analysis = await services.file.analyzeFile(this.file);
-      this.logger.info("\u{1F50D} DEBUG Layout :");
+      this.logger.debug("\u{1F50D} Layout analysis:");
       if (layout) {
-        this.logger.info("\u{1F4CB} Sections trouv\xE9es dans le layout:");
+        this.logger.debug("\u{1F4CB} Layout sections:");
         layout.forEach((block, index) => {
-          this.logger.info(`  ${index + 1}. "${block.title}" (x:${block.x}, y:${block.y}, w:${block.w}, h:${block.h})`);
+          this.logger.verbose(`  ${index + 1}. "${block.title}" (x:${block.x}, y:${block.y}, w:${block.w}, h:${block.h})`);
         });
       }
-      this.logger.info("\u{1F50D} DEBUG Sections dans le fichier:", analysis.existingSections);
+      this.logger.debug("\u{1F50D} File sections found:", { count: ((_b = analysis.existingSections) == null ? void 0 : _b.length) || 0 });
       if (analysis.existingSections) {
         analysis.existingSections.forEach((section, index) => {
           var _a2;
-          this.logger.info(`  ${index + 1}. "${section.name}" (${((_a2 = section.lines) == null ? void 0 : _a2.length) || 0} lignes)`);
+          this.logger.verbose(`  ${index + 1}. "${section.name}" (${((_a2 = section.lines) == null ? void 0 : _a2.length) || 0} lignes)`);
         });
       }
-      this.logger.info("\u{1F50D} DEBUG Correspondances:");
+      this.logger.verbose("\u{1F50D} Section matching:");
       layout.forEach((block) => {
         const normalize = (str) => str.trim().toLowerCase();
         analysis.existingSections.forEach((section) => {
-          this.logger.info(
-            `[DEBUG] Compare "${normalize(section.name)}" <-> "${normalize(block.title)}"`
-          );
         });
         const matchingSection = analysis.existingSections.find(
           (s) => normalize(s.name) === normalize(block.title)
         );
-        this.logger.info(`  Layout "${block.title}" \u2192 Section "${(matchingSection == null ? void 0 : matchingSection.name) || "NON TROUV\xC9E"}"`);
+        this.logger.verbose(`  Layout "${block.title}" \u2192 Section "${(matchingSection == null ? void 0 : matchingSection.name) || "NOT_FOUND"}"`);
         if (matchingSection) {
           this.logger.info("    Contenu section:", matchingSection);
         }
@@ -4155,7 +3976,6 @@ var BoardView = class extends import_obsidian2.FileView {
       overflow: auto;
       `;
     this.logger.debug("\u{1F7E6} gridContainer cr\xE9\xE9:", this.gridContainer);
-    this.logger.debug("\u{1F7E6} gridContainer cr\xE9\xE9 (HTML):", this.gridContainer.outerHTML);
     for (const block of layout) {
       const normalize = (str) => str.trim().toLowerCase();
       const section = sections.find((s) => normalize(s.name) === normalize(block.title));
@@ -4171,6 +3991,7 @@ var BoardView = class extends import_obsidian2.FileView {
    * Crée une frame pour une section
    */
   async createFrame(layout, section) {
+    var _a;
     this.logger.info(`\u{1F3AF} Cr\xE9ation frame pour "${layout.title}"`);
     try {
       const frameContainer = this.gridContainer.createDiv("agile-board-frame");
@@ -4181,8 +4002,7 @@ var BoardView = class extends import_obsidian2.FileView {
       frameContainer.style.display = "flex";
       frameContainer.style.flexDirection = "column";
       frameContainer.style.overflow = "hidden";
-      this.logger.info("\u{1F7E6} Frame DOM ajout\xE9e frame:", frameContainer);
-      this.logger.info("\u{1F7E6} Frame DOM ajout\xE9e frame (HTML):", frameContainer.outerHTML);
+      this.logger.debug("\u{1F7E6} Frame created:", { title: layout.title, position: `${layout.x},${layout.y},${layout.w}x${layout.h}` });
       const titleEl = frameContainer.createDiv("frame-title");
       titleEl.textContent = layout.title;
       titleEl.style.fontWeight = "bold";
@@ -4200,7 +4020,7 @@ var BoardView = class extends import_obsidian2.FileView {
         name: section.name,
         content: section.content
       };
-      this.logger.info("\u{1F7E6} Frame DOM ajout\xE9e Section:", frameSection);
+      this.logger.debug("\u{1F7E6} Frame section added:", { name: frameSection.name, contentLength: ((_a = frameSection.content) == null ? void 0 : _a.length) || 0 });
       const frame = new MarkdownFrame(
         this.app,
         contentContainer,
@@ -4222,7 +4042,7 @@ var BoardView = class extends import_obsidian2.FileView {
    */
   async onFrameContentChanged(sectionName, newContent) {
     try {
-      this.logger.info(`\u{1F4BE} Sauvegarde section "${sectionName}"`);
+      this.logger.verbose(`\u{1F4BE} Sauvegarde section "${sectionName}"`);
       const services = this.plugin.getServices ? this.plugin.getServices() : null;
       if (services && services.file.updateSectionContent) {
         await services.file.updateSectionContent(this.file, sectionName, newContent);
@@ -4288,7 +4108,7 @@ var BoardView = class extends import_obsidian2.FileView {
 };
 
 // src/managers/ViewSwitcher.ts
-var import_obsidian3 = require("obsidian");
+var import_obsidian4 = require("obsidian");
 var ViewSwitcher = class {
   constructor(plugin) {
     this.plugin = plugin;
@@ -4314,7 +4134,7 @@ var ViewSwitcher = class {
   async switchToBoardView(file) {
     const activeLeaf = this.plugin.app.workspace.activeLeaf;
     if (activeLeaf) {
-      this.logger.info("\u{1F3AF} Basculement vers Board View pour:", { file: file.basename });
+      this.logger.info("\u{1F3AF} Basculement vers Board View pour:", { file: (file == null ? void 0 : file.basename) || (file == null ? void 0 : file.path) || "fichier inconnu" });
       await activeLeaf.setViewState({
         type: BOARD_VIEW_TYPE,
         state: { file: file.path }
@@ -4350,7 +4170,7 @@ var ViewSwitcher = class {
    * Vérifie si la vue actuelle est la MarkdownView standard
    */
   isCurrentViewMarkdownView() {
-    const markdownView = this.plugin.app.workspace.getActiveViewOfType(import_obsidian3.MarkdownView);
+    const markdownView = this.plugin.app.workspace.getActiveViewOfType(import_obsidian4.MarkdownView);
     return markdownView !== null;
   }
   /**
@@ -4443,7 +4263,7 @@ var ViewSwitcher = class {
   updateSwitchButtonForFile(file) {
     try {
       if (!file) {
-        this.logger.info("\u26A0\uFE0F Pas de fichier pour mise \xE0 jour boutons");
+        this.logger.info("\u26A0\uFE0F Pas de fichier pour mise \xE0 jour boutons", { context: "updateSwitchButtonForFile" });
         this.removeSwitchButtons();
         return;
       }
@@ -4501,7 +4321,7 @@ var ViewSwitcher = class {
    */
   ensureBoardModeButton() {
     try {
-      const markdownView = this.plugin.app.workspace.getActiveViewOfType(import_obsidian3.MarkdownView);
+      const markdownView = this.plugin.app.workspace.getActiveViewOfType(import_obsidian4.MarkdownView);
       if (!markdownView) {
         this.logger.info("\u26A0\uFE0F Pas de vue Markdown active pour ajouter le bouton Board");
         return;
@@ -4589,7 +4409,7 @@ var ViewSwitcher = class {
         button.remove();
       });
       const views = [
-        this.plugin.app.workspace.getActiveViewOfType(import_obsidian3.MarkdownView),
+        this.plugin.app.workspace.getActiveViewOfType(import_obsidian4.MarkdownView),
         this.plugin.app.workspace.getActiveViewOfType(BoardView)
       ].filter((view) => view !== null);
       views.forEach((view) => {
@@ -4810,7 +4630,7 @@ var ModelDetector = class {
    * // et afficher les boutons appropriés
    */
   processAllOpenFiles() {
-    this.logger.info("\u{1F50D} Traitement initial de tous les fichiers ouverts...");
+    this.logger.info("\u{1F50D} Traitement initial de tous les fichiers ouverts...", { context: "processAllOpenFiles" });
     this.plugin.app.workspace.iterateAllLeaves((leaf) => {
       const view = leaf.view;
       if (view.getViewType() === "markdown" && view.file) {
@@ -4968,8 +4788,8 @@ var ModelDetector = class {
 };
 
 // src/components/SettingsTab.ts
-var import_obsidian4 = require("obsidian");
-var AgileBoardSettingsTab = class extends import_obsidian4.PluginSettingTab {
+var import_obsidian5 = require("obsidian");
+var AgileBoardSettingsTab = class extends import_obsidian5.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -4991,10 +4811,10 @@ var AgileBoardSettingsTab = class extends import_obsidian4.PluginSettingTab {
             <p>Configurez le niveau de verbosit\xE9 et les options de debug du plugin.</p>
             <p><strong>Conseil :</strong> Gardez le debug <em>d\xE9sactiv\xE9</em> en usage normal pour optimiser les performances.</p>
         `;
-    new import_obsidian4.Setting(containerEl).setName("Activer le debug").setDesc("Active ou d\xE9sactive compl\xE8tement le syst\xE8me de debug").addToggle((toggle) => toggle.setValue(this.plugin.settings.debug.enabled).onChange(async (value) => {
+    new import_obsidian5.Setting(containerEl).setName("Activer le debug").setDesc("Active ou d\xE9sactive compl\xE8tement le syst\xE8me de debug").addToggle((toggle) => toggle.setValue(this.plugin.settings.debug.enabled).onChange(async (value) => {
       this.plugin.settings.debug.enabled = value;
       await this.plugin.saveSettings();
-      new import_obsidian4.Notice(`Debug ${value ? "activ\xE9" : "d\xE9sactiv\xE9"}`);
+      new import_obsidian5.Notice(`Debug ${value ? "activ\xE9" : "d\xE9sactiv\xE9"}`);
       this.display();
     }));
     if (this.plugin.settings.debug.enabled) {
@@ -5005,20 +4825,20 @@ var AgileBoardSettingsTab = class extends import_obsidian4.PluginSettingTab {
    * Crée les options avancées de debug (quand activé)
    */
   createDebugAdvancedOptions(containerEl) {
-    new import_obsidian4.Setting(containerEl).setName("Niveau de verbosit\xE9").setDesc("Contr\xF4le la quantit\xE9 d'informations affich\xE9es dans les logs").addDropdown((dropdown) => dropdown.addOption(1 /* ERROR */.toString(), "\u274C Erreurs uniquement").addOption(2 /* WARN */.toString(), "\u26A0\uFE0F Erreurs + Avertissements").addOption(3 /* INFO */.toString(), "\u2139\uFE0F Informations importantes (recommand\xE9)").addOption(4 /* DEBUG */.toString(), "\u{1F527} Debug d\xE9taill\xE9").addOption(5 /* VERBOSE */.toString(), "\u{1F50D} Tout afficher (tr\xE8s verbeux)").setValue(this.plugin.settings.debug.logLevel.toString()).onChange(async (value) => {
+    new import_obsidian5.Setting(containerEl).setName("Niveau de verbosit\xE9").setDesc("Contr\xF4le la quantit\xE9 d'informations affich\xE9es dans les logs").addDropdown((dropdown) => dropdown.addOption(1 /* ERROR */.toString(), "\u274C Erreurs uniquement").addOption(2 /* WARN */.toString(), "\u26A0\uFE0F Erreurs + Avertissements").addOption(3 /* INFO */.toString(), "\u2139\uFE0F Informations importantes (recommand\xE9)").addOption(4 /* DEBUG */.toString(), "\u{1F527} Debug d\xE9taill\xE9").addOption(5 /* VERBOSE */.toString(), "\u{1F50D} Tout afficher (tr\xE8s verbeux)").setValue(this.plugin.settings.debug.logLevel.toString()).onChange(async (value) => {
       this.plugin.settings.debug.logLevel = parseInt(value);
       await this.plugin.saveSettings();
-      new import_obsidian4.Notice(`Niveau de debug: ${LogLevel[parseInt(value)]}`);
+      new import_obsidian5.Notice(`Niveau de debug: ${LogLevel[parseInt(value)]}`);
     }));
-    new import_obsidian4.Setting(containerEl).setName("Afficher les timestamps").setDesc("Ajoute l'heure pr\xE9cise \xE0 chaque message de log").addToggle((toggle) => toggle.setValue(this.plugin.settings.debug.showTimestamps).onChange(async (value) => {
+    new import_obsidian5.Setting(containerEl).setName("Afficher les timestamps").setDesc("Ajoute l'heure pr\xE9cise \xE0 chaque message de log").addToggle((toggle) => toggle.setValue(this.plugin.settings.debug.showTimestamps).onChange(async (value) => {
       this.plugin.settings.debug.showTimestamps = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian4.Setting(containerEl).setName("Afficher la source").setDesc("Indique le fichier source de chaque message de log").addToggle((toggle) => toggle.setValue(this.plugin.settings.debug.showSourceLocation).onChange(async (value) => {
+    new import_obsidian5.Setting(containerEl).setName("Afficher la source").setDesc("Indique le fichier source de chaque message de log").addToggle((toggle) => toggle.setValue(this.plugin.settings.debug.showSourceLocation).onChange(async (value) => {
       this.plugin.settings.debug.showSourceLocation = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian4.Setting(containerEl).setName("Sauvegarder dans un fichier").setDesc("Enregistre automatiquement les logs dans un fichier de votre vault").addToggle((toggle) => toggle.setValue(this.plugin.settings.debug.logToFile).onChange(async (value) => {
+    new import_obsidian5.Setting(containerEl).setName("Sauvegarder dans un fichier").setDesc("Enregistre automatiquement les logs dans un fichier de votre vault").addToggle((toggle) => toggle.setValue(this.plugin.settings.debug.logToFile).onChange(async (value) => {
       this.plugin.settings.debug.logToFile = value;
       await this.plugin.saveSettings();
       this.display();
@@ -5032,16 +4852,16 @@ var AgileBoardSettingsTab = class extends import_obsidian4.PluginSettingTab {
    * Crée les options de sauvegarde fichier
    */
   createFileLoggingOptions(containerEl) {
-    new import_obsidian4.Setting(containerEl).setName("Nom du fichier de log").setDesc("Nom du fichier o\xF9 sauvegarder les logs (dans la racine du vault)").addText((text) => text.setPlaceholder("agile-board-debug.log").setValue(this.plugin.settings.debug.logFileName).onChange(async (value) => {
+    new import_obsidian5.Setting(containerEl).setName("Nom du fichier de log").setDesc("Nom du fichier o\xF9 sauvegarder les logs (dans la racine du vault)").addText((text) => text.setPlaceholder("agile-board-debug.log").setValue(this.plugin.settings.debug.logFileName).onChange(async (value) => {
       this.plugin.settings.debug.logFileName = value || "agile-board-debug.log";
       await this.plugin.saveSettings();
     }));
-    new import_obsidian4.Setting(containerEl).setName("Intervalle de sauvegarde auto").setDesc("Intervalle en minutes pour sauvegarder automatiquement les logs").addSlider((slider) => slider.setLimits(1, 60, 1).setValue(this.plugin.settings.debug.autoSaveInterval).setDynamicTooltip().onChange(async (value) => {
+    new import_obsidian5.Setting(containerEl).setName("Intervalle de sauvegarde auto").setDesc("Intervalle en minutes pour sauvegarder automatiquement les logs").addSlider((slider) => slider.setLimits(1, 60, 1).setValue(this.plugin.settings.debug.autoSaveInterval).setDynamicTooltip().onChange(async (value) => {
       this.plugin.settings.debug.autoSaveInterval = value;
       await this.plugin.saveSettings();
       this.plugin.logger.info(`Intervalle de sauvegarde des logs mis \xE0 jour: ${value} minute(s)`);
     }));
-    new import_obsidian4.Setting(containerEl).setName("Taille maximale du fichier").setDesc("Taille maximale en KB avant rotation automatique").addSlider((slider) => slider.setLimits(100, 1e4, 100).setValue(this.plugin.settings.debug.maxLogFileSize).setDynamicTooltip().onChange(async (value) => {
+    new import_obsidian5.Setting(containerEl).setName("Taille maximale du fichier").setDesc("Taille maximale en KB avant rotation automatique").addSlider((slider) => slider.setLimits(100, 1e4, 100).setValue(this.plugin.settings.debug.maxLogFileSize).setDynamicTooltip().onChange(async (value) => {
       this.plugin.settings.debug.maxLogFileSize = value;
       await this.plugin.saveSettings();
     }));
@@ -5066,7 +4886,7 @@ var AgileBoardSettingsTab = class extends import_obsidian4.PluginSettingTab {
     });
     testButton.onclick = () => {
       this.plugin.logger.testSystem();
-      new import_obsidian4.Notice("Test de debug ex\xE9cut\xE9 - v\xE9rifiez la console (F12)", 3e3);
+      new import_obsidian5.Notice("Test de debug ex\xE9cut\xE9 - v\xE9rifiez la console (F12)", 3e3);
     };
     if (this.plugin.settings.debug.logToFile) {
       const saveButton = actionsContainer.createEl("button", {
@@ -5074,7 +4894,7 @@ var AgileBoardSettingsTab = class extends import_obsidian4.PluginSettingTab {
       });
       saveButton.onclick = async () => {
         await this.plugin.logger.saveLogsToFile();
-        new import_obsidian4.Notice("Logs sauvegard\xE9s", 2e3);
+        new import_obsidian5.Notice("Logs sauvegard\xE9s", 2e3);
       };
     }
     const statsButton = actionsContainer.createEl("button", {
@@ -5086,7 +4906,7 @@ var AgileBoardSettingsTab = class extends import_obsidian4.PluginSettingTab {
     });
     clearButton.onclick = () => {
       this.plugin.logger.clearBuffer();
-      new import_obsidian4.Notice("Buffer de logs vid\xE9", 2e3);
+      new import_obsidian5.Notice("Buffer de logs vid\xE9", 2e3);
     };
   }
   /**
@@ -5100,14 +4920,14 @@ var AgileBoardSettingsTab = class extends import_obsidian4.PluginSettingTab {
 \u2022 Niveau: ${stats.currentLevel}
 \u2022 Buffer: ${stats.bufferSize} entr\xE9es
 \u2022 Fichier: ${stats.fileLoggingEnabled ? "\u2705 Activ\xE9" : "\u274C D\xE9sactiv\xE9"}`;
-    new import_obsidian4.Notice(message, 6e3);
+    new import_obsidian5.Notice(message, 6e3);
   }
   /**
    * Crée la section de configuration générale
    */
   createGeneralSection(containerEl) {
     containerEl.createEl("h2", { text: "\u2699\uFE0F Param\xE8tres G\xE9n\xE9raux" });
-    new import_obsidian4.Setting(containerEl).setName("Cr\xE9ation automatique des sections").setDesc("Cr\xE9e automatiquement les sections manquantes lors de l'ouverture d'un board").addToggle((toggle) => toggle.setValue(this.plugin.settings.autoCreateSections).onChange(async (value) => {
+    new import_obsidian5.Setting(containerEl).setName("Cr\xE9ation automatique des sections").setDesc("Cr\xE9e automatiquement les sections manquantes lors de l'ouverture d'un board").addToggle((toggle) => toggle.setValue(this.plugin.settings.autoCreateSections).onChange(async (value) => {
       this.plugin.settings.autoCreateSections = value;
       await this.plugin.saveSettings();
       this.plugin.logger.config("Auto-cr\xE9ation sections modifi\xE9e", { enabled: value });
@@ -5120,7 +4940,7 @@ var AgileBoardSettingsTab = class extends import_obsidian4.PluginSettingTab {
 };
 
 // src/main.ts
-var AgileBoardPlugin = class extends import_obsidian5.Plugin {
+var AgileBoardPlugin = class extends import_obsidian6.Plugin {
   constructor() {
     super(...arguments);
     this.logSaveInterval = null;
@@ -5136,16 +4956,31 @@ var AgileBoardPlugin = class extends import_obsidian5.Plugin {
       this.logger.info("\u2705 Agile Board Plugin charg\xE9 avec succ\xE8s - Support universel des plugins activ\xE9");
     } catch (error) {
       console.error("\u274C Erreur chargement plugin:", error);
-      new import_obsidian5.Notice("\u274C Erreur lors du chargement du plugin Agile Board");
+      new import_obsidian6.Notice("\u274C Erreur lors du chargement du plugin Agile Board");
     }
   }
   async onunload() {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e, _f, _g;
     (_a = this.logger) == null ? void 0 : _a.info("Arr\xEAt du plugin Agile Board");
-    (_b = this.modelDetector) == null ? void 0 : _b.onUnload();
-    (_c = this.viewSwitcher) == null ? void 0 : _c.stop();
-    (_d = this.services) == null ? void 0 : _d.dispose();
-    this.logger.info("\u{1F6D1} Agile Board Plugin arr\xEAt\xE9");
+    try {
+      const boardViews = this.app.workspace.getLeavesOfType(BOARD_VIEW_TYPE);
+      for (const leaf of boardViews) {
+        leaf.detach();
+      }
+      if ((_b = this.app.viewRegistry) == null ? void 0 : _b.unregisterView) {
+        this.app.viewRegistry.unregisterView(BOARD_VIEW_TYPE);
+      }
+    } catch (error) {
+      (_c = this.logger) == null ? void 0 : _c.warn("\u26A0\uFE0F Erreur nettoyage vues", error);
+    }
+    (_d = this.modelDetector) == null ? void 0 : _d.onUnload();
+    (_e = this.viewSwitcher) == null ? void 0 : _e.stop();
+    (_f = this.services) == null ? void 0 : _f.dispose();
+    if (this.logSaveInterval) {
+      clearInterval(this.logSaveInterval);
+      this.logSaveInterval = null;
+    }
+    (_g = this.logger) == null ? void 0 : _g.info("\u{1F6D1} Agile Board Plugin arr\xEAt\xE9 proprement");
   }
   /**
    * Initialise les composants de base
@@ -5186,12 +5021,29 @@ var AgileBoardPlugin = class extends import_obsidian5.Plugin {
    * Initialise l'interface utilisateur
    */
   async initializeUI() {
-    this.registerView(
-      BOARD_VIEW_TYPE,
-      (leaf) => new BoardView(leaf, this)
-    );
-    this.registerCommands();
-    this.addSettingTab(new AgileBoardSettingsTab(this.app, this));
+    var _a, _b;
+    try {
+      const existingViewConstructors = (_a = this.app.viewRegistry) == null ? void 0 : _a.viewByType;
+      if (existingViewConstructors && existingViewConstructors[BOARD_VIEW_TYPE]) {
+        this.logger.warn("\u26A0\uFE0F Vue BoardView d\xE9j\xE0 enregistr\xE9e, nettoyage...");
+        const boardViews = this.app.workspace.getLeavesOfType(BOARD_VIEW_TYPE);
+        for (const leaf of boardViews) {
+          leaf.detach();
+        }
+        if ((_b = this.app.viewRegistry) == null ? void 0 : _b.unregisterView) {
+          this.app.viewRegistry.unregisterView(BOARD_VIEW_TYPE);
+        }
+      }
+      this.registerView(
+        BOARD_VIEW_TYPE,
+        (leaf) => new BoardView(leaf, this)
+      );
+      this.registerCommands();
+      this.addSettingTab(new AgileBoardSettingsTab(this.app, this));
+    } catch (error) {
+      this.logger.error("\u274C Erreur initialisation UI", error);
+      throw error;
+    }
   }
   /**
    * Enregistre toutes les commandes
@@ -5213,7 +5065,7 @@ var AgileBoardPlugin = class extends import_obsidian5.Plugin {
         if (activeFile) {
           this.viewSwitcher.switchToBoardView(activeFile);
         } else {
-          new import_obsidian5.Notice("\u274C Aucun fichier actif");
+          new import_obsidian6.Notice("\u274C Aucun fichier actif");
         }
       }
     });
@@ -5257,7 +5109,7 @@ var AgileBoardPlugin = class extends import_obsidian5.Plugin {
   async createMissingSections() {
     const activeFile = this.app.workspace.getActiveFile();
     if (!activeFile) {
-      new import_obsidian5.Notice("\u274C Aucun fichier actif");
+      new import_obsidian6.Notice("\u274C Aucun fichier actif");
       return;
     }
     try {
@@ -5319,11 +5171,11 @@ var AgileBoardPlugin = class extends import_obsidian5.Plugin {
           await view.renderBoardLayout();
         }
       }
-      new import_obsidian5.Notice("\u2705 Support des plugins actualis\xE9");
+      new import_obsidian6.Notice("\u2705 Support des plugins actualis\xE9");
       this.logger.success("Support des plugins actualis\xE9 avec succ\xE8s");
     } catch (error) {
       this.logger.error("\u274C Erreur lors de l'actualisation du support des plugins", error);
-      new import_obsidian5.Notice("\u274C Erreur lors de l'actualisation du support des plugins");
+      new import_obsidian6.Notice("\u274C Erreur lors de l'actualisation du support des plugins");
     }
   }
   /**
@@ -5339,7 +5191,7 @@ var AgileBoardPlugin = class extends import_obsidian5.Plugin {
       this.settings.pluginSupport.debugMode = !currentDebugMode;
       await this.saveSettings();
       const newState = this.settings.pluginSupport.debugMode ? "activ\xE9" : "d\xE9sactiv\xE9";
-      new import_obsidian5.Notice(`\u{1F527} Debug des plugins ${newState}`);
+      new import_obsidian6.Notice(`\u{1F527} Debug des plugins ${newState}`);
       this.logger.config("Debug des plugins modifi\xE9", {
         debugMode: this.settings.pluginSupport.debugMode
       });
@@ -5384,7 +5236,7 @@ var AgileBoardPlugin = class extends import_obsidian5.Plugin {
 `;
         });
       }
-      new import_obsidian5.Notice(message, 1e4);
+      new import_obsidian6.Notice(message, 1e4);
       this.logger.info("\u{1F4CA} Diagnostics du support des plugins", {
         settings: this.settings.pluginSupport,
         stats: pluginStats,
@@ -5393,7 +5245,7 @@ var AgileBoardPlugin = class extends import_obsidian5.Plugin {
       });
     } catch (error) {
       this.logger.error("\u274C Erreur lors de l'affichage des diagnostics", error);
-      new import_obsidian5.Notice("\u274C Erreur lors de l'affichage des diagnostics des plugins");
+      new import_obsidian6.Notice("\u274C Erreur lors de l'affichage des diagnostics des plugins");
     }
   }
   /**

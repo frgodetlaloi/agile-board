@@ -89,33 +89,31 @@ export class BoardView extends FileView {
       const analysis = await services.file.analyzeFile(this.file!);
       
       // 🔧 CODE DE DEBUG - À placer ici quand les variables sont définies
-      this.logger.info('🔍 DEBUG Layout :');
+      this.logger.debug('🔍 Layout analysis:');
       if (layout) {
-        this.logger.info('📋 Sections trouvées dans le layout:');
+        this.logger.debug('📋 Layout sections:');
         layout.forEach((block, index) => {
-          this.logger.info(`  ${index + 1}. "${block.title}" (x:${block.x}, y:${block.y}, w:${block.w}, h:${block.h})`);
+          this.logger.verbose(`  ${index + 1}. "${block.title}" (x:${block.x}, y:${block.y}, w:${block.w}, h:${block.h})`);
         });
       }
 
-      this.logger.info('🔍 DEBUG Sections dans le fichier:', analysis.existingSections);
+      this.logger.debug('🔍 File sections found:', {count: analysis.existingSections?.length || 0});
       if (analysis.existingSections) {
         analysis.existingSections.forEach((section, index) => {
-          this.logger.info(`  ${index + 1}. "${section.name}" (${section.lines?.length || 0} lignes)`);
+          this.logger.verbose(`  ${index + 1}. "${section.name}" (${section.lines?.length || 0} lignes)`);
         });
       }
 
-      this.logger.info('🔍 DEBUG Correspondances:');
+      this.logger.verbose('🔍 Section matching:');
       layout.forEach(block => {
           const normalize = (str: string) => str.trim().toLowerCase();
           analysis.existingSections.forEach(section => {
-              this.logger.info(
-                  `[DEBUG] Compare "${normalize(section.name)}" <-> "${normalize(block.title)}"`
-              );
+              // Removed verbose comparison logging
           });
           const matchingSection = analysis.existingSections.find(
               s => normalize(s.name) === normalize(block.title)
           );
-          this.logger.info(`  Layout "${block.title}" → Section "${matchingSection?.name || 'NON TROUVÉE'}"`);
+          this.logger.verbose(`  Layout "${block.title}" → Section "${matchingSection?.name || 'NOT_FOUND'}"`);
           if (matchingSection) {
               this.logger.info('    Contenu section:', matchingSection);
           }
@@ -170,7 +168,7 @@ export class BoardView extends FileView {
       overflow: auto;
       ` ;
     this.logger.debug('🟦 gridContainer créé:', this.gridContainer);
-    this.logger.debug('🟦 gridContainer créé (HTML):', this.gridContainer.outerHTML);
+    // HTML log removed for performance
 
     // Créer les frames pour chaque section
     for (const block of layout) {
@@ -203,8 +201,8 @@ export class BoardView extends FileView {
       frameContainer.style.flexDirection = 'column';
       frameContainer.style.overflow = 'hidden'; // Empêche le contenu de déborder du cadre
 
-      this.logger.info('🟦 Frame DOM ajoutée frame:', frameContainer);
-      this.logger.info('🟦 Frame DOM ajoutée frame (HTML):', frameContainer.outerHTML);
+      this.logger.debug('🟦 Frame created:', {title: layout.title, position: `${layout.x},${layout.y},${layout.w}x${layout.h}`});
+      // HTML logs removed for performance
       // Titre de la section
       const titleEl = frameContainer.createDiv('frame-title');
       titleEl.textContent = layout.title;
@@ -229,7 +227,7 @@ export class BoardView extends FileView {
         content: section.content
       };
 
-      this.logger.info('🟦 Frame DOM ajoutée Section:', frameSection);
+      this.logger.debug('🟦 Frame section added:', {name: frameSection.name, contentLength: frameSection.content?.length || 0});
       // Créer la MarkdownFrame
       const frame = new MarkdownFrame(
         this.app,              
@@ -254,7 +252,7 @@ export class BoardView extends FileView {
    */
   private async onFrameContentChanged(sectionName: string, newContent: string): Promise<void> {
     try {
-      this.logger.info(`💾 Sauvegarde section "${sectionName}"`);
+      this.logger.verbose(`💾 Sauvegarde section "${sectionName}"`);
       
       const services = this.plugin.getServices ? this.plugin.getServices() : null;
       

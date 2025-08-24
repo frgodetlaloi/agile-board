@@ -9,7 +9,7 @@ export const DEFAULT_SETTINGS: BoardSettings = {
     defaultLayouts: ['layout_kanban', 'layout_eisenhower', 'layout_gtd'],
     debug: {
         enabled: false,                         // Debug désactivé par défaut (production)
-        logLevel: LogLevel.INFO,               // Niveau INFO par défaut
+        logLevel: LogLevel.WARN,               // Niveau WARN par défaut (moins de bruit)
         showTimestamps: true,                  // Affichage des timestamps
         showSourceLocation: true,              // Affichage de la source des logs
         logToFile: false,                      // Pas de sauvegarde fichier par défaut
